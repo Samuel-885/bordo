@@ -14,6 +14,7 @@ import { agruparPorEmbarque, DICA_DO_NOME, NOTA_DE_PRIVACIDADE, textoTotalDePass
 import { STATUS_DE_PASSAGEIRO } from './logica/rotulos'
 import { nomeDaEtapa } from './logica/textos'
 import { useDados } from './useDados'
+import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 interface Props {
   repo: Repositorio
@@ -92,7 +93,7 @@ function Conteudo({ repo, etapas, locais, statusViagem, passageiros, eventos, re
       setEditando(null)
       recarregar()
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível salvar.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível salvar.'))
     } finally {
       setOcupado(false)
     }
@@ -107,7 +108,7 @@ function Conteudo({ repo, etapas, locais, statusViagem, passageiros, eventos, re
       setEditando(null)
       recarregar()
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível excluir.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível excluir.'))
     }
   }
 

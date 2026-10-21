@@ -4,6 +4,7 @@ import { novoId } from '../data/repositorio'
 import { formularioLocalVazio, localDoFormulario, validarLocal, type ErrosLocal, type FormLocal as Form } from './logica/formLocal'
 import { ONIBUS_PARA, TIPOS_DE_LOCAL } from './logica/rotulos'
 import { Topo } from './componentes/Topo'
+import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 interface Props {
   onSalvar: (local: Local) => Promise<void>
@@ -26,7 +27,7 @@ export function FormLocal({ onSalvar, onCancelar }: Props) {
     try {
       await onSalvar(localDoFormulario(f, novoId()))
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível salvar o local.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível salvar o local.'))
       setSalvando(false)
     }
   }

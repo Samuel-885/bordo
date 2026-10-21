@@ -7,6 +7,7 @@ import { diferencaMin, ordenarPor } from '../../core/tempo'
 import type { Conferencia, DadosPlano, Etapa, Evento, HorarioPrevisto, Instante, Local, Passageiro, PlanoOriginal } from '../../core/tipos'
 import { formatarDuracao } from './duracao'
 import { formatarHora } from './horarios'
+import { textoDeQuemFalta } from './passageiros'
 import { MOTIVOS_DE_PARADA, STATUS_DE_PASSAGEIRO, TIPOS_DE_IMPREVISTO, rotuloDe, CATEGORIAS } from './rotulos'
 
 /** "no horário", "+17 min" ou "−5 min" (sinal de menos de verdade). */
@@ -150,6 +151,12 @@ export function montarTimeline(
           ...item,
           titulo: e.dados.momento === 'volta' ? 'Conferência ao voltar à estrada' : `Conferência na saída de ${nome(e.etapaId)}`,
           detalhe: detalheDaConferencia(e.dados, nomeDe),
+        }
+      case 'desceram':
+        return {
+          ...item,
+          titulo: `${e.dados.passageiroIds.length === 1 ? 'Desceu 1 passageiro' : `Desceram ${e.dados.passageiroIds.length} passageiros`} ${e.dados.local === 'etapa' ? `na parada de ${nome(e.etapaId)}` : 'na parada não planejada'}`,
+          detalhe: e.dados.passageiroIds.length > 0 ? textoDeQuemFalta(e.dados.passageiroIds.map(nomeDe)) : null,
         }
       case 'status_passageiro':
         return { ...item, titulo: `${nomeDe(e.dados.passageiroId)}: ${STATUS_DE_PASSAGEIRO[e.dados.status]}`, detalhe: e.dados.motivo }

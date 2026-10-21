@@ -2,7 +2,7 @@
 // o estado e chama estas funções; só o resultado final vira evento.
 
 import type { ConteudoEvento } from './eventos'
-import { contagemRapida, passageirosEmTransito, passageirosEsperados } from './passageiros'
+import { contagemRapida, passageirosABordoNaParada, passageirosEmTransito, passageirosEsperados } from './passageiros'
 import { ordenarEtapas } from './trechos'
 import type {
   Conferencia,
@@ -10,6 +10,7 @@ import type {
   Etapa,
   Evento,
   Instante,
+  LocalDaDescida,
   ModoConferencia,
   MomentoConferencia,
   Passageiro,
@@ -69,6 +70,16 @@ export function modoPadrao(etapa: Pick<Etapa, 'tipo' | 'categoria' | 'modoConfer
   return 'so_alguns'
 }
 
+/** Almoço, café e jantar: o padrão já é "todos desceram", então a marcação não abre sozinha. */
+export function ehRefeicao(categoria: string | undefined): boolean {
+  return categoria !== undefined && MODO_POR_CATEGORIA[categoria] === 'todos_desceram'
+}
+
+/** O CHEGAMOS oferece "Quem desceu?" em toda parada, exceto no destino e nas refeições. */
+export function oferecerDescidaAoChegar(etapa: Pick<Etapa, 'tipo' | 'categoria'>): boolean {
+  return etapa.tipo !== 'destino' && etapa.tipo !== 'origem' && !ehRefeicao(etapa.categoria)
+}
+
 export interface EstadoConferencia {
   modo: ModoConferencia
   confirmados: string[]
@@ -86,8 +97,26 @@ export function iniciarConferencia(
   etapas: readonly Etapa[],
   modo: ModoConferencia,
   etapa: Pick<Etapa, 'tipo' | 'categoria' | 'modoConferencia'>,
+  /**
+   * Marcação de quem desceu na parada, se houver: só esses ficam pendentes e os demais
+   * (que já estavam a bordo) são confirmados. "Todos" equivale a "todos desceram".
+   */
+  desceram: readonly string[] | null = null,
 ): EstadoConferencia {
   const todos = ctx.esperados.map((p) => p.id)
+  const base = estadoBase(ctx, etapas, modo, etapa, todos)
+  if (desceram === null) return base
+  const confirmados = (modo === 'todos_desceram' ? todos : base.confirmados).filter((id) => !desceram.includes(id))
+  return { ...base, confirmados }
+}
+
+function estadoBase(
+  ctx: ContextoConferencia,
+  etapas: readonly Etapa[],
+  modo: ModoConferencia,
+  etapa: Pick<Etapa, 'tipo' | 'categoria' | 'modoConferencia'>,
+  todos: string[],
+): EstadoConferencia {
   if (modo === 'todos_desceram') return { modo, confirmados: [], porContagem: false }
   const ehEmbarque = ctx.momento === 'saida' && etapa.tipo === 'obrigatoria' && modoPadrao(etapa, 'saida') === modo
   if (!ehEmbarque) return { modo, confirmados: todos, porContagem: false }
@@ -261,4 +290,67 @@ export function resumoABordo(
     total: passageirosEmTransito(proxima, d.etapas, passageiros, eventos).length,
     conferidoEm: ultima?.horarioFato ?? null,
   }
+}
+
+// ---------- Quem desceu na parada ----------
+
+/** Onde se marca quem desceu: a parada de uma etapa ou a parada não planejada ligada à próxima etapa. */
+export interface ContextoDeDescida {
+  local: LocalDaDescida
+  etapaId: string
+  /** Só os esperados a bordo naquele ponto. */
+  aBordo: Passageiro[]
+}
+
+export function contextoDeDescidaNaEtapa(
+  etapaId: string,
+  d: Pick<DadosPlano, 'etapas'>,
+  passageiros: readonly Passageiro[],
+  eventos: readonly Evento[],
+): ContextoDeDescida {
+  return { local: 'etapa', etapaId, aBordo: passageirosABordoNaParada(etapaId, d.etapas, passageiros, eventos) }
+}
+
+export function contextoDeDescidaNaoPlanejada(
+  proximaEtapaId: string,
+  d: Pick<DadosPlano, 'etapas'>,
+  passageiros: readonly Passageiro[],
+  eventos: readonly Evento[],
+): ContextoDeDescida {
+  return { local: 'nao_planejada', etapaId: proximaEtapaId, aBordo: passageirosEmTransito(proximaEtapaId, d.etapas, passageiros, eventos) }
+}
+
+/**
+ * A marcação em vigor na parada: a mais recente. Na parada não planejada só vale a que veio
+ * depois do último PARAMOS (um PARAMOS novo começa uma parada nova, sem marcação).
+ * Vazio se ninguém marcou; lista vazia = marcou que ninguém desceu.
+ */
+export function marcacaoDeDescida(eventos: readonly Evento[], local: LocalDaDescida, etapaId: string): string[] | null {
+  const seq = (e: Evento) => e.sequencia ?? 0
+  const inicioDaParada =
+    local === 'nao_planejada'
+      ? Math.max(
+          0,
+          ...eventos.filter((e) => e.tipo === 'parada_nao_planejada' && e.etapaId === etapaId && e.dados.fase === 'inicio').map(seq),
+        )
+      : 0
+  const ultima = eventos
+    .filter((e) => e.tipo === 'desceram' && e.dados.local === local && e.etapaId === etapaId && seq(e) > inicioDaParada)
+    .sort((a, b) => seq(a) - seq(b))
+    .at(-1)
+  return ultima?.tipo === 'desceram' ? ultima.dados.passageiroIds : null
+}
+
+/** A marcação restrita aos esperados da conferência (quem saiu da viagem no meio não conta). */
+export function descidaParaConferencia(ctx: ContextoConferencia, eventos: readonly Evento[]): string[] | null {
+  const marcados = marcacaoDeDescida(eventos, ctx.momento === 'saida' ? 'etapa' : 'nao_planejada', ctx.etapaId)
+  if (marcados === null) return null
+  return ctx.esperados.filter((p) => marcados.includes(p.id)).map((p) => p.id)
+}
+
+/** "3 desceram, 32 ficaram no ônibus. Se tiver dúvida, use a contagem rápida." */
+export function avisoDaMarcacao(desceram: number, ficaram: number): string {
+  const desc = desceram === 1 ? '1 desceu' : `${desceram} desceram`
+  const fic = ficaram === 1 ? '1 ficou' : `${ficaram} ficaram`
+  return `${desc}, ${fic} no ônibus. Se tiver dúvida, use a contagem rápida.`
 }

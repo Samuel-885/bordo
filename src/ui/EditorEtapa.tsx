@@ -26,6 +26,7 @@ import { CATEGORIAS, MOTIVOS, PERMANENCIAS_MIN, TIPOS_DE_ETAPA } from './logica/
 import { formatarDuracao } from './logica/duracao'
 import { textoManuaisApagados } from './logica/textos'
 import { useDados } from './useDados'
+import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 interface Props {
   repo: Repositorio
@@ -120,7 +121,7 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
       await repo.salvarEtapa(convertida.etapa)
       onFechar()
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível salvar a etapa.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível salvar a etapa.'))
     }
   }
 
@@ -131,7 +132,7 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
       if (apagados > 0) setApagadosAoSalvar(apagados)
       else await persistir()
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível salvar a etapa.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível salvar a etapa.'))
     }
   }
 
@@ -148,7 +149,7 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
       setApagadosAoExcluir(await repo.contarManuaisApagadosAoExcluir(id))
       setConfirmarExclusao(true)
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível excluir a etapa.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível excluir a etapa.'))
     }
   }
 
@@ -158,7 +159,7 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
       onFechar()
     } catch (x) {
       setConfirmarExclusao(false)
-      setFalha(x instanceof Error ? x.message : 'Não foi possível excluir a etapa.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível excluir a etapa.'))
     }
   }
 

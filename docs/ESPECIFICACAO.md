@@ -473,6 +473,18 @@ Aprovadas em 21/10/2026, na construção de passageiros e conferência. Compleme
 - O VOLTAMOS passa pela conferência apenas pelo botão VOLTAMOS. O caminho "CHEGAMOS sem registrar a volta antes", em que a volta é informada depois, não abre conferência.
 - A tela fica acesa durante a conferência (Wake Lock, quando o navegador permite; pedido de novo ao voltar à aba). O botão voltar do celular fecha a conferência sem registrar nada.
 
+**Marcar quem desceu** (melhoria da conferência)
+
+- Novo evento "desceram", sem efeito no cálculo da previsão: etapa, local da marcação (`etapa`, a parada de uma etapa; ou `nao_planejada`, a parada não planejada, ligada à próxima etapa como os outros eventos da parada) e os ids de quem desceu. Uma marcação nova na mesma parada substitui a anterior: vale a mais recente pela sequência de gravação, e os eventos antigos ficam. Por isso o DESFAZER, que apaga o último registro, devolve a marcação anterior. Na parada não planejada só vale a marcação feita depois do último PARAMOS: um PARAMOS novo começa uma parada nova, sem marcação. Marcação vazia = "ninguém desceu".
+- A lista só tem os esperados a bordo naquele ponto: na parada de uma etapa, os esperados na saída que já embarcaram antes dela (quem embarca ali ainda não está a bordo); na parada não planejada, os esperados em trânsito. O registro recusa ids fora dessa lista.
+- Folha "Quem desceu?" com "Todos", "Escolher nomes" (lista em botões grandes, toque marca) e "Agora não". Abre sozinha depois do CHEGAMOS em toda parada, menos refeições (almoço, café, jantar), origem e destino, e depois do PARAMOS. Sem passageiros cadastrados ou sem ninguém a bordo naquele ponto, não abre. Durante a parada (cronômetro ou parada não planejada), o botão "Marcar quem desceu" no cartão abre a folha direto na lista, com a marcação atual, para marcar ou corrigir a qualquer momento.
+- Na conferência da saída (ou do VOLTAMOS), havendo marcação: só quem desceu fica pendente e os demais que já estavam a bordo são confirmados (quem vai embarcar ali continua pendente), com o aviso "X desceram, Y ficaram no ônibus. Se tiver dúvida, use a contagem rápida." A marcação considera só quem ainda é esperado (quem saiu da viagem no meio fica de fora). "Todos" equivale a "todos desceram". Sem marcação, a conferência funciona como antes. Qualquer troca de modo reinicia a lista no estado do modo e tira o aviso.
+- A timeline mostra "Desceram N passageiros na parada de …" com os nomes (só no celular).
+
+**Mensagens de erro do banco**
+
+- Todas as telas, de leitura e de registro, passam o erro por `mensagemDeErroDoBanco`: banco fechado vira "O Bordo foi atualizado. Toque para recarregar."; as mensagens das regras (travas, edição bloqueada) continuam como estavam.
+
 **Tela principal e timeline**
 
 - Em trânsito: "Y/Y a bordo · conferido às HH:MM", com o horário da última conferência da saída da etapa deixada ou da volta à estrada; "sem conferência" se a saída foi gravada sem ela. Parado ou aguardando a saída: "Y esperados na saída", sem X, porque ninguém foi conferido ainda. Sem passageiros cadastrados, nada aparece. A tela principal ganha o botão PASSAGEIROS, para o cadastro de última hora.

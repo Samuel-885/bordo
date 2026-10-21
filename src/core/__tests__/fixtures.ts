@@ -93,7 +93,7 @@ export function congelar(d: DadosPlano = PLANO): PlanoOriginal {
 let sequencia = 0
 function criar(horario: Instante, conteudo: ConteudoEvento): Evento {
   sequencia += 1
-  return criarEvento({ id: `ev-${sequencia}`, viagemId: VIAGEM_ID, horarioFato: horario, registradoEm: horario }, conteudo)
+  return criarEvento({ id: `ev-${sequencia}`, viagemId: VIAGEM_ID, horarioFato: horario, registradoEm: horario, sequencia }, conteudo)
 }
 
 export const ev = {
@@ -114,6 +114,8 @@ export const ev = {
       etapaId,
       dados: { ...(momento ? { momento } : {}), modo: 'so_alguns', confirmados: [], pendentes: [], resultado: 'completa' },
     }),
+  desceram: (etapaId: string, local: 'etapa' | 'nao_planejada', passageiroIds: string[], horario: Instante) =>
+    criar(horario, { tipo: 'desceram', etapaId, dados: { local, passageiroIds } }),
   status: (etapaId: string, passageiroId: string, status: StatusPassageiro, motivo: string, horario: Instante) =>
     criar(horario, { tipo: 'status_passageiro', etapaId, dados: { passageiroId, status, motivo } }),
 }

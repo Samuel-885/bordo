@@ -13,6 +13,7 @@ import { useAgora, useAoMudar } from './useAgora'
 import { useDados } from './useDados'
 import { classificarAtraso } from '../core/atraso'
 import type { Instante } from '../core/tipos'
+import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 interface Props {
   repo: Repositorio
@@ -64,7 +65,7 @@ export function Timeline({ repo, viagemId, onVoltar }: Props) {
       setCorrigindo(null)
       recarregar()
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível corrigir.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível corrigir.'))
     } finally {
       setOcupado(false)
     }

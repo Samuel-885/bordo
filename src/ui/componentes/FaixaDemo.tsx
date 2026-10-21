@@ -5,6 +5,7 @@ import type { ExecutorNoBanco } from '../../demo/executorNoBanco'
 import { horaValida, resolverHorarioProximo } from '../logica/horarioDigitado'
 import { formatarHora } from '../logica/horarios'
 import { avisarMudanca, useAgora } from '../useAgora'
+import { mensagemDeErroDoBanco } from '../../data/avisoBanco'
 
 interface Props {
   executor: ExecutorNoBanco | null
@@ -30,7 +31,7 @@ export function FaixaDemo({ executor, onReiniciar, onSair, onEscolherCenario }: 
     try {
       await acao()
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível executar.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível executar.'))
     } finally {
       setOcupado(false)
       avisarMudanca()

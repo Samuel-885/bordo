@@ -1,7 +1,7 @@
 // Leitura e validação dos registros da tela principal: situação da viagem, cronômetro,
 // travas de chegada, saída e correção. Funções puras, sem efeito no cálculo da previsão.
 
-import { validarConferencia, validarStatus } from './conferencia'
+import { contextoDeDescidaNaEtapa, contextoDeDescidaNaoPlanejada, validarConferencia, validarStatus } from './conferencia'
 import { passageirosEmTransito, passageirosEsperados } from './passageiros'
 import { calcularEstado, validarPulo } from './previsao'
 import { validarRecalibracao } from './recalibracao'
@@ -339,6 +339,28 @@ export function validarRegistro(
           ? passageirosEsperados(conteudo.etapaId, d.etapas, passageiros, eventos)
           : passageirosEmTransito(conteudo.etapaId, d.etapas, passageiros, eventos)
       return validarConferencia(conteudo.dados, esperados)
+    }
+    case 'desceram': {
+      const antesDoHorario = naoDepoisDeAgora()
+      if (!antesDoHorario.ok) return antesDoHorario
+      const { local, passageiroIds } = conteudo.dados
+      const noLugar =
+        local === 'etapa'
+          ? s.situacao === 'em_parada' && s.etapaAtualId === conteudo.etapaId
+          : s.situacao === 'parada_nao_planejada' && s.paradaNaoPlanejada?.etapaId === conteudo.etapaId
+      if (!noLugar) {
+        return { ok: false, motivo: local === 'etapa' ? 'Só dá para marcar quem desceu na parada em que estamos.' : 'Só dá para marcar quem desceu durante a parada não planejada.' }
+      }
+      if (!passageiros) return { ok: true }
+      const ctx =
+        local === 'etapa'
+          ? contextoDeDescidaNaEtapa(conteudo.etapaId, d, passageiros, eventos)
+          : contextoDeDescidaNaoPlanejada(conteudo.etapaId, d, passageiros, eventos)
+      const fora = passageiroIds.filter((id) => !ctx.aBordo.some((p) => p.id === id))
+      if (fora.length > 0 || new Set(passageiroIds).size !== passageiroIds.length) {
+        return { ok: false, motivo: 'A marcação tem alguém que não está a bordo neste ponto.' }
+      }
+      return { ok: true }
     }
     case 'status_passageiro': {
       const antesDoHorario = naoDepoisDeAgora()

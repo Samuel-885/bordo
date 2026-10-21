@@ -946,3 +946,24 @@ button.a-bordo {
   text-align: left;
   cursor: pointer;
 }
+.passageiro-item.desceu {
+  border-color: var(--azul);
+  background: var(--azul-claro);
+}
+dialog.folha .acoes.colunas {
+  flex-direction: column;
+}
+dialog.folha .acoes.colunas .botao {
+  width: 100%;
+}
+dialog.folha .lista-conferencia {
+  margin-bottom: 12px;
+}
+dialog.folha .acoes.colunas {
+  position: sticky;
+  bottom: -16px;
+  margin: 0 -16px -16px;
+  padding: 12px 16px 16px;
+  background: #fff;
+  border-top: 1px solid var(--linha);
+}

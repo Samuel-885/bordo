@@ -21,6 +21,7 @@ import { TelaViagem } from './ui/TelaViagem'
 import { Timeline } from './ui/Timeline'
 import { viagemParaAbrirDireto } from './ui/logica/viagemInicial'
 import { avisarMudanca } from './ui/useAgora'
+import { mensagemDeErroDoBanco } from './data/avisoBanco'
 
 type Tela =
   | { nome: 'lista' }
@@ -111,7 +112,7 @@ function App() {
       // Se algo falhou no meio, o relógio volta para o do espaço real.
       setRepo(entrarNoEspacoReal())
       setExecutor(null)
-      setFalha(x instanceof Error ? x.message : 'Não foi possível abrir a demonstração.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível abrir a demonstração.'))
     }
   }
 

@@ -17,6 +17,7 @@ import { resumoDaEtapa, textoDoAviso, textoManuaisApagados, textoDoBloqueio, tex
 import { podeMover } from '../core/ordem'
 import { textoTotalDePassageiros } from './logica/passageiros'
 import { useDados } from './useDados'
+import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 interface Props {
   repo: Repositorio
@@ -58,7 +59,7 @@ export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onPassag
       await acao()
       recarregar()
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível salvar.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível salvar.'))
     }
   }
 

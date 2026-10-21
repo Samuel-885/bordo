@@ -52,6 +52,23 @@ export function passageirosEsperados(
   })
 }
 
+/**
+ * Quem está a bordo quando o ônibus chega em `etapaId` e segue depois: os esperados na saída
+ * que já embarcaram antes dela. É a lista da marcação de "quem desceu" na parada da etapa.
+ */
+export function passageirosABordoNaParada(
+  etapaId: string,
+  etapas: readonly Etapa[],
+  passageiros: readonly Passageiro[],
+  eventos: readonly Evento[],
+): Passageiro[] {
+  const ordem = ordemDasEtapas(etapas)
+  const aqui = ordem.get(etapaId)
+  return passageirosEsperados(etapaId, etapas, passageiros, eventos).filter(
+    (p) => (ordem.get(p.etapaEmbarqueId) ?? Infinity) < (aqui ?? -Infinity),
+  )
+}
+
 export function esperadosNaSaida(
   etapaId: string,
   etapas: readonly Etapa[],

@@ -124,6 +124,9 @@ export type ResultadoConferencia = 'completa' | 'completa_por_contagem' | 'incom
 /** Conferência na saída de uma etapa, ou ao voltar à estrada depois de uma parada não planejada. */
 export type MomentoConferencia = 'saida' | 'volta'
 
+/** Onde a marcação de "quem desceu" vale: na parada da etapa ou na parada não planejada ligada a ela. */
+export type LocalDaDescida = 'etapa' | 'nao_planejada'
+
 export interface Conferencia {
   /** Vazio nos eventos antigos e da demonstração: vale "saida". Na "volta", o evento leva a próxima etapa. */
   momento?: MomentoConferencia
@@ -166,6 +169,16 @@ export type Evento = EventoBase &
       }
     | { tipo: 'imprevisto'; dados: { categoria: TipoImprevisto } }
     | { tipo: 'conferencia'; etapaId: string; dados: Conferencia }
+    | {
+        /**
+         * Quem desceu na parada (marcação opcional, sem efeito no cálculo). Na parada não
+         * planejada, a etapa é a próxima, como nos outros eventos da parada. Uma marcação nova
+         * na mesma parada substitui a anterior.
+         */
+        tipo: 'desceram'
+        etapaId: string
+        dados: { local: LocalDaDescida; passageiroIds: string[] }
+      }
     | {
         tipo: 'status_passageiro'
         etapaId: string

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import {
   alternarPassageiro,
   aplicarContagem,
+  avisoDaMarcacao as textoDoAvisoDaMarcacao,
   decisoesCompletas,
   iniciarConferencia,
   listaParaTela,
@@ -31,6 +32,8 @@ interface Props {
   titulo: string
   /** Texto do botão que confirma: SAÍMOS ou VOLTAMOS. */
   rotuloSair: string
+  /** Quem foi marcado como "desceu" nesta parada, se houve marcação. */
+  desceram: string[] | null
   ocupado: boolean
   erro: string | null
   onConfirmar: (estado: EstadoConferencia, decisoes: DecisaoDePendente[]) => void
@@ -47,10 +50,14 @@ const STATUS: Array<{ valor: Exclude<StatusPassageiro, 'ativo'>; rotulo: string 
   { valor: 'saiu_da_viagem', rotulo: 'Saiu da viagem' },
 ]
 
-export function Conferencia({ contexto, etapa, etapas, titulo, rotuloSair, ocupado, erro, onConfirmar, onFechar }: Props) {
+export function Conferencia({ contexto, etapa, etapas, titulo, rotuloSair, desceram, ocupado, erro, onConfirmar, onFechar }: Props) {
   useWakeLock(true)
   const [estado, setEstado] = useState<EstadoConferencia>(() =>
-    iniciarConferencia(contexto, etapas, modoPadrao(etapa, contexto.momento), etapa),
+    iniciarConferencia(contexto, etapas, modoPadrao(etapa, contexto.momento), etapa, desceram),
+  )
+  /** O aviso vale enquanto a lista é a que veio da marcação. */
+  const [avisoDaMarcacao, setAvisoDaMarcacao] = useState<string | null>(() =>
+    desceram === null ? null : textoDoAvisoDaMarcacao(desceram.length, estado.confirmados.length),
   )
   const [digitado, setDigitado] = useState('')
   const [resposta, setResposta] = useState<string | null>(null)
@@ -63,6 +70,7 @@ export function Conferencia({ contexto, etapa, etapas, titulo, rotuloSair, ocupa
 
   function trocarModo(modo: ModoConferencia) {
     setEstado(iniciarConferencia(contexto, etapas, modo, etapa))
+    setAvisoDaMarcacao(null)
     setResposta(null)
   }
 
@@ -128,6 +136,11 @@ export function Conferencia({ contexto, etapa, etapas, titulo, rotuloSair, ocupa
           ))}
         </div>
         <p className="dica">Trocar o modo reinicia a lista.</p>
+        {avisoDaMarcacao && (
+          <p className="aviso" role="note">
+            {avisoDaMarcacao}
+          </p>
+        )}
 
         <section className="cartao" aria-label="Contagem rápida">
           <div className="campo">

@@ -4,7 +4,19 @@
 
 import { useEffect, useState } from 'react'
 import { classificarAtraso } from '../core/atraso'
-import { contextoDeSaida, contextoDeVolta, resumoABordo, type DecisaoDePendente, type EstadoConferencia } from '../core/conferencia'
+import {
+  contextoDeDescidaNaEtapa,
+  contextoDeDescidaNaoPlanejada,
+  contextoDeSaida,
+  contextoDeVolta,
+  descidaParaConferencia,
+  marcacaoDeDescida,
+  oferecerDescidaAoChegar,
+  resumoABordo,
+  type ContextoDeDescida,
+  type DecisaoDePendente,
+  type EstadoConferencia,
+} from '../core/conferencia'
 import { pendenciasDeRegistro, validarPulo } from '../core/previsao'
 import { validarRecalibracao } from '../core/recalibracao'
 import { situacaoDaViagem } from '../core/registro'
@@ -15,6 +27,7 @@ import type { Repositorio, ResultadoRegistro } from '../data/repositorio'
 import { AvisoDesfazer } from './componentes/AvisoDesfazer'
 import { CampoHora } from './componentes/CampoHora'
 import { Conferencia } from './Conferencia'
+import { FolhaQuemDesceu } from './FolhaQuemDesceu'
 import { Confirmar } from './componentes/Confirmar'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
@@ -36,6 +49,7 @@ import {
 import { useAgora, useAoMudar } from './useAgora'
 import { useDados } from './useDados'
 import { useVoltarFecha } from './useVoltarFecha'
+import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 const JANELA_DESFAZER_MS = 8000
 
@@ -127,6 +141,8 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
   /** A conferência aberta: na saída de uma etapa ou na volta à estrada (a próxima etapa). */
   const [conferindo, setConferindo] = useState<{ momento: 'saida' | 'volta'; etapaId: string } | null>(null)
   useVoltarFecha(conferindo !== null, () => setConferindo(null))
+  /** A folha "Quem desceu?": aberta sozinha (CHEGAMOS, PARAMOS) ou pelo botão do cartão. */
+  const [descida, setDescida] = useState<{ local: 'etapa' | 'nao_planejada'; etapaId: string; automatica: boolean } | null>(null)
 
   useEffect(() => {
     if (!desfazer) return
@@ -158,7 +174,7 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
       recarregar()
       return true
     } catch (x) {
-      setErro(x instanceof Error ? x.message : 'Não foi possível registrar.')
+      setErro(mensagemDeErroDoBanco(x, 'Não foi possível registrar.'))
       return false
     } finally {
       setOcupado(false)
@@ -218,8 +234,36 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
           )
     if (ok) setConferindo(null)
   }
-  const aoChegar = (etapaId: string) =>
-    registrar(() => repo.registrarChegada(viagem.id, etapaId), `Chegada registrada às ${formatarHora(agora)}.`)
+  const aoChegar = async (etapaId: string) => {
+    const ok = await registrar(() => repo.registrarChegada(viagem.id, etapaId), `Chegada registrada às ${formatarHora(agora)}.`)
+    if (ok) oferecerDescida('etapa', etapaId)
+  }
+
+  /** Abre "Quem desceu?" sozinha, se há alguém a bordo naquele ponto e a etapa não é refeição nem destino. */
+  function oferecerDescida(local: 'etapa' | 'nao_planejada', etapaId: string) {
+    if (passageiros.length === 0) return
+    const etapaDaParada = etapaDe(etapaId)
+    if (local === 'etapa' && (!etapaDaParada || !oferecerDescidaAoChegar(etapaDaParada))) return
+    if (contextoDeDescida(local, etapaId).aBordo.length === 0) return
+    setErro(null)
+    setDescida({ local, etapaId, automatica: true })
+  }
+
+  function contextoDeDescida(local: 'etapa' | 'nao_planejada', etapaId: string): ContextoDeDescida {
+    return local === 'etapa'
+      ? contextoDeDescidaNaEtapa(etapaId, plano, passageiros, eventos)
+      : contextoDeDescidaNaoPlanejada(etapaId, plano, passageiros, eventos)
+  }
+
+  async function salvarDescida(passageiroIds: string[]) {
+    if (!descida) return
+    const { local, etapaId } = descida
+    const ok = await registrarConteudo(
+      { tipo: 'desceram', etapaId, dados: { local, passageiroIds } },
+      passageiroIds.length === 1 ? '1 passageiro marcado como desceu.' : `${passageiroIds.length} passageiros marcados como desceram.`,
+    )
+    if (ok) setDescida(null)
+  }
 
   const proxima = s.proximaEtapaId
   const proximaEtapa = etapaDe(proxima)
@@ -250,6 +294,20 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
   const saidaOrigem = estadoDe(primeira?.id ?? null)?.saida ?? null
   const aBordo = resumoABordo(plano, passageiros, eventos, s)
 
+  /** "Marcar quem desceu" no cartão da parada: marca ou corrige a qualquer momento. */
+  function botaoMarcarDescida(local: 'etapa' | 'nao_planejada', etapaId: string) {
+    if (passageiros.length === 0 || contextoDeDescida(local, etapaId).aBordo.length === 0) return null
+    const marcados = marcacaoDeDescida(eventos, local, etapaId)
+    return (
+      <>
+        {marcados !== null && <p className="dica">Desceram: {marcados.length}</p>}
+        <button type="button" className="botao pequeno largo" disabled={ocupado} onClick={() => { setErro(null); setDescida({ local, etapaId, automatica: false }) }}>
+          Marcar quem desceu
+        </button>
+      </>
+    )
+  }
+
   if (conferindo) {
     const contexto =
       conferindo.momento === 'saida'
@@ -264,6 +322,7 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
         etapas={etapas}
         titulo={conferindo.momento === 'saida' ? `Saída de ${nome(conferindo.etapaId)}` : 'Volta à estrada'}
         rotuloSair={conferindo.momento === 'saida' ? 'SAÍMOS' : 'VOLTAMOS'}
+        desceram={descidaParaConferencia(contexto, eventos)}
         ocupado={ocupado}
         erro={erro}
         onConfirmar={(estado, decisoes) => void confirmarConferencia(estado, decisoes)}
@@ -331,6 +390,7 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
             <p className="dica">
               Planejado {formatarDuracaoCurta(s.cronometro.planejadoMin)} · decorrido {formatarDuracaoCurta(s.cronometro.decorridoMin)}
             </p>
+            {botaoMarcarDescida('etapa', s.cronometro.etapaId)}
           </section>
         )}
 
@@ -339,6 +399,7 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
             <h2>Parada não planejada</h2>
             <p className="cronometro">parados há {formatarDuracaoCurta(s.paradaNaoPlanejada.decorridoMin)}</p>
             <p className="dica">Desde as {formatarHora(s.paradaNaoPlanejada.inicio)}.</p>
+            {botaoMarcarDescida('nao_planejada', s.paradaNaoPlanejada.etapaId)}
           </section>
         )}
 
@@ -464,6 +525,19 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
 
       {desfazer && <AvisoDesfazer texto={desfazer.texto} onDesfazer={() => void desfazerUltimo()} />}
 
+      {descida && (
+        <FolhaQuemDesceu
+          key={`${descida.local}-${descida.etapaId}`}
+          aBordo={contextoDeDescida(descida.local, descida.etapaId).aBordo}
+          atual={marcacaoDeDescida(eventos, descida.local, descida.etapaId)}
+          automatica={descida.automatica}
+          ocupado={ocupado}
+          erro={erro}
+          onSalvar={(ids) => void salvarDescida(ids)}
+          onFechar={() => setDescida(null)}
+        />
+      )}
+
       {acao === 'parada' && proxima && (
         <FolhaParada
           aberta
@@ -475,7 +549,10 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
               { tipo: 'parada_nao_planejada', etapaId: proxima, dados: { fase: 'inicio', ...(motivo ? { motivo } : {}) } },
               `PARAMOS registrado às ${formatarHora(agora)}.`,
             )
-            if (ok) fechar()
+            if (ok) {
+              fechar()
+              oferecerDescida('nao_planejada', proxima)
+            }
           }}
         />
       )}
@@ -544,7 +621,10 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
               () => repo.registrarChegada(viagem.id, proxima, { retornoEm }),
               `Chegada registrada às ${formatarHora(agora)}.`,
             )
-            if (ok) fechar()
+            if (ok) {
+              fechar()
+              oferecerDescida('etapa', proxima)
+            }
           }}
         />
       )}

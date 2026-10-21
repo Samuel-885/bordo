@@ -7,6 +7,7 @@ import { novoId, type Repositorio } from '../data/repositorio'
 import { Topo } from './componentes/Topo'
 import { formatarData } from './logica/horarios'
 import { useDados } from './useDados'
+import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 interface Props {
   repo: Repositorio
@@ -40,7 +41,7 @@ export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao }: Pr
       await repo.salvarViagem(viagem)
       onAbrir(viagem)
     } catch (x) {
-      setFalha(x instanceof Error ? x.message : 'Não foi possível criar a viagem.')
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível criar a viagem.'))
     }
   }
 
