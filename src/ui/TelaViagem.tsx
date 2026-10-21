@@ -20,6 +20,7 @@ import { FolhaHorario, FolhaImprevisto, FolhaParada, FolhaRecalibracao } from '.
 import { resolverHorarioPassado } from './logica/horarioDigitado'
 import { formatarHora } from './logica/horarios'
 import { linkGoogleMaps } from './logica/linkMaps'
+import { nomeDaEtapa } from './logica/textos'
 import {
   nomeDaEtapaEmUso,
   textoDaOrigemDaPrevisao,
@@ -269,8 +270,10 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimelin
         {proxima && proximaEtapa && !concluida && (
           <section className="cartao" aria-label="Próxima etapa">
             <h2>Próxima etapa</h2>
-            <p className="linha-grande">{nome(proxima)}</p>
-            <p className="suave">{localDe(proxima)?.nome ?? 'Local não escolhido'}</p>
+            <p className="linha-grande">{nomeDaEtapa(proximaEtapa, locais)}</p>
+            {(localDe(proxima)?.nome ?? 'Local não escolhido') !== nomeDaEtapa(proximaEtapa, locais) && (
+              <p className="suave">{localDe(proxima)?.nome ?? 'Local não escolhido'}</p>
+            )}
             {chegadaProxima ? (
               <>
                 <p className="linha">

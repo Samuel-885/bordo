@@ -10,6 +10,7 @@ import type { Viagem } from './core/tipos'
 import type { Cenario } from './demo/cenarios'
 import { VIAGEM_DEMO_ID } from './demo/dados'
 import { ExecutorNoBanco } from './demo/executorNoBanco'
+import { AvisoAtualizacao } from './ui/componentes/AvisoAtualizacao'
 import { FaixaDemo } from './ui/componentes/FaixaDemo'
 import { EditorEtapa } from './ui/EditorEtapa'
 import { ListaViagens } from './ui/ListaViagens'
@@ -124,6 +125,7 @@ function App() {
         onSair={sairDaDemo}
         onEscolherCenario={escolherCenario}
       />
+      <AvisoAtualizacao />
       {falha && <p className="msg-erro" style={{ padding: '0 12px' }}>{falha}</p>}
       {tela.nome === 'lista' && (
         <ListaViagens key={`lista-${versao}`} repo={repo} demo={demo} onAbrir={abrirViagem} onEntrarNaDemonstracao={abrirDemonstracao} />

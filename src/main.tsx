@@ -7,7 +7,10 @@ import '@fontsource/ibm-plex-sans/latin-700.css'
 import '@fontsource/ibm-plex-mono/latin-500.css'
 import '@fontsource/ibm-plex-mono/latin-600.css'
 import App from './App.tsx'
+import { iniciarPwa } from './pwa'
 import './ui/estilos.css'
+
+iniciarPwa()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

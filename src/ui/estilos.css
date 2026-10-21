@@ -509,6 +509,12 @@ dialog.confirmar .acoes {
   border-radius: 8px;
   margin-right: 4px;
 }
+.conteudo.viagem {
+  padding-bottom: 104px;
+}
+.faixa-demo strong {
+  font-size: 12px;
+}
 .viagem .cartao h2 {
   margin-bottom: 4px;
 }
@@ -780,4 +786,19 @@ button.t-item {
 }
 .faixa-cenario p {
   margin: 0 0 8px;
+}
+
+.aviso-atualizacao {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--azul-claro);
+  border-bottom: 1px solid var(--azul);
+  font-size: 14px;
+}
+.aviso-atualizacao span {
+  flex: 1;
+  min-width: 200px;
 }

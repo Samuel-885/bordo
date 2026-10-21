@@ -4,3 +4,25 @@
 
 [build.environment]
   NODE_VERSION = "24"
+
+# O service worker e a página nunca ficam em cache do navegador: assim a versão nova é
+# detectada. Os arquivos com hash no nome (pasta assets) podem ficar para sempre.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
