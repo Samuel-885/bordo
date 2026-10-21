@@ -119,7 +119,7 @@ export interface Conferencia {
   motivo?: string
 }
 
-interface EventoBase {
+export interface EventoBase {
   id: string
   viagemId: string
   /** Quando o fato aconteceu. Corrigir um horário muda só este. */

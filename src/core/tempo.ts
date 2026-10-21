@@ -68,3 +68,9 @@ export function minutosDoDia(hora: HoraDoDia): number {
   const [h, m] = hora.split(':').map(Number)
   return h! * 60 + m!
 }
+
+/** Arredonda para baixo, para o minuto. */
+export function truncarMinuto(i: Instante): Instante {
+  const ms = paraMs(i)
+  return deMs(ms - (((ms % MINUTO_MS) + MINUTO_MS) % MINUTO_MS))
+}
