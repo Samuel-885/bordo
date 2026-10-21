@@ -21,6 +21,7 @@ describe('situacaoDaViagem', () => {
     const s = situacaoDaViagem(PLANO, original, [inicio], h('06:10'))
     expect(s.situacao).toBe('aguardando_saida')
     expect(s.etapaAtualId).toBe('origem')
+    expect(s.proximaEtapaId).toBe('monlevade')
     expect(s.cronometro).toBeNull()
   })
 

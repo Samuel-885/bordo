@@ -1,6 +1,6 @@
 // Textos e listas fixas das telas de planejamento.
 
-import type { OnibusPara, TipoEtapa } from '../../core/tipos'
+import type { MotivoParada, OnibusPara, StatusPassageiro, TipoEtapa, TipoImprevisto } from '../../core/tipos'
 
 export const TIPOS_DE_ETAPA: Array<{ valor: TipoEtapa; rotulo: string }> = [
   { valor: 'origem', rotulo: 'Origem' },
@@ -54,4 +54,28 @@ export function etiquetaDaEtapa(tipo: TipoEtapa, categoria: string | undefined):
     case 'flexivel':
       return `${categoria ? rotuloDe(CATEGORIAS, categoria).toUpperCase() : 'PARADA'} · FLEXÍVEL`
   }
+}
+
+export const TIPOS_DE_IMPREVISTO: Array<{ valor: TipoImprevisto; rotulo: string }> = [
+  { valor: 'transito', rotulo: 'Trânsito' },
+  { valor: 'acidente', rotulo: 'Acidente na estrada' },
+  { valor: 'problema_mecanico', rotulo: 'Problema mecânico' },
+  { valor: 'passageiro', rotulo: 'Passageiro' },
+  { valor: 'clima', rotulo: 'Clima' },
+  { valor: 'atraso', rotulo: 'Atraso' },
+  { valor: 'outro', rotulo: 'Outro' },
+]
+
+export const MOTIVOS_DE_PARADA: Array<{ valor: MotivoParada; rotulo: string }> = [
+  { valor: 'pneu', rotulo: 'Pneu' },
+  { valor: 'policia', rotulo: 'Polícia' },
+  { valor: 'banheiro', rotulo: 'Banheiro' },
+  { valor: 'passageiro_mal', rotulo: 'Passageiro passando mal' },
+  { valor: 'outro', rotulo: 'Outro' },
+]
+
+export const STATUS_DE_PASSAGEIRO: Record<StatusPassageiro, string> = {
+  ativo: 'a bordo',
+  nao_embarcou: 'não embarcou',
+  saiu_da_viagem: 'saiu da viagem',
 }

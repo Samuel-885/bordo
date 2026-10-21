@@ -71,6 +71,10 @@ export interface SituacaoViagem {
   estado: EstadoViagem
   /** Etapa em parada ou, aguardando saída, a origem. Vazio em trânsito e ao chegar. */
   etapaAtualId: string | null
+  /**
+   * A próxima etapa a alcançar: a primeira pendente que não é a origem. Aguardando a
+   * saída, é a etapa depois da origem. Vazio ao chegar.
+   */
   proximaEtapaId: string | null
   paradaNaoPlanejada: (ParadaAberta & { decorridoMin: number }) | null
   cronometro: Cronometro | null
@@ -86,7 +90,8 @@ export function situacaoDaViagem(
   const estado = calcularEstado(d, original, eventos, agora)
   const tipoDe = new Map(d.etapas.map((e) => [e.id, e.tipo]))
   const destino = estado.etapas.find((e) => tipoDe.get(e.etapaId) === 'destino')
-  const base = { estado, proximaEtapaId: estado.proximaEtapaId, paradaNaoPlanejada: null, cronometro: null }
+  const proximaEtapaId = estado.etapas.find((e) => e.estado === 'pendente' && tipoDe.get(e.etapaId) !== 'origem')?.etapaId ?? null
+  const base = { estado, proximaEtapaId, paradaNaoPlanejada: null, cronometro: null }
 
   if (destino?.chegada?.origem === 'real') {
     return { ...base, situacao: 'chegamos', etapaAtualId: null, proximaEtapaId: null }
@@ -115,7 +120,7 @@ export function situacaoDaViagem(
     return { ...base, situacao: 'aguardando_saida', etapaAtualId: origem?.etapaId ?? null }
   }
 
-  const aberta = estado.proximaEtapaId ? paradaAberta(eventos, estado.proximaEtapaId) : null
+  const aberta = proximaEtapaId ? paradaAberta(eventos, proximaEtapaId) : null
   if (aberta) {
     return {
       ...base,
