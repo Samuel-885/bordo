@@ -1,6 +1,7 @@
 // Plano base dos "Casos de teste do recálculo". Nomes de locais e passageiros são fictícios.
 
 import { expect } from 'vitest'
+import { criarEvento, type ConteudoEvento } from '../eventos'
 import { calcularPlanoOriginal } from '../previsao'
 import { diferencaMin, instante, naHoraDoDia } from '../tempo'
 import type {
@@ -90,40 +91,24 @@ export function congelar(d: DadosPlano = PLANO): PlanoOriginal {
 // ---------- Eventos ----------
 
 let sequencia = 0
-function base(horario: Instante) {
+function criar(horario: Instante, conteudo: ConteudoEvento): Evento {
   sequencia += 1
-  return { id: `ev-${sequencia}`, viagemId: VIAGEM_ID, horarioFato: horario, registradoEm: horario }
+  return criarEvento({ id: `ev-${sequencia}`, viagemId: VIAGEM_ID, horarioFato: horario, registradoEm: horario }, conteudo)
 }
 
 export const ev = {
-  inicio: (horario: Instante): Evento => ({ ...base(horario), tipo: 'inicio' }),
-  saida: (etapaId: string, horario: Instante): Evento => ({ ...base(horario), tipo: 'saida', etapaId }),
-  chegada: (etapaId: string, horario: Instante): Evento => ({ ...base(horario), tipo: 'chegada', etapaId }),
-  pular: (etapaId: string, horario: Instante): Evento => ({ ...base(horario), tipo: 'pular_etapa', etapaId }),
-  troca: (etapaId: string, localId: string, horario: Instante): Evento => ({
-    ...base(horario),
-    tipo: 'troca_local',
-    etapaId,
-    dados: { localId },
-  }),
-  recalibracao: (etapaId: string, informado: Instante, horario: Instante): Evento => ({
-    ...base(horario),
-    tipo: 'recalibracao',
-    etapaId,
-    dados: { horario: informado },
-  }),
-  parada: (etapaId: string, fase: 'inicio' | 'fim', horario: Instante): Evento => ({
-    ...base(horario),
-    tipo: 'parada_nao_planejada',
-    etapaId,
-    dados: { fase },
-  }),
-  status: (etapaId: string, passageiroId: string, status: StatusPassageiro, motivo: string, horario: Instante): Evento => ({
-    ...base(horario),
-    tipo: 'status_passageiro',
-    etapaId,
-    dados: { passageiroId, status, motivo },
-  }),
+  inicio: (horario: Instante) => criar(horario, { tipo: 'inicio' }),
+  saida: (etapaId: string, horario: Instante) => criar(horario, { tipo: 'saida', etapaId }),
+  chegada: (etapaId: string, horario: Instante) => criar(horario, { tipo: 'chegada', etapaId }),
+  pular: (etapaId: string, horario: Instante) => criar(horario, { tipo: 'pular_etapa', etapaId }),
+  troca: (etapaId: string, localId: string, horario: Instante) =>
+    criar(horario, { tipo: 'troca_local', etapaId, dados: { localId } }),
+  recalibracao: (etapaId: string, informado: Instante, horario: Instante) =>
+    criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado } }),
+  parada: (etapaId: string, fase: 'inicio' | 'fim', horario: Instante) =>
+    criar(horario, { tipo: 'parada_nao_planejada', etapaId, dados: { fase } }),
+  status: (etapaId: string, passageiroId: string, status: StatusPassageiro, motivo: string, horario: Instante) =>
+    criar(horario, { tipo: 'status_passageiro', etapaId, dados: { passageiroId, status, motivo } }),
 }
 
 /** Cadeia dos casos 1 → 2 → 3. */
