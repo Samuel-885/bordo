@@ -15,3 +15,4 @@ Use o endereço do site publicado no Netlify (cada push na `main` publica). Não
 11. **Sair sem todos.** Em outra saída, desmarque um nome, toque em "Sair sem todos", escolha o status, escreva o motivo e confirme. A timeline mostra o nome e o motivo.
 12. **Tela acesa.** Durante a conferência, deixe o celular parado por mais que o tempo da tela: ela não deve apagar (no iPhone e em alguns Androids com economia de bateria o navegador pode não permitir).
 13. **Voltar durante a conferência.** O botão voltar do Android fecha a conferência e volta à tela principal, sem registrar nada.
+14. **App aberto em dois lugares.** Com o app instalado aberto, abra o site também no navegador e, depois de um deploy com mudança de banco, abra uma das duas: a outra mostra "O Bordo foi atualizado. Toque para recarregar." e, ao tocar, volta a funcionar.

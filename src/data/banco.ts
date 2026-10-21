@@ -3,6 +3,7 @@
 // estado derivado nunca é persistido.
 
 import Dexie, { type Table } from 'dexie'
+import { avisarBanco, type AvisoDoBanco } from './avisoBanco'
 import type { Etapa, Evento, Local, Passageiro, Trecho, Viagem } from '../core/tipos'
 
 export type Espaco = 'real' | 'demo'
@@ -10,6 +11,23 @@ export type Espaco = 'real' | 'demo'
 export const NOME_DO_BANCO: Record<Espaco, string> = {
   real: 'bordo',
   demo: 'bordo-demo',
+}
+
+/**
+ * App aberto em mais de um lugar: se outra conexão quer subir a versão do banco, esta se
+ * fecha sozinha e avisa "atualizado"; se esta é que tenta abrir uma versão nova e outra
+ * conexão a segura, avisa "bloqueado" até a abertura seguir.
+ */
+export function ligarAvisosDeConexao(db: Dexie, avisar: (aviso: AvisoDoBanco | null) => void = avisarBanco): void {
+  db.on('versionchange', () => {
+    db.close()
+    avisar('atualizado')
+    return false
+  })
+  db.on('blocked', () => avisar('bloqueado'))
+  db.on('ready', () => {
+    avisar(null)
+  })
 }
 
 export class BancoBordo extends Dexie {
@@ -34,5 +52,6 @@ export class BancoBordo extends Dexie {
     this.version(2).stores({
       passageiros: 'id, viagemId',
     })
+    ligarAvisosDeConexao(this)
   }
 }

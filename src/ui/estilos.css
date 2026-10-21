@@ -932,3 +932,17 @@ button.a-bordo {
 .linha-passageiro small {
   color: var(--texto-suave);
 }
+
+.aviso-banco {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 2px solid var(--atencao-borda);
+  background: var(--atencao-fundo);
+  color: var(--texto);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}

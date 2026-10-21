@@ -452,6 +452,7 @@ Aprovadas em 21/10/2026, na construção de passageiros e conferência. Compleme
 - O banco passa à versão 2 do esquema, que só adiciona a tabela `passageiros` (índices `id` e `viagemId`), nos dois bancos (`bordo` e `bordo-demo`). Nenhuma linha existente é reescrita: as viagens, etapas, locais, trechos e eventos que já estão nos celulares continuam como estavam.
 - O passageiro ganha o campo `viagemId` (o modelo de dados não o listava): sem ele não há como listar os passageiros de uma viagem por índice.
 - O `status` do passageiro é gravado sempre como "ativo". As mudanças (não embarcou, saiu da viagem) vivem só nos eventos "status do passageiro", como o estado derivado de sempre; desfazer um registro desfaz o status junto.
+- App aberto em mais de um lugar (outra aba, janela ou o app instalado): a conexão que está aberta se fecha sozinha quando outra quer subir a versão do banco (`versionchange`) e a tela mostra "O Bordo foi atualizado. Toque para recarregar." Se é a abertura nova que fica presa por outra conexão (`blocked`), a tela mostra "Feche as outras abas ou janelas do Bordo e toque para tentar de novo.", e a abertura segue sozinha quando a outra conexão fecha. Tocar na mensagem recarrega o app. Um banco fechado nunca mostra o erro técnico: vira a mensagem de atualização. Vale para os dois bancos.
 - A semente da demonstração grava os 38 passageiros fictícios. Excluir uma viagem apaga os passageiros dela.
 
 **Cadastro**

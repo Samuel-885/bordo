@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 export interface Dados<T> {
   dados: T | null
@@ -22,7 +23,7 @@ export function useDados<T>(carregar: () => Promise<T>, chave: string): Dados<T>
     let vivo = true
     ultimoCarregar.current().then(
       (dados) => vivo && setEstado({ dados, erro: null }),
-      (e: unknown) => vivo && setEstado({ dados: null, erro: e instanceof Error ? e.message : 'Erro ao ler os dados.' }),
+      (e: unknown) => vivo && setEstado({ dados: null, erro: mensagemDeErroDoBanco(e, 'Erro ao ler os dados.') }),
     )
     return () => {
       vivo = false
