@@ -6,6 +6,7 @@ import { criarEvento } from '../core/eventos'
 import { moverEtapa, normalizarOrdem, paresVizinhos } from '../core/ordem'
 import { calcularPlanoOriginal, type BloqueioInicio } from '../core/previsao'
 import { agora, simuladoAtivo } from '../core/relogio'
+import { diferencaMin, naHoraDoDia, somarMinutos } from '../core/tempo'
 import type { DadosPlano, Etapa, Local, Trecho, Viagem } from '../core/tipos'
 import type { BancoBordo, Espaco } from './banco'
 
@@ -56,17 +57,39 @@ export class Repositorio {
     return this.#db.viagens.get(id)
   }
 
-  /** Cria ou atualiza os dados da viagem. Depois de iniciada, só o nome pode mudar. */
+  /**
+   * Cria ou atualiza os dados da viagem. Depois de iniciada, só o nome pode mudar.
+   * Mudar a data de saída desloca junto os horários já gravados das etapas.
+   */
   async salvarViagem(viagem: Viagem): Promise<void> {
     this.#exigirRelogioDoEspaco()
-    await this.#db.transaction('rw', this.#db.viagens, async () => {
-      const atual = await this.#db.viagens.get(viagem.id)
+    const { viagens, etapas } = this.#db
+    await this.#db.transaction('rw', viagens, etapas, async () => {
+      const atual = await viagens.get(viagem.id)
       if (atual && atual.status !== 'planejando') {
         // Plano original e status nunca são alterados por aqui.
-        await this.#db.viagens.put({ ...atual, nome: viagem.nome })
+        await viagens.put({ ...atual, nome: viagem.nome })
         return
       }
-      await this.#db.viagens.put({ ...viagem, status: 'planejando', planoOriginal: null })
+      if (atual) {
+        const dias = Math.round(
+          diferencaMin(naHoraDoDia(viagem.dataSaida, '00:00'), naHoraDoDia(atual.dataSaida, '00:00')) / (24 * 60),
+        )
+        if (dias !== 0) {
+          const minutos = dias * 24 * 60
+          const deslocar = <T extends Etapa['chegadaRoteiro']>(i: T) => (i ? (somarMinutos(i, minutos) as T) : i)
+          const lista = await etapas.where('viagemId').equals(viagem.id).toArray()
+          await etapas.bulkPut(
+            lista.map((e) => ({
+              ...e,
+              chegadaRoteiro: deslocar(e.chegadaRoteiro),
+              janelaInicio: deslocar(e.janelaInicio),
+              janelaFim: deslocar(e.janelaFim),
+            })),
+          )
+        }
+      }
+      await viagens.put({ ...viagem, status: 'planejando', planoOriginal: null })
     })
   }
 

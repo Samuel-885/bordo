@@ -118,6 +118,23 @@ describe('viagens, etapas e locais', () => {
   })
 })
 
+describe('data da viagem', () => {
+  it('mudar a data de saída desloca os horários das etapas, sem mudar as horas', async () => {
+    const v = (await repo.obterViagem(VIAGEM))!
+    await repo.salvarViagem({ ...v, dataSaida: instante('2026-11-21T00:00:00-03:00') })
+    const lista = await repo.listarEtapas(VIAGEM)
+    expect(lista[0]?.chegadaRoteiro).toBe('2026-11-21T06:30:00-03:00')
+    expect(lista.at(-1)?.chegadaRoteiro).toBe('2026-11-21T23:30:00-03:00')
+    expect((await repo.iniciarViagem(VIAGEM)).ok).toBe(true)
+  })
+
+  it('mudar só o nome não mexe nos horários', async () => {
+    const v = (await repo.obterViagem(VIAGEM))!
+    await repo.salvarViagem({ ...v, nome: 'Outro' })
+    expect((await repo.listarEtapas(VIAGEM))[0]?.chegadaRoteiro).toBe('2026-11-14T06:30:00-03:00')
+  })
+})
+
 describe('trechos manuais', () => {
   const par = {
     etapaOrigemId: 'demo-cafe',
