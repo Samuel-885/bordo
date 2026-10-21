@@ -368,3 +368,24 @@ Aprovadas em 21/10/2026, na construção do núcleo de cálculo. Complementam e,
 **Passageiros**
 
 - Mudança de status (não embarcou, saiu da viagem) é o evento "status do passageiro", com passageiro, status, motivo e a etapa onde aconteceu. Vale dessa etapa em diante.
+
+## Decisões da fase 3
+
+Aprovadas em 21/10/2026, na construção do planejamento com persistência. Complementam as seções anteriores.
+
+**Persistência**
+
+- Dois bancos IndexedDB separados e com o mesmo esquema: `bordo` (real) e `bordo-demo` (demonstração). O relógio acompanha o espaço: entrar no espaço real liga o relógio real; entrar na demonstração liga o simulado, apaga o `bordo-demo` e regrava o planejamento fictício (também ao reiniciar). O repositório do banco real se recusa a trabalhar com o relógio simulado ligado, e o da demonstração, com o relógio real.
+- Só plano e eventos são guardados. Trechos só existem entre etapas vizinhas e entre locais que ainda são candidatos: ao reordenar, excluir uma etapa ou remover uma alternativa, os trechos digitados que deixaram de valer são apagados.
+- Mudar a data de saída desloca junto os horários já gravados das etapas, sem mudar as horas.
+- Depois de iniciada, a viagem não aceita mais edição do planejamento; só o nome pode mudar.
+
+**Horários nos formulários**
+
+- Os campos pedem só "HH:MM". A data vem da saída do roteiro da etapa anterior mais próxima que tenha horário (ou do dia da saída da viagem). Hora menor que a dessa referência vai para o dia seguinte, com "+1 dia" e confirmação.
+- A janela da parada flexível é ancorada no dia da chegada da etapa (ou da referência anterior). Fim menor que início é no dia seguinte.
+
+**Início da viagem**
+
+- Bloqueios: os de `calcularPlanoOriginal`, mais um horário de roteiro anterior à saída da etapa anterior (daria trecho negativo) e viagem sem nome.
+- Avisos (não bloqueiam): parada flexível sem local, local candidato sem horário de funcionamento, chegada prevista fora da janela. O aviso de "nenhum passageiro cadastrado" entra na fase 5.
