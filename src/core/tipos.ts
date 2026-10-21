@@ -126,6 +126,11 @@ export interface EventoBase {
   horarioFato: Instante
   /** Quando o botão foi apertado. */
   registradoEm: Instante
+  /**
+   * Ordem de gravação na viagem (1, 2, 3…). Os horários são arredondados ao minuto e
+   * empatam; a sequência diz qual foi o último registro (usada para desfazer).
+   */
+  sequencia?: number
   observacao?: string
 }
 

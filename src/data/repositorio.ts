@@ -2,7 +2,7 @@
 // espaço (real ou demonstração) e se recusa a trabalhar se o relógio não for o do
 // espaço: nunca pode existir banco real com relógio simulado.
 
-import { criarEvento } from '../core/eventos'
+import { corrigirHorario, criarEvento, type ConteudoEvento } from '../core/eventos'
 import {
   etapasAposExcluir,
   etapasAposSalvar,
@@ -10,16 +10,27 @@ import {
   normalizarOrdem,
   trechosQueDeixamDeValer,
 } from '../core/ordem'
-import { calcularPlanoOriginal, type BloqueioInicio } from '../core/previsao'
+import { calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from '../core/previsao'
+import { paradaAberta, validarCorrecao, validarHorario, validarRegistro } from '../core/registro'
 import { agora, simuladoAtivo } from '../core/relogio'
 import { diferencaMin, naHoraDoDia, somarMinutos } from '../core/tempo'
-import type { DadosPlano, Etapa, Local, Trecho, Viagem } from '../core/tipos'
+import type { DadosPlano, Etapa, Evento, Instante, Local, Trecho, Viagem } from '../core/tipos'
 import type { BancoBordo, Espaco } from './banco'
 
 export type ResultadoInicio =
   | { ok: true; viagem: Viagem }
   | { ok: false; motivo: 'nao_planejando' | 'viagem_inexistente' }
   | { ok: false; motivo: 'bloqueios'; bloqueios: BloqueioInicio[] }
+
+export type ResultadoRegistro =
+  | { ok: true; /** Eventos criados, na ordem; é o que se passa a `desfazerRegistro`. */ eventos: Evento[]; viagem: Viagem }
+  | { ok: false; motivo: string }
+
+export interface OpcoesRegistro {
+  /** Horário do fato, quando não é agora (imprevisto, VOLTAMOS). */
+  horarioFato?: Instante
+  observacao?: string
+}
 
 export class ErroDeEspaco extends Error {}
 export class EdicaoBloqueada extends Error {}
@@ -283,6 +294,183 @@ export class Repositorio {
       await eventos.add(criarEvento({ id: novoId(), viagemId, horarioFato: momento, registradoEm: momento }, { tipo: 'inicio' }))
       return { ok: true, viagem: iniciada }
     })
+  }
+
+  // ---------- Eventos da viagem ----------
+
+  async listarEventos(viagemId: string): Promise<Evento[]> {
+    this.#exigirRelogioDoEspaco()
+    return this.#db.eventos.where('viagemId').equals(viagemId).toArray()
+  }
+
+  /**
+   * Registra um evento no horário atual (ou em `horarioFato`, se anterior). As travas
+   * vêm do núcleo. Chegada passa por `registrarChegada`, que trata a parada aberta.
+   */
+  async registrarEvento(viagemId: string, conteudo: ConteudoEvento, opcoes: OpcoesRegistro = {}): Promise<ResultadoRegistro> {
+    if (conteudo.tipo === 'chegada') return this.registrarChegada(viagemId, conteudo.etapaId, opcoes)
+    return this.#registrar(viagemId, [{ conteudo, ...opcoes }])
+  }
+
+  /**
+   * CHEGAMOS. Com uma parada não planejada aberta, `retornoEm` (a que horas voltamos à
+   * estrada) é obrigatório e o VOLTAMOS é gravado antes da chegada. Chegando no destino,
+   * grava também o evento "fim" e conclui a viagem. Tudo numa transação.
+   */
+  async registrarChegada(
+    viagemId: string,
+    etapaId: string,
+    opcoes: OpcoesRegistro & { retornoEm?: Instante } = {},
+  ): Promise<ResultadoRegistro> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, etapas, locais, trechos, eventos } = this.#db
+    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, async (): Promise<ResultadoRegistro> => {
+      const lista = await this.listarEventos(viagemId)
+      const passos: Array<{ conteudo: ConteudoEvento; horarioFato?: Instante; observacao?: string }> = []
+      if (paradaAberta(lista, etapaId)) {
+        if (!opcoes.retornoEm) {
+          return { ok: false, motivo: 'Há uma parada não planejada aberta: informe a que horas voltamos à estrada.' }
+        }
+        passos.push({
+          conteudo: { tipo: 'parada_nao_planejada', etapaId, dados: { fase: 'fim' } },
+          horarioFato: opcoes.retornoEm,
+        })
+      }
+      passos.push({ conteudo: { tipo: 'chegada', etapaId }, horarioFato: opcoes.horarioFato, observacao: opcoes.observacao })
+      return this.#registrar(viagemId, passos)
+    })
+  }
+
+  /** Chegada ou saída esquecida (ver `pendenciasDeRegistro`): o horário vem digitado. */
+  async registrarPendencia(
+    viagemId: string,
+    etapaId: string,
+    momento: 'chegada' | 'saida',
+    horarioFato: Instante,
+  ): Promise<ResultadoRegistro> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, etapas, locais, trechos, eventos } = this.#db
+    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, async (): Promise<ResultadoRegistro> => {
+      const dados = await this.carregarPlano(viagemId)
+      if (!dados) return { ok: false, motivo: 'Viagem não encontrada.' }
+      const lista = await this.listarEventos(viagemId)
+      if (!pendenciasDeRegistro(dados, lista).some((p) => p.etapaId === etapaId && p.momento === momento)) {
+        return { ok: false, motivo: 'Este registro não está pendente.' }
+      }
+      const agoraDoRelogio = agora()
+      const r = validarHorario(dados, lista, { tipo: momento, etapaId }, horarioFato, agoraDoRelogio)
+      if (!r.ok) return r
+      const evento = await this.#gravar(viagemId, lista, { tipo: momento, etapaId }, horarioFato, agoraDoRelogio, {})
+      return { ok: true, eventos: [evento], viagem: dados.viagem }
+    })
+  }
+
+  /**
+   * Desfaz os eventos de um registro (os ids que o registro devolveu), mas só se ainda
+   * forem os últimos da viagem, pela sequência de gravação. Desfazer a chegada no destino
+   * reabre a viagem.
+   */
+  async desfazerRegistro(viagemId: string, ids: readonly string[]): Promise<{ ok: true } | { ok: false; motivo: string }> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, eventos } = this.#db
+    return this.#db.transaction('rw', viagens, eventos, async () => {
+      const lista = (await this.listarEventos(viagemId)).sort((a, b) => (b.sequencia ?? 0) - (a.sequencia ?? 0))
+      const ultimos = lista.slice(0, ids.length)
+      const mesmos = ids.length > 0 && ultimos.length === ids.length && ultimos.every((e) => ids.includes(e.id))
+      if (!mesmos) return { ok: false as const, motivo: 'Já houve outro registro depois: corrija pela timeline.' }
+      if (ultimos.some((e) => e.tipo === 'inicio')) return { ok: false as const, motivo: 'O início da viagem não pode ser desfeito.' }
+      await eventos.bulkDelete(ids as string[])
+      if (ultimos.some((e) => e.tipo === 'fim')) {
+        const viagem = await viagens.get(viagemId)
+        if (viagem?.status === 'concluida') await viagens.put({ ...viagem, status: 'em_andamento' })
+      }
+      return { ok: true as const }
+    })
+  }
+
+  /** Corrige o horário do fato de uma chegada ou saída, com as travas do núcleo. */
+  async corrigirHorarioDoEvento(
+    viagemId: string,
+    eventoId: string,
+    novoHorario: Instante,
+  ): Promise<{ ok: true } | { ok: false; motivo: string }> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, etapas, locais, trechos, eventos } = this.#db
+    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, async () => {
+      const dados = await this.carregarPlano(viagemId)
+      if (!dados) return { ok: false as const, motivo: 'Viagem não encontrada.' }
+      const lista = await this.listarEventos(viagemId)
+      const r = validarCorrecao(dados, lista, eventoId, novoHorario, agora())
+      if (!r.ok) return r
+      const evento = lista.find((e) => e.id === eventoId)!
+      await eventos.put(corrigirHorario(evento, novoHorario))
+      // A chegada no destino e o "fim" são o mesmo instante.
+      const destino = dados.etapas.find((e) => e.tipo === 'destino')
+      if (evento.tipo === 'chegada' && evento.etapaId === destino?.id) {
+        const fim = lista.find((e) => e.tipo === 'fim')
+        if (fim) await eventos.put(corrigirHorario(fim, novoHorario))
+      }
+      return { ok: true as const }
+    })
+  }
+
+  async #registrar(
+    viagemId: string,
+    passos: Array<{ conteudo: ConteudoEvento; horarioFato?: Instante; observacao?: string }>,
+  ): Promise<ResultadoRegistro> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, etapas, locais, trechos, eventos } = this.#db
+    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, async (): Promise<ResultadoRegistro> => {
+      const dados = await this.carregarPlano(viagemId)
+      if (!dados) return { ok: false, motivo: 'Viagem não encontrada.' }
+      const original = dados.viagem.planoOriginal
+      if (!original) return { ok: false, motivo: 'A viagem ainda não foi iniciada.' }
+      const momento = agora()
+      let lista = await this.listarEventos(viagemId)
+      const criados: Evento[] = []
+      let viagem = dados.viagem
+      for (const passo of passos) {
+        const horario = passo.horarioFato ?? momento
+        const r = validarRegistro({ ...dados, viagem }, original, lista, passo.conteudo, horario, momento)
+        if (!r.ok) return r
+        const evento = await this.#gravar(viagemId, lista, passo.conteudo, horario, momento, { observacao: passo.observacao })
+        criados.push(evento)
+        lista = [...lista, evento]
+        const destino = dados.etapas.find((e) => e.tipo === 'destino')
+        if (passo.conteudo.tipo === 'chegada' && passo.conteudo.etapaId === destino?.id) {
+          const fim = await this.#gravar(viagemId, lista, { tipo: 'fim' }, horario, momento, {})
+          criados.push(fim)
+          lista = [...lista, fim]
+          viagem = { ...viagem, status: 'concluida' }
+          await viagens.put(viagem)
+        }
+      }
+      return { ok: true, eventos: criados, viagem }
+    })
+  }
+
+  async #gravar(
+    viagemId: string,
+    lista: readonly Evento[],
+    conteudo: ConteudoEvento,
+    horarioFato: Instante,
+    registradoEm: Instante,
+    extra: { observacao?: string },
+  ): Promise<Evento> {
+    const sequencia = lista.reduce((m, e) => Math.max(m, e.sequencia ?? 0), 0) + 1
+    const evento = criarEvento(
+      {
+        id: novoId(),
+        viagemId,
+        horarioFato,
+        registradoEm,
+        sequencia,
+        ...(extra.observacao ? { observacao: extra.observacao } : {}),
+      },
+      conteudo,
+    )
+    await this.#db.eventos.add(evento)
+    return evento
   }
 
   // ---------- Limpeza ----------
