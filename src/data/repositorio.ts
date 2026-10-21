@@ -14,7 +14,9 @@ import { calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from
 import { paradaAberta, validarCorrecao, validarHorario, validarRegistro } from '../core/registro'
 import { agora, simuladoAtivo } from '../core/relogio'
 import { diferencaMin, naHoraDoDia, somarMinutos } from '../core/tempo'
-import type { DadosPlano, Etapa, Evento, Instante, Local, Trecho, Viagem } from '../core/tipos'
+import { eventosDaConferencia, type ContextoConferencia, type DecisaoDePendente, type EstadoConferencia } from '../core/conferencia'
+import { validarCadastro, validarExclusao, type DadosPassageiro } from '../core/passageiros'
+import type { DadosPlano, Etapa, Evento, Instante, Local, Passageiro, Trecho, Viagem } from '../core/tipos'
 import type { BancoBordo, Espaco } from './banco'
 
 export type ResultadoInicio =
@@ -110,12 +112,13 @@ export class Repositorio {
     })
   }
 
-  /** Remove a viagem com etapas, trechos e eventos. Os locais (catálogo) ficam. */
+  /** Remove a viagem com etapas, trechos, eventos e passageiros. Os locais (catálogo) ficam. */
   async excluirViagem(id: string): Promise<void> {
     this.#exigirRelogioDoEspaco()
-    const { viagens, etapas, trechos, eventos } = this.#db
-    await this.#db.transaction('rw', viagens, etapas, trechos, eventos, async () => {
+    const { viagens, etapas, trechos, eventos, passageiros } = this.#db
+    await this.#db.transaction('rw', viagens, etapas, trechos, eventos, passageiros, async () => {
       const ids = (await etapas.where('viagemId').equals(id).primaryKeys()) as string[]
+      await passageiros.where('viagemId').equals(id).delete()
       await trechos.where('etapaOrigemId').anyOf(ids).delete()
       await trechos.where('etapaDestinoId').anyOf(ids).delete()
       await etapas.where('viagemId').equals(id).delete()
@@ -257,6 +260,58 @@ export class Repositorio {
     })
   }
 
+  // ---------- Passageiros ----------
+
+  async listarPassageiros(viagemId: string): Promise<Passageiro[]> {
+    this.#exigirRelogioDoEspaco()
+    return this.#db.passageiros.where('viagemId').equals(viagemId).toArray()
+  }
+
+  /**
+   * Cadastra ou edita um passageiro (nome, embarque, desembarque). As regras vêm do núcleo:
+   * planejando vale tudo o que os selects oferecem; em andamento, só etapas de onde ainda
+   * não saímos. O status gravado é sempre "ativo".
+   */
+  async salvarPassageiro(viagemId: string, dados: DadosPassageiro, id?: string): Promise<Passageiro> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, etapas, eventos, passageiros } = this.#db
+    return this.#db.transaction('rw', viagens, etapas, eventos, passageiros, async () => {
+      const viagem = await viagens.get(viagemId)
+      if (!viagem) throw new EdicaoBloqueada('Viagem não encontrada.')
+      const atual = id ? await passageiros.get(id) : undefined
+      if (id && (!atual || atual.viagemId !== viagemId)) throw new EdicaoBloqueada('Passageiro não encontrado.')
+      const lista = await etapas.where('viagemId').equals(viagemId).toArray()
+      const historico = await eventos.where('viagemId').equals(viagemId).toArray()
+      const r = validarCadastro(dados, lista, { statusViagem: viagem.status, eventos: historico, atual })
+      if (!r.ok) throw new EdicaoBloqueada(r.motivo)
+      const salvo: Passageiro = {
+        id: atual?.id ?? novoId(),
+        viagemId,
+        nome: dados.nome.trim(),
+        etapaEmbarqueId: dados.etapaEmbarqueId,
+        etapaDesembarqueId: dados.etapaDesembarqueId,
+        status: 'ativo',
+      }
+      await passageiros.put(salvo)
+      return salvo
+    })
+  }
+
+  async excluirPassageiro(passageiroId: string): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, eventos, passageiros } = this.#db
+    await this.#db.transaction('rw', viagens, eventos, passageiros, async () => {
+      const p = await passageiros.get(passageiroId)
+      if (!p) return
+      const viagem = await viagens.get(p.viagemId)
+      if (!viagem) throw new EdicaoBloqueada('Viagem não encontrada.')
+      const historico = await eventos.where('viagemId').equals(p.viagemId).toArray()
+      const r = validarExclusao(passageiroId, { statusViagem: viagem.status, eventos: historico })
+      if (!r.ok) throw new EdicaoBloqueada(r.motivo)
+      await passageiros.delete(passageiroId)
+    })
+  }
+
   // ---------- Plano e início ----------
 
   /** Tudo o que o núcleo precisa do planejamento. */
@@ -323,8 +378,8 @@ export class Repositorio {
     opcoes: OpcoesRegistro & { retornoEm?: Instante } = {},
   ): Promise<ResultadoRegistro> {
     this.#exigirRelogioDoEspaco()
-    const { viagens, etapas, locais, trechos, eventos } = this.#db
-    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, async (): Promise<ResultadoRegistro> => {
+    const { viagens, etapas, locais, trechos, eventos, passageiros } = this.#db
+    return this.#db.transaction('rw', [viagens, etapas, locais, trechos, eventos, passageiros], async (): Promise<ResultadoRegistro> => {
       const lista = await this.listarEventos(viagemId)
       const passos: Array<{ conteudo: ConteudoEvento; horarioFato?: Instante; observacao?: string }> = []
       if (paradaAberta(lista, etapaId)) {
@@ -339,6 +394,43 @@ export class Repositorio {
       passos.push({ conteudo: { tipo: 'chegada', etapaId }, horarioFato: opcoes.horarioFato, observacao: opcoes.observacao })
       return this.#registrar(viagemId, passos)
     })
+  }
+
+  /**
+   * SAÍMOS com conferência: grava, na mesma transação, a conferência, um status para cada
+   * pendente e a saída. O DESFAZER desfaz tudo junto. O resultado da conferência vem do núcleo.
+   */
+  async registrarSaidaComConferencia(
+    viagemId: string,
+    etapaId: string,
+    conferencia: { contexto: ContextoConferencia; estado: EstadoConferencia; decisoes: readonly DecisaoDePendente[] },
+    opcoes: OpcoesRegistro = {},
+  ): Promise<ResultadoRegistro> {
+    const { contexto, estado, decisoes } = conferencia
+    if (contexto.momento !== 'saida' || contexto.etapaId !== etapaId) {
+      return { ok: false, motivo: 'A conferência não é da saída desta etapa.' }
+    }
+    return this.#registrar(viagemId, [
+      ...eventosDaConferencia(contexto, estado, decisoes).map((conteudo) => ({ conteudo })),
+      { conteudo: { tipo: 'saida', etapaId }, ...opcoes },
+    ])
+  }
+
+  /**
+   * VOLTAMOS com conferência: o fim da parada não planejada, a conferência (no modo
+   * "só alguns") e os status dos pendentes, ligados à próxima etapa, numa transação.
+   */
+  async registrarVoltaComConferencia(
+    viagemId: string,
+    conferencia: { contexto: ContextoConferencia; estado: EstadoConferencia; decisoes: readonly DecisaoDePendente[] },
+    opcoes: OpcoesRegistro = {},
+  ): Promise<ResultadoRegistro> {
+    const { contexto, estado, decisoes } = conferencia
+    if (contexto.momento !== 'volta') return { ok: false, motivo: 'A conferência não é da volta à estrada.' }
+    return this.#registrar(viagemId, [
+      { conteudo: { tipo: 'parada_nao_planejada', etapaId: contexto.etapaId, dados: { fase: 'fim' } }, ...opcoes },
+      ...eventosDaConferencia(contexto, estado, decisoes).map((conteudo) => ({ conteudo, ...(opcoes.horarioFato ? { horarioFato: opcoes.horarioFato } : {}) })),
+    ])
   }
 
   /** Chegada ou saída esquecida (ver `pendenciasDeRegistro`): o horário vem digitado. */
@@ -419,19 +511,20 @@ export class Repositorio {
     passos: Array<{ conteudo: ConteudoEvento; horarioFato?: Instante; observacao?: string }>,
   ): Promise<ResultadoRegistro> {
     this.#exigirRelogioDoEspaco()
-    const { viagens, etapas, locais, trechos, eventos } = this.#db
-    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, async (): Promise<ResultadoRegistro> => {
+    const { viagens, etapas, locais, trechos, eventos, passageiros } = this.#db
+    return this.#db.transaction('rw', [viagens, etapas, locais, trechos, eventos, passageiros], async (): Promise<ResultadoRegistro> => {
       const dados = await this.carregarPlano(viagemId)
       if (!dados) return { ok: false, motivo: 'Viagem não encontrada.' }
       const original = dados.viagem.planoOriginal
       if (!original) return { ok: false, motivo: 'A viagem ainda não foi iniciada.' }
       const momento = agora()
       let lista = await this.listarEventos(viagemId)
+      const todosPassageiros = await this.listarPassageiros(viagemId)
       const criados: Evento[] = []
       let viagem = dados.viagem
       for (const passo of passos) {
         const horario = passo.horarioFato ?? momento
-        const r = validarRegistro({ ...dados, viagem }, original, lista, passo.conteudo, horario, momento)
+        const r = validarRegistro({ ...dados, viagem }, original, lista, passo.conteudo, horario, momento, todosPassageiros)
         if (!r.ok) return r
         const evento = await this.#gravar(viagemId, lista, passo.conteudo, horario, momento, { observacao: passo.observacao })
         criados.push(evento)
@@ -478,17 +571,18 @@ export class Repositorio {
   /** Esvazia o banco deste espaço (usado ao reiniciar a demonstração). */
   async limparTudo(): Promise<void> {
     this.#exigirRelogioDoEspaco()
-    const { viagens, etapas, locais, trechos, eventos } = this.#db
-    await this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, async () => {
-      await Promise.all([viagens.clear(), etapas.clear(), locais.clear(), trechos.clear(), eventos.clear()])
+    const { viagens, etapas, locais, trechos, eventos, passageiros } = this.#db
+    await this.#db.transaction('rw', [viagens, etapas, locais, trechos, eventos, passageiros], async () => {
+      await Promise.all([viagens.clear(), etapas.clear(), locais.clear(), trechos.clear(), eventos.clear(), passageiros.clear()])
     })
   }
 
   /** Grava um plano completo de uma vez (semente da demonstração). */
-  async gravarPlano(dados: DadosPlano): Promise<void> {
+  async gravarPlano(dados: DadosPlano, listaDePassageiros: readonly Passageiro[] = []): Promise<void> {
     this.#exigirRelogioDoEspaco()
-    const { viagens, etapas, locais, trechos } = this.#db
-    await this.#db.transaction('rw', viagens, etapas, locais, trechos, async () => {
+    const { viagens, etapas, locais, trechos, passageiros } = this.#db
+    await this.#db.transaction('rw', viagens, etapas, locais, trechos, passageiros, async () => {
+      await passageiros.bulkPut([...listaDePassageiros])
       await viagens.put(dados.viagem)
       await etapas.bulkPut(dados.etapas)
       await locais.bulkPut(dados.locais)

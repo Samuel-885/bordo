@@ -2,7 +2,7 @@
 // em "planejando" e sem plano original, para ser aberto nas telas de planejamento.
 // Só mexe no repositório que recebe, que precisa ser o da demonstração.
 
-import { ETAPA, horaDemo, PLANO_DEMO } from '../demo/dados'
+import { ETAPA, horaDemo, PASSAGEIROS_DEMO, PLANO_DEMO } from '../demo/dados'
 import type { DadosPlano } from '../core/tipos'
 import { ErroDeEspaco, type Repositorio } from './repositorio'
 
@@ -25,9 +25,9 @@ export function planoDeDemonstracaoParaPlanejar(): DadosPlano {
   }
 }
 
-/** Apaga o banco da demonstração e grava o planejamento fictício. */
+/** Apaga o banco da demonstração e grava o planejamento e os 38 passageiros fictícios. */
 export async function semearDemonstracao(repo: Repositorio): Promise<void> {
   if (repo.espaco !== 'demo') throw new ErroDeEspaco('A semente da demonstração só vale para o banco da demonstração.')
   await repo.limparTudo()
-  await repo.gravarPlano(planoDeDemonstracaoParaPlanejar())
+  await repo.gravarPlano(planoDeDemonstracaoParaPlanejar(), PASSAGEIROS_DEMO)
 }
