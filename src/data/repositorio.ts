@@ -3,7 +3,13 @@
 // espaço: nunca pode existir banco real com relógio simulado.
 
 import { criarEvento } from '../core/eventos'
-import { moverEtapa, normalizarOrdem, paresVizinhos } from '../core/ordem'
+import {
+  etapasAposExcluir,
+  etapasAposSalvar,
+  moverEtapa,
+  normalizarOrdem,
+  trechosQueDeixamDeValer,
+} from '../core/ordem'
 import { calcularPlanoOriginal, type BloqueioInicio } from '../core/previsao'
 import { agora, simuladoAtivo } from '../core/relogio'
 import { diferencaMin, naHoraDoDia, somarMinutos } from '../core/tempo'
@@ -124,10 +130,7 @@ export class Repositorio {
     await this.#db.transaction('rw', viagens, etapas, trechos, async () => {
       await this.#exigirPlanejando(etapa.viagemId)
       const existentes = await etapas.where('viagemId').equals(etapa.viagemId).toArray()
-      const ja = existentes.find((e) => e.id === etapa.id)
-      const ordem = ja ? ja.ordem : Math.max(0, ...existentes.map((e) => e.ordem)) + 1
-      const lista = normalizarOrdem([...existentes.filter((e) => e.id !== etapa.id), { ...etapa, ordem }])
-      await etapas.bulkPut(lista)
+      await etapas.bulkPut(etapasAposSalvar(existentes, etapa))
       await this.#limparTrechosOrfaos(etapa.viagemId)
     })
   }
@@ -141,7 +144,7 @@ export class Repositorio {
       await this.#exigirPlanejando(etapa.viagemId)
       await etapas.delete(etapaId)
       const restantes = await etapas.where('viagemId').equals(etapa.viagemId).toArray()
-      await etapas.bulkPut(normalizarOrdem(restantes))
+      await etapas.bulkPut(etapasAposExcluir(restantes, etapaId))
       await this.#limparTrechosOrfaos(etapa.viagemId)
     })
   }
@@ -157,6 +160,32 @@ export class Repositorio {
       await etapas.bulkPut(moverEtapa(todas, etapaId, sentido))
       await this.#limparTrechosOrfaos(etapa.viagemId)
     })
+  }
+
+  // ---------- Prévia: trechos digitados que uma ação apagaria ----------
+
+  /** Quantos trechos digitados à mão (fonte "manual") salvar esta etapa apagaria. */
+  async contarManuaisApagadosAoSalvar(etapa: Etapa): Promise<number> {
+    return this.#contarManuais(etapa.viagemId, (existentes) => etapasAposSalvar(existentes, etapa))
+  }
+
+  async contarManuaisApagadosAoMover(etapaId: string, sentido: 'subir' | 'descer'): Promise<number> {
+    const etapa = await this.#db.etapas.get(etapaId)
+    if (!etapa) return 0
+    return this.#contarManuais(etapa.viagemId, (existentes) => moverEtapa(existentes, etapaId, sentido))
+  }
+
+  async contarManuaisApagadosAoExcluir(etapaId: string): Promise<number> {
+    const etapa = await this.#db.etapas.get(etapaId)
+    if (!etapa) return 0
+    return this.#contarManuais(etapa.viagemId, (existentes) => etapasAposExcluir(existentes, etapaId))
+  }
+
+  async #contarManuais(viagemId: string, depois: (existentes: Etapa[]) => Etapa[]): Promise<number> {
+    this.#exigirRelogioDoEspaco()
+    const existentes = await this.#db.etapas.where('viagemId').equals(viagemId).toArray()
+    const trechos = await this.listarTrechos(viagemId)
+    return trechosQueDeixamDeValer(depois(existentes), trechos).filter((t) => t.fonte === 'manual').length
   }
 
   // ---------- Locais (catálogo) ----------
@@ -293,17 +322,7 @@ export class Repositorio {
   async #limparTrechosOrfaos(viagemId: string): Promise<void> {
     const { etapas, trechos } = this.#db
     const lista = await etapas.where('viagemId').equals(viagemId).toArray()
-    const vizinhas = new Set(paresVizinhos(lista).map(([a, b]) => `${a.id}>${b.id}`))
-    const candidatos = new Map(
-      lista.map((e) => [e.id, new Set([...(e.localId ? [e.localId] : []), ...e.alternativas])]),
-    )
     const existentes = await trechos.where('etapaOrigemId').anyOf(lista.map((e) => e.id)).toArray()
-    const remover = existentes.filter(
-      (t) =>
-        !vizinhas.has(`${t.etapaOrigemId}>${t.etapaDestinoId}`) ||
-        !candidatos.get(t.etapaOrigemId)?.has(t.localOrigemId) ||
-        !candidatos.get(t.etapaDestinoId)?.has(t.localDestinoId),
-    )
-    await trechos.bulkDelete(remover.map(chaveTrecho))
+    await trechos.bulkDelete(trechosQueDeixamDeValer(lista, existentes).map(chaveTrecho))
   }
 }

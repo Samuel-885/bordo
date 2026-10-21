@@ -75,3 +75,8 @@ export function resumoDaEtapa(etapa: Etapa): string {
     }
   }
 }
+
+/** "1 tempo de trecho digitado à mão" / "3 tempos de trecho digitados à mão". */
+export function textoManuaisApagados(n: number): string {
+  return n === 1 ? '1 tempo de trecho digitado à mão' : `${n} tempos de trecho digitados à mão`
+}

@@ -13,7 +13,7 @@ import { Topo } from './componentes/Topo'
 import { formatarDuracao, horasEMinutosDe, minutosDeHorasEMinutos } from './logica/duracao'
 import { dataParaInstante, diasDepois, formatarData, formatarHora } from './logica/horarios'
 import { etiquetaDaEtapa } from './logica/rotulos'
-import { resumoDaEtapa, textoDoAviso, textoDoBloqueio, textoDaFonte, textoForaDeOrdem } from './logica/textos'
+import { resumoDaEtapa, textoDoAviso, textoManuaisApagados, textoDoBloqueio, textoDaFonte, textoForaDeOrdem } from './logica/textos'
 import { podeMover } from '../core/ordem'
 import { useDados } from './useDados'
 
@@ -87,6 +87,18 @@ function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemE
   const [confirmarInicio, setConfirmarInicio] = useState(false)
   const [confirmarExclusao, setConfirmarExclusao] = useState(false)
   const [bloqueiosDoInicio, setBloqueiosDoInicio] = useState<BloqueioInicio[]>([])
+  const [moverPendente, setMoverPendente] = useState<{ etapaId: string; sentido: 'subir' | 'descer'; apagados: number } | null>(null)
+
+  /** Move direto; se apagaria tempos digitados à mão, pede confirmação antes. */
+  async function pedirMover(etapaId: string, sentido: 'subir' | 'descer') {
+    try {
+      const apagados = await repo.contarManuaisApagadosAoMover(etapaId, sentido)
+      if (apagados > 0) setMoverPendente({ etapaId, sentido, apagados })
+      else await agir(() => repo.moverEtapa(etapaId, sentido))
+    } catch (x) {
+      await agir(() => Promise.reject(x))
+    }
+  }
 
   const nomeLocal = (id: string | null) => locais.find((l) => l.id === id)?.nome
 
@@ -140,7 +152,7 @@ function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemE
                   podeSubir={podeMover(etapas, etapa.id, 'subir')}
                   podeDescer={podeMover(etapas, etapa.id, 'descer')}
                   onAbrir={() => onEditarEtapa(etapa.id)}
-                  onMover={(sentido) => agir(() => repo.moverEtapa(etapa.id, sentido))}
+                  onMover={(sentido) => void pedirMover(etapa.id, sentido)}
                 />
                 {estadoProximo && (
                   <LinhaTrecho
@@ -207,6 +219,24 @@ function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemE
           </button>
         )}
       </main>
+
+      <Confirmar
+        aberto={moverPendente !== null}
+        titulo="Mover a etapa?"
+        perigo
+        rotuloConfirmar="Mover e apagar"
+        onCancelar={() => setMoverPendente(null)}
+        onConfirmar={() => {
+          const m = moverPendente
+          setMoverPendente(null)
+          if (m) void agir(() => repo.moverEtapa(m.etapaId, m.sentido))
+        }}
+      >
+        <p>
+          Mudar a ordem apaga {moverPendente ? textoManuaisApagados(moverPendente.apagados) : ''}, porque os trechos
+          mudam de vizinhas. Você terá de digitar de novo.
+        </p>
+      </Confirmar>
 
       <Confirmar
         aberto={confirmarInicio}

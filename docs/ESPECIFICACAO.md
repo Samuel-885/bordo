@@ -376,7 +376,7 @@ Aprovadas em 21/10/2026, na construção do planejamento com persistência. Comp
 **Persistência**
 
 - Dois bancos IndexedDB separados e com o mesmo esquema: `bordo` (real) e `bordo-demo` (demonstração). O relógio acompanha o espaço: entrar no espaço real liga o relógio real; entrar na demonstração liga o simulado, apaga o `bordo-demo` e regrava o planejamento fictício (também ao reiniciar). O repositório do banco real se recusa a trabalhar com o relógio simulado ligado, e o da demonstração, com o relógio real.
-- Só plano e eventos são guardados. Trechos só existem entre etapas vizinhas e entre locais que ainda são candidatos: ao reordenar, excluir uma etapa ou remover uma alternativa, os trechos digitados que deixaram de valer são apagados.
+- Só plano e eventos são guardados. Trechos só existem entre etapas vizinhas e entre locais que ainda são candidatos: ao reordenar, excluir uma etapa ou remover uma alternativa, os trechos digitados que deixaram de valer são apagados. Se a ação apagaria trechos digitados à mão (fonte "manual"), a tela pede confirmação informando quantos; sem trecho manual afetado, não pergunta.
 - Mudar a data de saída desloca junto os horários já gravados das etapas, sem mudar as horas.
 - Depois de iniciada, a viagem não aceita mais edição do planejamento; só o nome pode mudar.
 

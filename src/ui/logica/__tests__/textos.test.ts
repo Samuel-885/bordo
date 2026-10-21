@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { etiquetaDaEtapa } from '../rotulos'
-import { nomeDaEtapa, resumoDaEtapa, textoDoBloqueio } from '../textos'
+import { nomeDaEtapa, resumoDaEtapa, textoDoBloqueio, textoManuaisApagados } from '../textos'
 import { PLANO_DEMO } from '../../../demo/dados'
 
 const demo = (id: string) => PLANO_DEMO.etapas.find((e) => e.id === id)!
@@ -26,5 +26,10 @@ describe('textos das etapas', () => {
       'O trecho até "Café" está sem tempo definido.',
     )
     expect(nomeDaEtapa(demo('demo-origem'), PLANO_DEMO.locais)).toBe('Origem (Ponto de saída)')
+  })
+
+  it('texto da contagem de trechos digitados que serão apagados', () => {
+    expect(textoManuaisApagados(1)).toBe('1 tempo de trecho digitado à mão')
+    expect(textoManuaisApagados(3)).toBe('3 tempos de trecho digitados à mão')
   })
 })

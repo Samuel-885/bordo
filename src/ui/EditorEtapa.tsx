@@ -24,6 +24,7 @@ import {
 import { diasDepois, formatarHora } from './logica/horarios'
 import { CATEGORIAS, MOTIVOS, PERMANENCIAS_MIN, TIPOS_DE_ETAPA } from './logica/rotulos'
 import { formatarDuracao } from './logica/duracao'
+import { textoManuaisApagados } from './logica/textos'
 import { useDados } from './useDados'
 
 interface Props {
@@ -93,6 +94,9 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
   const [novoLocalPara, setNovoLocalPara] = useState<AlvoNovoLocal | null>(null)
   const [confirmarDia, setConfirmarDia] = useState(false)
   const [confirmarExclusao, setConfirmarExclusao] = useState(false)
+  /** Quantos tempos digitados à mão o Salvar ou o Excluir apagaria; 0 = não pergunta. */
+  const [apagadosAoSalvar, setApagadosAoSalvar] = useState<number | null>(null)
+  const [apagadosAoExcluir, setApagadosAoExcluir] = useState(0)
 
   const dataSaida = plano.viagem.dataSaida
   const outras = useMemo(() => plano.etapas.filter((e) => e.id !== id), [plano.etapas, id])
@@ -120,12 +124,32 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
     }
   }
 
+  /** Antes de gravar: se apagaria tempos digitados à mão, pergunta. */
+  async function gravarComConfirmacao() {
+    try {
+      const apagados = await repo.contarManuaisApagadosAoSalvar(convertida.etapa)
+      if (apagados > 0) setApagadosAoSalvar(apagados)
+      else await persistir()
+    } catch (x) {
+      setFalha(x instanceof Error ? x.message : 'Não foi possível salvar a etapa.')
+    }
+  }
+
   function salvar() {
     const e = validarFormulario(f)
     setErros(e)
     if (Object.keys(e).length > 0) return
     if (convertida.viradas.length > 0) setConfirmarDia(true)
-    else void persistir()
+    else void gravarComConfirmacao()
+  }
+
+  async function pedirExclusao() {
+    try {
+      setApagadosAoExcluir(await repo.contarManuaisApagadosAoExcluir(id))
+      setConfirmarExclusao(true)
+    } catch (x) {
+      setFalha(x instanceof Error ? x.message : 'Não foi possível excluir a etapa.')
+    }
   }
 
   async function excluir() {
@@ -329,7 +353,7 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
             Salvar
           </button>
           {existente && (
-            <button type="button" className="botao perigo" onClick={() => setConfirmarExclusao(true)}>
+            <button type="button" className="botao perigo" onClick={() => void pedirExclusao()}>
               Excluir
             </button>
           )}
@@ -343,7 +367,7 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
         onCancelar={() => setConfirmarDia(false)}
         onConfirmar={() => {
           setConfirmarDia(false)
-          void persistir()
+          void gravarComConfirmacao()
         }}
       >
         <p>
@@ -361,7 +385,28 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
         onCancelar={() => setConfirmarExclusao(false)}
         onConfirmar={excluir}
       >
-        <p>Os tempos de trecho digitados para esta etapa também serão apagados.</p>
+        <p>
+          {apagadosAoExcluir > 0
+            ? `Também serão apagados ${textoManuaisApagados(apagadosAoExcluir)} que ligavam esta etapa.`
+            : 'Esta etapa será removida do planejamento.'}
+        </p>
+      </Confirmar>
+
+      <Confirmar
+        aberto={apagadosAoSalvar !== null}
+        titulo="Apagar tempos digitados?"
+        perigo
+        rotuloConfirmar="Salvar e apagar"
+        onCancelar={() => setApagadosAoSalvar(null)}
+        onConfirmar={() => {
+          setApagadosAoSalvar(null)
+          void persistir()
+        }}
+      >
+        <p>
+          Esta alteração apaga {apagadosAoSalvar !== null ? textoManuaisApagados(apagadosAoSalvar) : ''}, porque o local
+          ou a posição deixou de valer. Você terá de digitar de novo.
+        </p>
       </Confirmar>
     </>
   )

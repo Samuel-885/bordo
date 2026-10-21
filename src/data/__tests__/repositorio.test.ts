@@ -211,3 +211,54 @@ describe('iniciar a viagem', () => {
     expect(await repo.iniciarViagem('nao-existe')).toEqual({ ok: false, motivo: 'viagem_inexistente' })
   })
 })
+
+describe('prévia dos tempos digitados que seriam apagados', () => {
+  const par = (de: string, lde: string, para: string, lpara: string) => ({
+    etapaOrigemId: de,
+    localOrigemId: lde,
+    etapaDestinoId: para,
+    localDestinoId: lpara,
+  })
+
+  it('sem tempo digitado à mão afetado, a contagem é zero (os trechos de rota ou outros não contam)', async () => {
+    // A semente tem 4 trechos "manual" ligados às alternativas do almoço.
+    expect(await repo.contarManuaisApagadosAoMover('demo-jantar', 'descer')).toBe(0)
+    await repo.salvarTrechoManual(VIAGEM, par('demo-jantar', 'demo-l-jantar', 'demo-destino', 'demo-l-chegada'), 130)
+    const jantar = (await repo.listarEtapas(VIAGEM)).find((e) => e.id === 'demo-jantar')!
+    expect(await repo.contarManuaisApagadosAoSalvar({ ...jantar, permanenciaMin: 10 })).toBe(0)
+  })
+
+  it('mover o café para cima apaga os 4 tempos que ligavam o almoço às vizinhas', async () => {
+    expect(await repo.contarManuaisApagadosAoMover('demo-cafe', 'subir')).toBe(4)
+    expect(await repo.listarTrechos(VIAGEM)).toHaveLength(4)
+  })
+
+  it('remover uma alternativa conta os tempos que passavam por ela, sem apagar nada ainda', async () => {
+    const almoco = (await repo.listarEtapas(VIAGEM)).find((e) => e.id === 'demo-almoco')!
+    expect(await repo.contarManuaisApagadosAoSalvar({ ...almoco, alternativas: ['demo-l-rest-c'] })).toBe(2)
+    expect(await repo.listarTrechos(VIAGEM)).toHaveLength(4)
+  })
+
+  it('trocar só a permanência ou adicionar alternativa não conta nada', async () => {
+    const almoco = (await repo.listarEtapas(VIAGEM)).find((e) => e.id === 'demo-almoco')!
+    expect(await repo.contarManuaisApagadosAoSalvar({ ...almoco, permanenciaMin: 45 })).toBe(0)
+    expect(await repo.contarManuaisApagadosAoSalvar({ ...almoco, alternativas: [...almoco.alternativas, 'demo-l-cafe'] })).toBe(0)
+  })
+
+  it('excluir uma etapa conta os tempos que ligavam a etapa', async () => {
+    expect(await repo.contarManuaisApagadosAoExcluir('demo-almoco')).toBe(4)
+    expect(await repo.contarManuaisApagadosAoExcluir('demo-jantar')).toBe(0)
+  })
+
+  it('etapa inexistente: zero', async () => {
+    expect(await repo.contarManuaisApagadosAoMover('nao-existe', 'subir')).toBe(0)
+    expect(await repo.contarManuaisApagadosAoExcluir('nao-existe')).toBe(0)
+  })
+
+  it('a contagem bate com o que a ação de fato apaga', async () => {
+    const n = await repo.contarManuaisApagadosAoMover('demo-cafe', 'subir')
+    const antes = (await repo.listarTrechos(VIAGEM)).length
+    await repo.moverEtapa('demo-cafe', 'subir')
+    expect(antes - (await repo.listarTrechos(VIAGEM)).length).toBe(n)
+  })
+})
