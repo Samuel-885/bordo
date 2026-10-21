@@ -2,7 +2,7 @@
 // zero a partir do plano e dos eventos; nada aqui é guardado.
 
 import { atrasoMin } from './atraso'
-import { antes, diferencaMin, ordenarPor, somarMinutos } from './tempo'
+import { antes, diferencaMin, ordenarPor, somarMinutos, truncarMinuto } from './tempo'
 import {
   duracaoComPuladas,
   ordenarEtapas,
@@ -290,8 +290,9 @@ export type BloqueioInicio =
  */
 export function calcularPlanoOriginal(
   d: DadosPlano,
-  agora: Instante,
+  agoraDoRelogio: Instante,
 ): { ok: true; plano: PlanoOriginal } | { ok: false; bloqueios: BloqueioInicio[] } {
+  const agora = truncarMinuto(agoraDoRelogio)
   const etapas = ordenarEtapas(d.etapas)
   const origem = etapas.find((e) => e.tipo === 'origem')
   const bloqueios: BloqueioInicio[] = []
@@ -328,8 +329,9 @@ export function calcularEstado(
   d: DadosPlano,
   original: PlanoOriginal,
   eventos: readonly Evento[],
-  agora: Instante,
+  agoraDoRelogio: Instante,
 ): EstadoViagem {
+  const agora = truncarMinuto(agoraDoRelogio)
   const fatos = indexarEventos(eventos)
   const origem = d.etapas.find((e) => e.tipo === 'origem')
   const saidaPlanejadaOrigem = original.etapas.find((o) => o.etapaId === origem?.id)?.saida ?? null

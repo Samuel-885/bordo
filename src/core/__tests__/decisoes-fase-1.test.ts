@@ -2,10 +2,10 @@
 
 import { describe, expect, it } from 'vitest'
 import { corrigirHorario, criarEvento } from '../eventos'
-import { calcularEstado, pendenciasDeRegistro } from '../previsao'
+import { calcularEstado, calcularPlanoOriginal, pendenciasDeRegistro } from '../previsao'
 import { validarRecalibracao } from '../recalibracao'
 import { instante } from '../tempo'
-import { congelar, esperarHorario, etapaDe, ev, EVENTOS_CASO_3, h, PLANO } from './fixtures'
+import { congelar, esperarHorario, etapaDe, ev, EVENTOS_CASO_2, EVENTOS_CASO_3, h, PLANO } from './fixtures'
 
 describe('recalibração aguardando a saída da origem', () => {
   const original = congelar()
@@ -100,5 +100,33 @@ describe('horários de evento em minutos inteiros', () => {
       ev.saida('origem', instante('2026-11-14T06:47:42-03:00')),
     ]
     expect(calcularEstado(PLANO, congelar(), eventos, h('06:50')).atrasoDestinoMin).toBe(17)
+  })
+})
+
+describe('relógio arredondado para baixo, para o minuto, na entrada do cálculo', () => {
+  const original = congelar()
+
+  it('a regra do relógio puxa a previsão para o minuto atual, sem segundos', () => {
+    const estado = calcularEstado(PLANO, original, EVENTOS_CASO_2, instante('2026-11-14T09:20:37-03:00'))
+    const saida = etapaDe(estado, 'monlevade').saida
+    expect(saida?.instante).toBe('2026-11-14T09:20:00-03:00')
+    expect(saida?.origem).toBe('relogio')
+    expect(estado.atrasoDestinoMin).toBe(40)
+  })
+
+  it('a parada não planejada em andamento conta minutos inteiros', () => {
+    const eventos = [...EVENTOS_CASO_3, ev.parada('almoco', 'inicio', h('10:00'))]
+    const estado = calcularEstado(PLANO, original, eventos, instante('2026-11-14T10:10:59-03:00'))
+    esperarHorario(etapaDe(estado, 'almoco').chegada?.instante, h('12:44'))
+  })
+
+  it('a validação da recalibração compara com o minuto atual', () => {
+    const r = validarRecalibracao(PLANO, original, EVENTOS_CASO_3, 'almoco', h('12:05'), instante('2026-11-14T12:05:30-03:00'))
+    expect(r).toEqual({ ok: true })
+  })
+
+  it('o plano original é congelado no minuto', () => {
+    const r = calcularPlanoOriginal(PLANO, instante('2026-11-14T06:00:45-03:00'))
+    expect(r.ok && r.plano.congeladoEm).toBe('2026-11-14T06:00:00-03:00')
   })
 })

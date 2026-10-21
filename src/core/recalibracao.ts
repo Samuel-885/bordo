@@ -2,7 +2,7 @@
 // O efeito no cálculo está em previsao.ts; aqui ficam as travas.
 
 import { calcularEstado } from './previsao'
-import { antes } from './tempo'
+import { antes, truncarMinuto } from './tempo'
 import type { DadosPlano, Evento, Instante, PlanoOriginal } from './tipos'
 
 export function validarRecalibracao(
@@ -11,8 +11,9 @@ export function validarRecalibracao(
   eventos: readonly Evento[],
   etapaId: string,
   horario: Instante,
-  agora: Instante,
+  agoraDoRelogio: Instante,
 ): { ok: true } | { ok: false; motivo: string } {
+  const agora = truncarMinuto(agoraDoRelogio)
   const etapa = d.etapas.find((e) => e.id === etapaId)
   if (!etapa) return { ok: false, motivo: 'Etapa não encontrada.' }
   if (etapa.tipo === 'destino') return { ok: false, motivo: 'Não existe recalibração direta do destino.' }

@@ -334,6 +334,7 @@ Aprovadas em 21/10/2026, na construção do núcleo de cálculo. Complementam e,
 **Horários**
 
 - Todo horário de evento (do fato, do registro, o informado na recalibração e o corrigido) é arredondado para baixo, para o minuto, ao ser criado. O app trabalha só com minutos inteiros.
+- O horário atual (`agora()`) também é arredondado para baixo, para o minuto, na entrada do cálculo e das validações. Assim a regra do relógio, as paradas em andamento e as travas trabalham com o mesmo minuto dos eventos; a previsão pode ficar até 59 segundos atrás do relógio, o que não aparece na tela.
 - Os horários são guardados com segundos (`2026-11-14T06:47:00-03:00`).
 - Horários nunca são comparados como texto: toda comparação e conta é feita pelo valor numérico.
 - Abre e fecha de um local são "HH:MM", um único horário por local, resolvidos pela data da chegada. Fecha antes de abrir significa fechar no dia seguinte; por isso, uma chegada depois da meia-noite também é comparada com o período que começou na véspera.

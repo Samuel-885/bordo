@@ -3,7 +3,7 @@
 
 import { CONFIG } from './config'
 import { calcularEstado } from './previsao'
-import { antes, diferencaMin, minutosDoDia, naHoraDoDia, somarMinutos } from './tempo'
+import { antes, diferencaMin, minutosDoDia, naHoraDoDia, somarMinutos, truncarMinuto } from './tempo'
 import type { DadosPlano, Etapa, Evento, Instante, Local, PlanoOriginal } from './tipos'
 
 export type ClasseAlternativa = 'viavel' | 'pouca_margem' | 'sem_horario' | 'inviavel' | 'sem_tempo'
@@ -88,9 +88,10 @@ export function avaliarAlternativas(
   d: DadosPlano,
   original: PlanoOriginal,
   eventos: readonly Evento[],
-  agora: Instante,
+  agoraDoRelogio: Instante,
   etapaId: string,
 ): AvaliacaoAlternativa[] {
+  const agora = truncarMinuto(agoraDoRelogio)
   const etapa = d.etapas.find((e) => e.id === etapaId)
   if (!etapa || etapa.tipo !== 'flexivel') return []
   const atual = calcularEstado(d, original, eventos, agora)
