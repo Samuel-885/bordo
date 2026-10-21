@@ -66,7 +66,7 @@ export function resumoDaEtapa(etapa: Etapa): string {
     case 'destino':
       return 'Chegada'
     case 'obrigatoria':
-      return `${rotuloDe(MOTIVOS, etapa.motivo)} · ${formatarDuracao(etapa.permanenciaMin)}`
+      return [etapa.motivo ? rotuloDe(MOTIVOS, etapa.motivo) : null, formatarDuracao(etapa.permanenciaMin)].filter(Boolean).join(' · ')
     case 'flexivel': {
       const janela =
         etapa.janelaInicio && etapa.janelaFim ? `janela ${formatarHora(etapa.janelaInicio)}–${formatarHora(etapa.janelaFim)}` : 'sem janela'
