@@ -69,7 +69,7 @@ export function Conferencia({ contexto, etapa, etapas, titulo, rotuloSair, desce
   const pendentes = pendentesDa(contexto, estado)
   const lista = listaParaTela(contexto, estado)
 
-  function trocarModo(modo: ModoConferencia) {
+  function aoTrocarModo(modo: ModoConferencia) {
     if (modo === estado.modo) return
     setEstado(trocarModo(contexto, etapas, estado, modo, etapa))
     setAvisoDaMarcacao(null)
@@ -131,7 +131,7 @@ export function Conferencia({ contexto, etapa, etapas, titulo, rotuloSair, desce
               type="button"
               className={`botao ${estado.modo === m.valor ? 'principal' : ''}`}
               aria-pressed={estado.modo === m.valor}
-              onClick={() => trocarModo(m.valor)}
+              onClick={() => aoTrocarModo(m.valor)}
             >
               {m.rotulo}
             </button>
