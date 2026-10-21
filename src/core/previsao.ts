@@ -123,19 +123,36 @@ function tempoParadoMin(
 
 // ---------- Percurso da primeira à última etapa ----------
 
-type Momento = 'chegada' | 'saida'
+export type Momento = 'chegada' | 'saida'
 const chave = (etapa: Etapa, m: Momento) => `${etapa.id}:${m}`
+
+interface MomentoDoPercurso {
+  etapaId: string
+  momento: Momento
+  chave: string
+  registrado: boolean
+}
+
+/** Chegadas e saídas das etapas ativas, em ordem (a origem só tem saída e o destino só chegada). */
+function momentosDoPercurso(ativas: readonly Etapa[], fatos: Fatos): MomentoDoPercurso[] {
+  const momentos: MomentoDoPercurso[] = []
+  for (const e of ativas) {
+    if (e.tipo !== 'origem') {
+      momentos.push({ etapaId: e.id, momento: 'chegada', chave: chave(e, 'chegada'), registrado: fatos.chegada.has(e.id) })
+    }
+    if (e.tipo !== 'destino') {
+      momentos.push({ etapaId: e.id, momento: 'saida', chave: chave(e, 'saida'), registrado: fatos.saida.has(e.id) })
+    }
+  }
+  return momentos
+}
 
 /**
  * A regra do relógio vale para o próximo evento ainda não registrado: o primeiro
  * sem registro depois do último registrado. Os seguintes partem dele.
  */
 function chaveDaRegraDoRelogio(ativas: readonly Etapa[], fatos: Fatos): string | null {
-  const momentos: { chave: string; registrado: boolean }[] = []
-  for (const e of ativas) {
-    if (e.tipo !== 'origem') momentos.push({ chave: chave(e, 'chegada'), registrado: fatos.chegada.has(e.id) })
-    if (e.tipo !== 'destino') momentos.push({ chave: chave(e, 'saida'), registrado: fatos.saida.has(e.id) })
-  }
+  const momentos = momentosDoPercurso(ativas, fatos)
   const ultimo = momentos.findLastIndex((m) => m.registrado)
   return momentos.find((m, i) => i > ultimo && !m.registrado)?.chave ?? null
 }
@@ -210,7 +227,8 @@ function percorrer(p: Percurso): EstadoEtapa[] {
           if (feitaEmTransito) {
             valor = recal.horario
           } else if (saidaAnterior) {
-            // Feita parado na etapa anterior: vira duração do trecho, a partir da saída.
+            // Feita parado na etapa anterior (ou aguardando a saída da origem):
+            // vira duração do trecho, a partir da saída real ou prevista.
             valor = somarMinutos(saidaAnterior, diferencaMin(recal.horario, recal.informadoEm))
           }
         } else if (saidaAnterior && trechoChegada.minutos !== null) {
@@ -330,6 +348,28 @@ export function calcularEstado(
     chegadaDestino: destino?.chegada ?? null,
     atrasoDestinoMin: destino?.chegada?.atrasoMin ?? null,
   }
+}
+
+// ---------- Pendências de registro ----------
+
+export interface PendenciaDeRegistro {
+  etapaId: string
+  momento: Momento
+}
+
+/**
+ * Chegadas e saídas esquecidas: sem registro, mas com um registro posterior no
+ * percurso. Por exemplo, chegada registrada sem a saída da etapa anterior (ou da
+ * origem). A regra do relógio não as empurra; a tela pede o horário.
+ */
+export function pendenciasDeRegistro(d: DadosPlano, eventos: readonly Evento[]): PendenciaDeRegistro[] {
+  const fatos = indexarEventos(eventos)
+  const ativas = ordenarEtapas(d.etapas).filter((e) => !fatos.puladas.has(e.id))
+  const momentos = momentosDoPercurso(ativas, fatos)
+  const ultimo = momentos.findLastIndex((m) => m.registrado)
+  return momentos
+    .filter((m, i) => i < ultimo && !m.registrado)
+    .map(({ etapaId, momento }) => ({ etapaId, momento }))
 }
 
 // ---------- Pular etapa ----------

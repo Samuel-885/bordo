@@ -18,13 +18,18 @@ export function validarRecalibracao(
   if (etapa.tipo === 'destino') return { ok: false, motivo: 'Não existe recalibração direta do destino.' }
 
   const estado = calcularEstado(d, original, eventos, agora)
-  if (estado.proximaEtapaId !== etapaId) {
-    return { ok: false, motivo: 'Só a próxima etapa pode ser recalibrada.' }
-  }
   const indice = estado.etapas.findIndex((e) => e.etapaId === etapaId)
+  if (estado.etapas[indice]?.estado !== 'pendente') {
+    return { ok: false, motivo: 'Esta etapa já foi alcançada ou pulada.' }
+  }
+  // "Parado" inclui aguardar a saída na origem.
   const anterior = estado.etapas.slice(0, indice).findLast((e) => e.estado !== 'pulada')
-  if (!estado.emTransito && anterior?.estado !== 'em_parada') {
-    return { ok: false, motivo: 'A recalibração só pode ser feita em trânsito ou parado na etapa anterior.' }
+  const tipoAnterior = d.etapas.find((e) => e.id === anterior?.etapaId)?.tipo
+  const paradoNaAnterior =
+    anterior?.estado === 'em_parada' || (tipoAnterior === 'origem' && anterior?.estado === 'pendente')
+  const emTransitoParaEla = estado.emTransito && estado.proximaEtapaId === etapaId
+  if (!paradoNaAnterior && !emTransitoParaEla) {
+    return { ok: false, motivo: 'A recalibração só vale para a próxima etapa, em trânsito ou parado na etapa anterior.' }
   }
   if (antes(horario, agora)) {
     return { ok: false, motivo: 'O horário informado é anterior ao horário atual.' }
