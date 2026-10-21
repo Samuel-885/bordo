@@ -33,7 +33,7 @@ export function resolverHora(hora: HoraDoDia, referencia: Instante): { instante:
 /**
  * Janela da parada flexível, ancorada no dia da chegada da etapa (ou da referência
  * anterior). Fim menor que início atravessa a meia-noite:
- * - com chegada conhecida e a hora dela menor que o fim, a chegada já está depois da
+ * - com chegada conhecida e a hora dela menor ou igual ao fim, a chegada já está depois da
  *   meia-noite: o início fica na véspera da chegada e o fim no dia da chegada;
  * - senão, o início fica no dia da âncora e o fim no dia seguinte.
  */
@@ -46,7 +46,7 @@ export function resolverJanela(
   const ini = naHoraDoDia(ancora, inicio)
   const f = naHoraDoDia(ancora, fim)
   if (!antes(f, ini)) return { inicio: ini, fim: f, atravessaMeiaNoite: false }
-  if (ancoraEhChegada && minutosDoDia(formatarHora(ancora)) < minutosDoDia(fim)) {
+  if (ancoraEhChegada && minutosDoDia(formatarHora(ancora)) <= minutosDoDia(fim)) {
     return { inicio: naHoraDoDia(ancora, inicio, -1), fim: f, atravessaMeiaNoite: true }
   }
   return { inicio: ini, fim: naHoraDoDia(ancora, fim, 1), atravessaMeiaNoite: true }

@@ -88,6 +88,15 @@ describe('formulário da etapa', () => {
     expect(avisos.some((a) => a.tipo === 'chegada_fora_da_janela')).toBe(false)
   })
 
+  it('chegada exatamente no fim da janela (01:00 do dia 15) está dentro, sem aviso', () => {
+    const f = { ...formularioDaEtapa(demo('demo-jantar')), categoria: 'jantar', hora: '01:00', janelaInicio: '23:00', janelaFim: '01:00' }
+    const { etapa } = etapaDoFormulario(f, ctx('demo-jantar'))
+    expect(etapa.janelaInicio).toBe('2026-11-14T23:00:00-03:00')
+    expect(etapa.janelaFim).toBe('2026-11-15T01:00:00-03:00')
+    const plano = { ...PLANO_DEMO, etapas: PLANO_DEMO.etapas.map((e) => (e.id === 'demo-jantar' ? etapa : e)) }
+    expect(avisosDoPlano(plano, estadosDoPlano(plano)).some((a) => a.tipo === 'chegada_fora_da_janela')).toBe(false)
+  })
+
   it('janela sem chegada prevista usa o dia da referência anterior', () => {
     const f = { ...formularioDaEtapa(demo('demo-jantar')), categoria: 'jantar', hora: '', janelaInicio: '20:00', janelaFim: '21:00' }
     const { etapa } = etapaDoFormulario(f, ctx('demo-jantar'))

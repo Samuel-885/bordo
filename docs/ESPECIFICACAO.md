@@ -384,8 +384,8 @@ Aprovadas em 21/10/2026, na construção do planejamento com persistência. Comp
 
 - Os campos pedem só "HH:MM". A data vem da saída do roteiro da etapa anterior mais próxima que tenha horário (ou do dia da saída da viagem). Hora menor que a dessa referência vai para o dia seguinte, com "+1 dia" e confirmação.
 - A janela da parada flexível é ancorada no dia da chegada da etapa (ou da referência anterior). Quando o fim é menor que o início (a janela atravessa a meia-noite):
-  - com a chegada conhecida e a hora dela menor que o fim, o início fica na véspera da chegada e o fim no dia da chegada (chegada 00:30 do dia 15, janela 23:00–01:00 → 23:00 do dia 14 até 01:00 do dia 15);
-  - senão (chegada às 01:00 ou depois, ou sem chegada prevista), o início fica no dia da âncora e o fim no dia seguinte.
+  - com a chegada conhecida e a hora dela menor ou igual ao fim (chegada exatamente no fim conta como dentro), o início fica na véspera da chegada e o fim no dia da chegada (chegada 00:30 do dia 15, janela 23:00–01:00 → 23:00 do dia 14 até 01:00 do dia 15);
+  - senão (chegada depois do fim, por exemplo 01:01 ou mais tarde, ou sem chegada prevista), o início fica no dia da âncora e o fim no dia seguinte.
 
 **Início da viagem**
 

@@ -43,9 +43,13 @@ describe('horários dos formulários', () => {
     expect(j).toEqual({ inicio: '2026-11-14T23:00:00-03:00', fim: '2026-11-15T01:00:00-03:00', atravessaMeiaNoite: true })
   })
 
-  it('chegada na mesma hora do fim ou depois dele não usa a véspera', () => {
+  it('chegada exatamente no fim da janela usa a véspera e conta como dentro', () => {
     const j = resolverJanela('23:00', '01:00', i('2026-11-15T01:00:00-03:00'), true)
-    expect(j.inicio).toBe('2026-11-15T23:00:00-03:00')
+    expect(j).toEqual({ inicio: '2026-11-14T23:00:00-03:00', fim: '2026-11-15T01:00:00-03:00', atravessaMeiaNoite: true })
+  })
+
+  it('chegada depois do fim da janela (01:01 ou mais tarde) não usa a véspera', () => {
+    expect(resolverJanela('23:00', '01:00', i('2026-11-15T01:01:00-03:00'), true).inicio).toBe('2026-11-15T23:00:00-03:00')
     expect(resolverJanela('23:00', '01:00', i('2026-11-15T12:00:00-03:00'), true).inicio).toBe('2026-11-15T23:00:00-03:00')
   })
 
