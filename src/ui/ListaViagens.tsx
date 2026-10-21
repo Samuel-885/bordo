@@ -11,7 +11,7 @@ import { useDados } from './useDados'
 interface Props {
   repo: Repositorio
   demo: boolean
-  onAbrir: (viagemId: string) => void
+  onAbrir: (viagem: Viagem) => void
   onEntrarNaDemonstracao: () => void
 }
 
@@ -38,7 +38,7 @@ export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao }: Pr
     }
     try {
       await repo.salvarViagem(viagem)
-      onAbrir(viagem.id)
+      onAbrir(viagem)
     } catch (x) {
       setFalha(x instanceof Error ? x.message : 'Não foi possível criar a viagem.')
     }
@@ -53,7 +53,7 @@ export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao }: Pr
         {ordenarPor(viagens ?? [], (v) => v.dataSaida)
           .reverse()
           .map((v) => (
-            <button key={v.id} type="button" className="viagem-item" onClick={() => onAbrir(v.id)}>
+            <button key={v.id} type="button" className="viagem-item" onClick={() => onAbrir(v)}>
               <strong>{v.nome || 'Sem nome'}</strong>
               <span>
                 {v.tipo === 'ida' ? 'Ida' : 'Volta'} · {dataBr(v.dataSaida)} · {STATUS[v.status]}

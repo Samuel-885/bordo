@@ -23,9 +23,11 @@ interface Props {
   onVoltar: () => void
   onEditarEtapa: (etapaId: string | null) => void
   onViagemExcluida: () => void
+  /** Abre a tela principal da viagem (depois de iniciada). */
+  onAbrirViagem: () => void
 }
 
-export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onViagemExcluida }: Props) {
+export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onViagemExcluida, onAbrirViagem }: Props) {
   const { dados: plano, erro, recarregar } = useDados(() => repo.carregarPlano(viagemId), `${repo.espaco}:${viagemId}`)
   const [falha, setFalha] = useState<string | null>(null)
 
@@ -60,6 +62,7 @@ export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onViagem
       onVoltar={onVoltar}
       onEditarEtapa={onEditarEtapa}
       onViagemExcluida={onViagemExcluida}
+      onAbrirViagem={onAbrirViagem}
     />
   )
 }
@@ -72,9 +75,10 @@ interface ConteudoProps {
   onVoltar: () => void
   onEditarEtapa: (etapaId: string | null) => void
   onViagemExcluida: () => void
+  onAbrirViagem: () => void
 }
 
-function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemExcluida }: ConteudoProps) {
+function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemExcluida, onAbrirViagem }: ConteudoProps) {
   const { viagem, etapas, locais } = plano
   const planejando = viagem.status === 'planejando'
   const estados = estadosDoPlano(plano)
@@ -107,6 +111,7 @@ function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemE
     await agir(async () => {
       const r = await repo.iniciarViagem(viagem.id)
       setBloqueiosDoInicio(r.ok === false && r.motivo === 'bloqueios' ? r.bloqueios : [])
+      if (r.ok) onAbrirViagem()
     })
   }
 
@@ -114,7 +119,7 @@ function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemE
     <>
       <Topo titulo={viagem.nome || 'Planejamento'} onVoltar={onVoltar} rotuloVoltar="Voltar às viagens" />
       <main className="conteudo">
-        {!planejando && <Iniciada plano={plano} />}
+        {!planejando && <Iniciada plano={plano} onAbrir={onAbrirViagem} />}
 
         <DadosDaViagem key={viagem.id} plano={plano} editavel={planejando} salvar={(v) => agir(() => repo.salvarViagem(v))} />
 
@@ -270,14 +275,17 @@ function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemE
   )
 }
 
-function Iniciada({ plano }: { plano: DadosPlano }) {
+function Iniciada({ plano, onAbrir }: { plano: DadosPlano; onAbrir: () => void }) {
   const inicio = plano.viagem.planoOriginal?.congeladoEm
   return (
     <div className="iniciada" role="status">
       <strong>Viagem iniciada{inicio ? ` às ${formatarHora(inicio)}` : ''}.</strong>
-      <p className="dica" style={{ margin: '4px 0 0' }}>
-        O planejamento está congelado. O acompanhamento da viagem chega na próxima fase.
+      <p className="dica" style={{ margin: '4px 0 8px' }}>
+        O planejamento está congelado.
       </p>
+      <button type="button" className="botao principal" onClick={onAbrir}>
+        Abrir a viagem
+      </button>
     </div>
   )
 }

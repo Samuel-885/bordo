@@ -53,7 +53,7 @@ textarea {
   top: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
   padding: 6px 12px;
   background: var(--atencao-fundo);
@@ -63,6 +63,11 @@ textarea {
 .faixa-demo strong {
   letter-spacing: 0.04em;
   flex: 1;
+}
+.faixa-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .faixa-demo .mono {
   font-family: var(--mono);
@@ -493,4 +498,286 @@ dialog.confirmar p {
 }
 dialog.confirmar .acoes {
   flex-direction: column-reverse;
+}
+
+/* ---------- Tela principal da viagem ---------- */
+
+.botao-topo {
+  font-size: 15px !important;
+  font-weight: 600;
+  border: 1px solid rgb(255 255 255 / 0.35) !important;
+  border-radius: 8px;
+  margin-right: 4px;
+}
+.viagem .cartao h2 {
+  margin-bottom: 4px;
+}
+.viagem .cartao p {
+  margin: 0;
+}
+.cartao.atencao {
+  background: var(--atencao-fundo);
+  border-color: var(--atencao-borda);
+}
+.situacao .rota {
+  font-size: 15px;
+  color: var(--texto-suave);
+}
+.estado-viagem {
+  font-size: 24px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.duas-colunas {
+  display: flex;
+  gap: 12px;
+}
+.duas-colunas > div {
+  flex: 1;
+  min-width: 0;
+}
+.duas-colunas .mono,
+.linha-grande .mono {
+  font-size: 24px;
+  font-weight: 600;
+}
+.hora-com-dia {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.1;
+  vertical-align: top;
+}
+.hora-com-dia small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--texto-suave);
+}
+.atraso {
+  margin-top: 8px !important;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.atraso.atrasado {
+  color: var(--perigo);
+}
+.atraso.no_horario,
+.atraso.adiantado {
+  color: var(--azul);
+}
+.linha-grande {
+  font-size: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.linha {
+  margin-top: 6px !important;
+}
+.suave {
+  color: var(--texto-suave);
+  font-weight: 400;
+}
+.cronometro {
+  font-size: 28px;
+  font-weight: 700;
+}
+.botao-principal {
+  min-height: 80px;
+  border-radius: 14px;
+  border: 0;
+  background: var(--azul);
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.botao-principal:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.secundarias {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.secundarias .botao {
+  font-size: 14px;
+  padding: 8px;
+  text-align: center;
+}
+.link-botao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--azul);
+}
+.riscado {
+  text-decoration: line-through;
+  color: var(--texto-suave);
+}
+
+/* ---------- Aviso com DESFAZER ---------- */
+
+.aviso-desfazer {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  max-width: 496px;
+  margin: 0 auto;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 12px;
+  background: var(--escuro);
+  color: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+}
+.aviso-desfazer span {
+  flex: 1;
+}
+.aviso-desfazer .botao {
+  background: #fff;
+  color: var(--azul);
+}
+
+/* ---------- Folha (painel de baixo) ---------- */
+
+dialog.folha {
+  width: 100%;
+  max-width: 520px;
+  margin: auto auto 0;
+  border: 0;
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+  color: var(--texto);
+  box-shadow: 0 -8px 32px rgb(0 0 0 / 0.3);
+}
+dialog.folha::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+dialog.folha h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+dialog.folha .acoes {
+  margin-top: 12px;
+}
+.opcoes {
+  border: 0;
+  padding: 0;
+  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.opcoes legend {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.opcao {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.opcao input {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------- Timeline ---------- */
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.t-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  text-align: left;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+}
+button.t-item {
+  cursor: pointer;
+}
+.t-hora {
+  min-width: 56px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.t-corpo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-wrap: anywhere;
+}
+.t-corpo small {
+  color: var(--texto-suave);
+}
+.t-atraso {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.t-atraso.atrasado {
+  color: var(--perigo);
+}
+.t-atraso.no_horario,
+.t-atraso.adiantado {
+  color: var(--azul);
+}
+
+/* ---------- Controles da demonstração ---------- */
+
+.faixa-painel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+.faixa-grupo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.faixa-grupo > span,
+.faixa-grupo > label {
+  font-weight: 600;
+  min-width: 96px;
+}
+.faixa-grupo input,
+.faixa-grupo select {
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: #fff;
+  font-family: var(--mono);
+}
+.faixa-grupo select {
+  font-family: var(--sans);
+  flex: 1;
+  min-width: 0;
+}
+.faixa-cenario p {
+  margin: 0 0 8px;
 }
