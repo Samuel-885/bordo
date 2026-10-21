@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { avisosDoPlano } from '../../../core/avisos'
+import { estadosDoPlano } from '../../../core/previsao'
 import { instante } from '../../../core/tempo'
 import type { Etapa } from '../../../core/tipos'
 import { PLANO_DEMO } from '../../../demo/dados'
@@ -71,6 +73,19 @@ describe('formulário da etapa', () => {
     expect(etapa.janelaInicio).toBe('2026-11-14T23:00:00-03:00')
     expect(etapa.janelaFim).toBe('2026-11-15T01:00:00-03:00')
     expect(viradas.map((v) => v.campo)).toEqual(['janelaFim'])
+  })
+
+  it('janela que atravessa a meia-noite com chegada às 00:30 do dia 15: 23:00 do dia 14 até 01:00 do dia 15, sem aviso', () => {
+    const f = { ...formularioDaEtapa(demo('demo-jantar')), categoria: 'jantar', hora: '00:30', janelaInicio: '23:00', janelaFim: '01:00' }
+    const { etapa, viradas } = etapaDoFormulario(f, ctx('demo-jantar'))
+    expect(etapa.chegadaRoteiro).toBe('2026-11-15T00:30:00-03:00')
+    expect(etapa.janelaInicio).toBe('2026-11-14T23:00:00-03:00')
+    expect(etapa.janelaFim).toBe('2026-11-15T01:00:00-03:00')
+    expect(viradas.map((v) => v.campo)).toEqual(['chegada', 'janelaFim'])
+
+    const plano = { ...PLANO_DEMO, etapas: PLANO_DEMO.etapas.map((e) => (e.id === 'demo-jantar' ? etapa : e)) }
+    const avisos = avisosDoPlano(plano, estadosDoPlano(plano))
+    expect(avisos.some((a) => a.tipo === 'chegada_fora_da_janela')).toBe(false)
   })
 
   it('janela sem chegada prevista usa o dia da referência anterior', () => {

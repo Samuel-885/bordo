@@ -164,7 +164,7 @@ export function etapaDoFormulario(f: FormEtapa, ctx: ContextoEtapa): EtapaDoForm
     etapa.alternativas = f.candidatos.filter((c) => c !== f.preferido)
     etapa.categoria = f.categoria
     if (f.janelaInicio && f.janelaFim) {
-      const j = resolverJanela(f.janelaInicio, f.janelaFim, etapa.chegadaRoteiro ?? referencia)
+      const j = resolverJanela(f.janelaInicio, f.janelaFim, etapa.chegadaRoteiro ?? referencia, etapa.chegadaRoteiro !== undefined)
       etapa.janelaInicio = j.inicio
       etapa.janelaFim = j.fim
       if (j.atravessaMeiaNoite) viradas.push({ campo: 'janelaFim', instante: j.fim })

@@ -29,12 +29,28 @@ describe('horários dos formulários', () => {
   })
 
   it('janela comum fica no dia da chegada', () => {
-    const j = resolverJanela('11:30', '14:00', i('2026-11-14T12:00:00-03:00'))
+    const j = resolverJanela('11:30', '14:00', i('2026-11-14T12:00:00-03:00'), true)
     expect(j).toEqual({ inicio: '2026-11-14T11:30:00-03:00', fim: '2026-11-14T14:00:00-03:00', atravessaMeiaNoite: false })
   })
 
-  it('janela que atravessa a meia-noite: fim menor que início é no dia seguinte', () => {
-    const j = resolverJanela('23:00', '01:00', i('2026-11-14T23:30:00-03:00'))
+  it('janela que atravessa a meia-noite, chegada antes da meia-noite: início no dia da chegada, fim no seguinte', () => {
+    const j = resolverJanela('23:00', '01:00', i('2026-11-14T23:30:00-03:00'), true)
+    expect(j).toEqual({ inicio: '2026-11-14T23:00:00-03:00', fim: '2026-11-15T01:00:00-03:00', atravessaMeiaNoite: true })
+  })
+
+  it('janela que atravessa a meia-noite, chegada depois da meia-noite (00:30 do dia 15): início na véspera, fim no dia da chegada', () => {
+    const j = resolverJanela('23:00', '01:00', i('2026-11-15T00:30:00-03:00'), true)
+    expect(j).toEqual({ inicio: '2026-11-14T23:00:00-03:00', fim: '2026-11-15T01:00:00-03:00', atravessaMeiaNoite: true })
+  })
+
+  it('chegada na mesma hora do fim ou depois dele não usa a véspera', () => {
+    const j = resolverJanela('23:00', '01:00', i('2026-11-15T01:00:00-03:00'), true)
+    expect(j.inicio).toBe('2026-11-15T23:00:00-03:00')
+    expect(resolverJanela('23:00', '01:00', i('2026-11-15T12:00:00-03:00'), true).inicio).toBe('2026-11-15T23:00:00-03:00')
+  })
+
+  it('sem chegada, a âncora é a referência anterior: início no dia dela e fim no seguinte', () => {
+    const j = resolverJanela('23:00', '01:00', i('2026-11-14T00:10:00-03:00'), false)
     expect(j).toEqual({ inicio: '2026-11-14T23:00:00-03:00', fim: '2026-11-15T01:00:00-03:00', atravessaMeiaNoite: true })
   })
 

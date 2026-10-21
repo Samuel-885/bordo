@@ -1,7 +1,7 @@
 // Conversão entre os campos "HH:MM" dos formulários e os horários completos com fuso.
 // Os formulários só pedem a hora; a data vem da etapa anterior (ou da data de saída).
 
-import { antes, diferencaMin, instante, naHoraDoDia, somarMinutos, truncarMinuto } from '../../core/tempo'
+import { antes, diferencaMin, instante, minutosDoDia, naHoraDoDia, somarMinutos, truncarMinuto } from '../../core/tempo'
 import { ordenarEtapas, saidaRoteiro } from '../../core/trechos'
 import type { Etapa, HoraDoDia, Instante } from '../../core/tipos'
 
@@ -32,18 +32,24 @@ export function resolverHora(hora: HoraDoDia, referencia: Instante): { instante:
 
 /**
  * Janela da parada flexível, ancorada no dia da chegada da etapa (ou da referência
- * anterior). Fim menor que o início é no dia seguinte.
+ * anterior). Fim menor que início atravessa a meia-noite:
+ * - com chegada conhecida e a hora dela menor que o fim, a chegada já está depois da
+ *   meia-noite: o início fica na véspera da chegada e o fim no dia da chegada;
+ * - senão, o início fica no dia da âncora e o fim no dia seguinte.
  */
 export function resolverJanela(
   inicio: HoraDoDia,
   fim: HoraDoDia,
   ancora: Instante,
+  ancoraEhChegada: boolean,
 ): { inicio: Instante; fim: Instante; atravessaMeiaNoite: boolean } {
   const ini = naHoraDoDia(ancora, inicio)
   const f = naHoraDoDia(ancora, fim)
-  return antes(f, ini)
-    ? { inicio: ini, fim: naHoraDoDia(ancora, fim, 1), atravessaMeiaNoite: true }
-    : { inicio: ini, fim: f, atravessaMeiaNoite: false }
+  if (!antes(f, ini)) return { inicio: ini, fim: f, atravessaMeiaNoite: false }
+  if (ancoraEhChegada && minutosDoDia(formatarHora(ancora)) < minutosDoDia(fim)) {
+    return { inicio: naHoraDoDia(ancora, inicio, -1), fim: f, atravessaMeiaNoite: true }
+  }
+  return { inicio: ini, fim: naHoraDoDia(ancora, fim, 1), atravessaMeiaNoite: true }
 }
 
 /** "AAAA-MM-DD" → meia-noite desse dia com fuso. */
