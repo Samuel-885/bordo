@@ -71,6 +71,8 @@ export const MOTIVOS_DE_PARADA: Array<{ valor: MotivoParada; rotulo: string }> =
   { valor: 'policia', rotulo: 'Polícia' },
   { valor: 'banheiro', rotulo: 'Banheiro' },
   { valor: 'passageiro_mal', rotulo: 'Passageiro passando mal' },
+  { valor: 'acidente', rotulo: 'Acidente na estrada' },
+  { valor: 'transito_parado', rotulo: 'Trânsito parado' },
   { valor: 'outro', rotulo: 'Outro' },
 ]
 

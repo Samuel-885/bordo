@@ -107,7 +107,14 @@ export type TipoImprevisto =
   | 'atraso'
   | 'outro'
 
-export type MotivoParada = 'pneu' | 'policia' | 'banheiro' | 'passageiro_mal' | 'outro'
+export type MotivoParada =
+  | 'pneu'
+  | 'policia'
+  | 'banheiro'
+  | 'passageiro_mal'
+  | 'acidente'
+  | 'transito_parado'
+  | 'outro'
 
 export type ResultadoConferencia = 'completa' | 'completa_por_contagem' | 'incompleta'
 

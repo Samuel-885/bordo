@@ -414,6 +414,11 @@ Aprovadas em 21/10/2026, na construção da tela principal, dos registros, da ti
 - Desfazer apaga os eventos criados por aquele registro, identificados pelo id, e só se ainda forem os últimos da viagem pela sequência de gravação. Se houve outro registro depois, recusa e manda corrigir pela timeline.
 - Um registro pode criar mais de um evento (VOLTAMOS + chegada; chegada no destino + "fim"): desfaz-se tudo junto. Desfazer a chegada no destino reabre a viagem (status "em andamento"). O evento "início" nunca é desfeito.
 
+**Motivos, imprevisto e parada**
+
+- Os motivos do PARAMOS passam a ser: pneu, polícia, banheiro, passageiro passando mal, acidente na estrada, trânsito parado e outro (os dois novos são "Acidente na estrada" e "Trânsito parado").
+- A folha de REGISTRAR IMPREVISTO avisa: "O ônibus está parado? Use PARAMOS para a previsão contar o tempo parado." Em viagem, ela oferece o botão "Usar PARAMOS", que fecha a folha e abre o PARAMOS. O imprevisto continua sem alterar o cálculo.
+
 **Parada não planejada esquecida aberta**
 
 - Com PARAMOS sem VOLTAMOS, o botão principal é VOLTAMOS. Se for registrar CHEGAMOS mesmo assim, a tela pergunta primeiro a que horas voltamos à estrada (mesma regra de horário) e grava o VOLTAMOS antes da chegada, numa só operação. A volta não pode ser antes do PARAMOS nem depois de agora.
@@ -429,9 +434,11 @@ Aprovadas em 21/10/2026, na construção da tela principal, dos registros, da ti
 **Demonstração**
 
 - Os cenários rodam no banco da demonstração: escolher um cenário reinicia o banco, liga o relógio em `cenario.inicio`, inicia a viagem de verdade e fica no passo 0. Cada passo de registro passa pelo mesmo repositório e pelas mesmas travas da viagem real. O primeiro registro feito pelos botões liga o modo livre.
+- Os controles ganham o botão "Relógio parado / Relógio correndo". Correndo, o relógio simulado avança em tempo real a partir do horário simulado atual; definir horário e +5/+15/+60 continuam valendo, e ele segue correndo dali. O padrão é parado. Escolher ou reiniciar um cenário, ou reiniciar a demonstração, volta a parado, para cenários e testes continuarem determinísticos. A viagem real nunca usa o simulado, e só `relogio.ts` lê o relógio do sistema.
 - Eventos de passageiro e de conferência dos cenários são gravados, mas a timeline os mostra de forma genérica e sem nomes, até a fase 5.
 
 **PWA**
 
 - Service worker gerado com Workbox: tudo o que o build emite entra no cache (o app abre sem internet depois da primeira visita). As fontes IBM Plex são hospedadas no próprio app (subconjunto latino).
+- O ícone do app e o favicon são o mesmo "B" branco sobre `#14181F`, com a barra azul `#1E4FD8`.
 - Versão nova do app não recarrega sozinha: aparece o aviso "Nova versão do Bordo" e a troca só acontece quando a pessoa toca em Atualizar.

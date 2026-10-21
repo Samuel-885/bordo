@@ -407,6 +407,8 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimelin
           ocupado={ocupado}
           erro={erro}
           agora={agora}
+          emViagem={s.situacao === 'em_viagem'}
+          onUsarParamos={() => abrir('parada')}
           onCancelar={fechar}
           onConfirmar={async ({ horario, categoria, observacao }: { horario: Instante; categoria: TipoImprevisto; observacao: string }) => {
             const ok = await registrarConteudo({ tipo: 'imprevisto', dados: { categoria } }, 'Imprevisto registrado.', {

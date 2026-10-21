@@ -41,11 +41,17 @@ export function useAgora(): Instante {
         armar()
       }
     }
+    // Relógio ou dados mudaram (a demonstração pode ter ligado o relógio correndo): redesenha e rearma.
+    const aoMudar = () => {
+      atualizar()
+      clearTimeout(timer)
+      armar()
+    }
     armar()
     document.addEventListener('visibilitychange', aoVoltar)
     window.addEventListener('focus', aoVoltar)
     window.addEventListener('pageshow', aoVoltar)
-    window.addEventListener(EVENTO, atualizar)
+    window.addEventListener(EVENTO, aoMudar)
     return () => {
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', aoVoltar)

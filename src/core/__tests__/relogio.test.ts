@@ -1,7 +1,17 @@
 // Relógio real e simulado. O simulado nunca vaza para a viagem real.
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { avancarSimulado, agora, definirSimulado, simuladoAtivo, usarRelogioReal, usarRelogioSimulado } from '../relogio'
+import {
+  avancarSimulado,
+  agora,
+  correrSimulado,
+  definirSimulado,
+  pararSimulado,
+  simuladoAtivo,
+  simuladoCorrendo,
+  usarRelogioReal,
+  usarRelogioSimulado,
+} from '../relogio'
 import { diferencaMin, instante } from '../tempo'
 
 const INICIO = instante('2026-11-14T06:30:00-03:00')
@@ -83,5 +93,66 @@ describe('relógio simulado', () => {
     usarRelogioReal()
     expect(simuladoAtivo()).toBe(false)
     expect(agora()).toBe('2026-11-14T09:00:00-03:00')
+  })
+})
+
+describe('relógio simulado correndo', () => {
+  function ligar() {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-11-14T12:00:00Z'))
+    usarRelogioSimulado(INICIO)
+  }
+
+  it('o padrão é parado: o tempo real não mexe no simulado', () => {
+    ligar()
+    expect(simuladoCorrendo()).toBe(false)
+    vi.advanceTimersByTime(10 * 60_000)
+    expect(agora()).toBe(INICIO)
+  })
+
+  it('correndo, avança em tempo real a partir do horário simulado', () => {
+    ligar()
+    correrSimulado()
+    expect(simuladoCorrendo()).toBe(true)
+    vi.advanceTimersByTime(90_000)
+    expect(agora()).toBe('2026-11-14T06:31:30-03:00')
+  })
+
+  it('parar congela no minuto em que está', () => {
+    ligar()
+    correrSimulado()
+    vi.advanceTimersByTime(150_000)
+    pararSimulado()
+    expect(simuladoCorrendo()).toBe(false)
+    expect(agora()).toBe('2026-11-14T06:32:00-03:00')
+    vi.advanceTimersByTime(60 * 60_000)
+    expect(agora()).toBe('2026-11-14T06:32:00-03:00')
+  })
+
+  it('avançar e definir continuam valendo e o relógio segue correndo dali', () => {
+    ligar()
+    correrSimulado()
+    vi.advanceTimersByTime(45_000)
+    avancarSimulado(15)
+    expect(agora()).toBe('2026-11-14T06:45:00-03:00')
+    vi.advanceTimersByTime(30_000)
+    expect(agora()).toBe('2026-11-14T06:45:30-03:00')
+    definirSimulado(instante('2026-11-14T10:00:00-03:00'))
+    vi.advanceTimersByTime(60_000)
+    expect(agora()).toBe('2026-11-14T10:01:00-03:00')
+    expect(simuladoCorrendo()).toBe(true)
+  })
+
+  it('ligar o simulado de novo (cenário, reiniciar) volta a parado; o real nunca corre', () => {
+    ligar()
+    correrSimulado()
+    usarRelogioSimulado(INICIO)
+    expect(simuladoCorrendo()).toBe(false)
+    correrSimulado()
+    usarRelogioReal()
+    expect(simuladoCorrendo()).toBe(false)
+    expect(simuladoAtivo()).toBe(false)
+    expect(() => correrSimulado()).toThrow()
+    expect(() => pararSimulado()).toThrow()
   })
 })

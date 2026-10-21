@@ -802,3 +802,19 @@ button.t-item {
   flex: 1;
   min-width: 200px;
 }
+
+.aviso-paramos {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--atencao-fundo);
+  border: 1px solid var(--atencao-borda);
+  font-size: 14px;
+}
+.aviso-paramos p {
+  margin: 0;
+}

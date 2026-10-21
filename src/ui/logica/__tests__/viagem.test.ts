@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { calcularPlanoOriginal } from '../../../core/previsao'
 import { criarEvento } from '../../../core/eventos'
 import { ETAPA, horaDemo, LOCAL, PLANO_DEMO } from '../../../demo/dados'
+import { MOTIVOS_DE_PARADA } from '../rotulos'
 import { avisoDeDia, horaValida, resolverHorarioPassado, resolverHorarioProximo } from '../horarioDigitado'
 import { linkGoogleMaps } from '../linkMaps'
 import { mesmoInstante } from '../../../core/tempo'
@@ -84,5 +85,22 @@ describe('timeline', () => {
     expect(t.map((x) => x.corrigivel)).toEqual([false, true, true, false])
     expect(t[1]!.titulo).toContain('Saímos de Origem')
     expect(t[3]!.titulo).toContain('Restaurante C')
+  })
+})
+
+describe('motivos do PARAMOS', () => {
+  it('inclui acidente na estrada e trânsito parado, e a timeline mostra o rótulo', () => {
+    expect(MOTIVOS_DE_PARADA.map((m) => m.valor)).toEqual(
+      expect.arrayContaining(['acidente', 'transito_parado']),
+    )
+    const calculo = calcularPlanoOriginal(PLANO_DEMO, horaDemo('06:00'))
+    if (!calculo.ok) throw new Error('plano')
+    const base = (id: string, hora: string, seq: number) => ({ id, viagemId: 'v', horarioFato: horaDemo(hora), registradoEm: horaDemo(hora), sequencia: seq })
+    const eventos = [
+      criarEvento(base('a', '09:00', 1), { tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'inicio', motivo: 'acidente' } }),
+      criarEvento(base('b', '10:00', 2), { tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'inicio', motivo: 'transito_parado' } }),
+    ]
+    const t = montarTimeline(PLANO_DEMO, calculo.plano, eventos, horaDemo('11:00'))
+    expect(t.map((x) => x.detalhe)).toEqual(['Acidente na estrada', 'Trânsito parado'])
   })
 })

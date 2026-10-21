@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { avancarSimulado, definirSimulado, simuladoAtivo, type PassoRelogio } from '../../core/relogio'
+import { avancarSimulado, correrSimulado, definirSimulado, pararSimulado, simuladoAtivo, simuladoCorrendo, type PassoRelogio } from '../../core/relogio'
 import { CENARIOS, type Cenario } from '../../demo/cenarios'
 import type { ExecutorNoBanco } from '../../demo/executorNoBanco'
 import { horaValida, resolverHorarioProximo } from '../logica/horarioDigitado'
@@ -73,6 +73,18 @@ export function FaixaDemo({ executor, onReiniciar, onSair, onEscolherCenario }: 
                 {m === 60 ? '+60 min' : `+${m} min`}
               </button>
             ))}
+            <button
+              type="button"
+              className="botao pequeno"
+              aria-pressed={simuladoCorrendo()}
+              onClick={() => {
+                if (simuladoCorrendo()) pararSimulado()
+                else correrSimulado()
+                avisarMudanca()
+              }}
+            >
+              {simuladoCorrendo() ? 'Relógio correndo' : 'Relógio parado'}
+            </button>
           </div>
           <form
             className="faixa-grupo"

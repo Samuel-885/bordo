@@ -41,7 +41,13 @@ export function FolhaParada({ aberta, ocupado, erro, onConfirmar, onCancelar }: 
 
 export function FolhaImprevisto({
   aberta, ocupado, erro, agora, onConfirmar, onCancelar,
-}: Comum & { onConfirmar: (dados: { horario: Instante; categoria: TipoImprevisto; observacao: string }) => void }) {
+  emViagem, onUsarParamos,
+}: Comum & {
+  /** Em viagem, oferece ir direto ao PARAMOS. */
+  emViagem: boolean
+  onUsarParamos: () => void
+  onConfirmar: (dados: { horario: Instante; categoria: TipoImprevisto; observacao: string }) => void
+}) {
   const [hora, setHora] = useState(() => formatarHora(agora))
   const [categoria, setCategoria] = useState<TipoImprevisto>('transito')
   const [observacao, setObservacao] = useState('')
@@ -57,6 +63,14 @@ export function FolhaImprevisto({
       onCancelar={onCancelar}
       onConfirmar={() => resolvido && onConfirmar({ horario: resolvido, categoria, observacao: observacao.trim() })}
     >
+      <div className="aviso-paramos">
+        <p>O ônibus está parado? Use PARAMOS para a previsão contar o tempo parado.</p>
+        {emViagem && (
+          <button type="button" className="botao pequeno" onClick={onUsarParamos}>
+            Usar PARAMOS
+          </button>
+        )}
+      </div>
       <CampoHora id="imprevisto-hora" rotulo="Horário" valor={hora} onMudar={setHora} resolvido={resolvido} agora={agora} />
       <div className="campo">
         <label htmlFor="imprevisto-tipo">Tipo</label>
