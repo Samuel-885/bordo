@@ -323,6 +323,17 @@ export function calcularPlanoOriginal(
   }
 }
 
+/**
+ * Horários e trechos do planejamento, como em `calcularPlanoOriginal`, mas também
+ * quando há bloqueios: o que não tem como ser calculado fica vazio. Serve para a
+ * tela de planejamento mostrar o que existe e o que falta.
+ */
+export function estadosDoPlano(d: DadosPlano): EstadoEtapa[] {
+  const origem = ordenarEtapas(d.etapas).find((e) => e.tipo === 'origem')
+  const saidaOrigem = origem ? saidaRoteiro(origem) : null
+  return percorrer({ d, fatos: SEM_FATOS, original: null, agora: null, saidaPlanejadaOrigem: saidaOrigem })
+}
+
 // ---------- Estado da viagem ----------
 
 export function calcularEstado(
