@@ -70,3 +70,20 @@ describe('cenários no banco da demonstração', () => {
     await expect(ExecutorNoBanco.iniciar(repo, CENARIOS[0]!)).rejects.toThrow()
   })
 })
+
+describe('cenário "passageiro faltando"', () => {
+  it('grava a conferência incompleta de Monlevade antes da saída e deixa 37 esperados dali em diante', async () => {
+    const cenario = CENARIOS.find((c) => c.id === 'passageiro-faltando')!
+    const repo = repositorioDeTeste('demo')
+    const executor = await ExecutorNoBanco.iniciar(repo, cenario)
+    while (await executor.avancarPasso()) {
+      /* roda todos os passos */
+    }
+    const eventos = (await repo.listarEventos(VIAGEM_DEMO_ID)).sort((a, b) => (a.sequencia ?? 0) - (b.sequencia ?? 0))
+    const tipos = eventos.map((e) => e.tipo)
+    expect(tipos.slice(-3)).toEqual(['conferencia', 'status_passageiro', 'saida'])
+    const conferencia = eventos.find((e) => e.tipo === 'conferencia')
+    expect(conferencia).toMatchObject({ dados: { resultado: 'incompleta', confirmados: expect.any(Array), pendentes: ['demo-p-38'] } })
+    expect(conferencia?.tipo === 'conferencia' && conferencia.dados.confirmados).toHaveLength(37)
+  })
+})

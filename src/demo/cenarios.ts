@@ -69,8 +69,8 @@ export const CENARIOS: Cenario[] = [
     id: 'passageiro-faltando',
     nome: 'Passageiro faltando',
     descricao:
-      'Em Monlevade, um dos 3 passageiros que embarcam ali não aparece: a contagem de 37 não bate com os 38 esperados, ' +
-      'e ele é marcado como "não embarcou". A conferência por nome é da fase 5.',
+      'Em Monlevade, um dos 3 passageiros que embarcam ali não aparece: a contagem de 37 não bate com os 38 esperados. ' +
+      'A conferência por nome fica incompleta e ele sai como "não embarcou". Os demais cenários saem sem conferência.',
     inicio: INICIO_PADRAO,
     passos: [
       relogio('06:30', 'São 06:30.'),
@@ -78,6 +78,17 @@ export const CENARIOS: Cenario[] = [
       relogio('08:25', 'São 08:25.'),
       chegamos(ETAPA.monlevade, 'CHEGAMOS em Monlevade.'),
       avancar(15, 'Passam 15 min e o passageiro 38 não apareceu.'),
+      registrar('Conferência incompleta: 37 de 38 a bordo, falta o passageiro 38.', {
+        tipo: 'conferencia',
+        etapaId: ETAPA.monlevade,
+        dados: {
+          momento: 'saida',
+          modo: 'so_alguns',
+          confirmados: Array.from({ length: 37 }, (_, i) => idPassageiroDemo(i + 1)),
+          pendentes: [idPassageiroDemo(38)],
+          resultado: 'incompleta',
+        },
+      }),
       registrar('Passageiro 38 marcado como "não embarcou".', {
         tipo: 'status_passageiro',
         etapaId: ETAPA.monlevade,
