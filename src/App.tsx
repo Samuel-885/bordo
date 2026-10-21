@@ -17,6 +17,7 @@ import { ListaViagens } from './ui/ListaViagens'
 import { Planejamento } from './ui/Planejamento'
 import { TelaViagem } from './ui/TelaViagem'
 import { Timeline } from './ui/Timeline'
+import { viagemParaAbrirDireto } from './ui/logica/viagemInicial'
 import { avisarMudanca } from './ui/useAgora'
 
 type Tela =
@@ -79,6 +80,19 @@ function App() {
     window.addEventListener('popstate', aoVoltar)
     return () => window.removeEventListener('popstate', aoVoltar)
   }, [])
+
+  // Ao abrir no espaço real, uma única viagem em andamento abre direto; a lista fica no voltar.
+  const jaDecidiuAbertura = useRef(false)
+  useEffect(() => {
+    if (jaDecidiuAbertura.current) return
+    jaDecidiuAbertura.current = true
+    const repoInicial = repo
+    void repoInicial.listarViagens().then((viagens) => {
+      const v = viagemParaAbrirDireto(viagens)
+      // Se a pessoa já navegou (ou entrou na demonstração) enquanto lia o banco, não mexe.
+      if (v && indice.current === 0 && repoInicial.espaco === 'real') irPara({ nome: 'viagem', viagemId: v.id })
+    })
+  }, [repo, irPara])
 
   const demo = repo.espaco === 'demo'
 

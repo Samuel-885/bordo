@@ -424,6 +424,7 @@ Aprovadas em 21/10/2026, na construção da tela principal, dos registros, da ti
 - Aguardando a saída, a "próxima etapa" mostrada é a etapa depois da origem (é a ela que a recalibração se aplica e para onde o link do Google Maps aponta).
 - Chegada no destino conclui a viagem (evento "fim") e mostra o resumo original × real. O relatório completo é da fase 10.
 - O botão voltar do celular navega entre as telas (`history.pushState`).
+- Ao abrir o app no espaço real, se houver exatamente uma viagem em andamento, a tela principal dela abre direto, com a lista logo abaixo no histórico (o voltar leva a ela). Com nenhuma ou mais de uma em andamento, abre a lista. Viagens planejando ou concluídas não contam. A demonstração não participa da regra.
 
 **Demonstração**
 
