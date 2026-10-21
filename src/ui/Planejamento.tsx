@@ -6,7 +6,7 @@ import { avisosDoPlano, horariosForaDeOrdem } from '../core/avisos'
 import { calcularPlanoOriginal, estadosDoPlano } from '../core/previsao'
 import { agora } from '../core/relogio'
 import type { BloqueioInicio } from '../core/previsao'
-import type { DadosPlano, DuracaoTrecho, Etapa, EstadoEtapa, TipoViagem } from '../core/tipos'
+import type { DadosPlano, DuracaoTrecho, Etapa, EstadoEtapa, Passageiro, TipoViagem } from '../core/tipos'
 import type { Repositorio } from '../data/repositorio'
 import { Confirmar } from './componentes/Confirmar'
 import { Topo } from './componentes/Topo'
@@ -15,6 +15,7 @@ import { dataParaInstante, diasDepois, formatarData, formatarHora } from './logi
 import { etiquetaDaEtapa } from './logica/rotulos'
 import { resumoDaEtapa, textoDoAviso, textoManuaisApagados, textoDoBloqueio, textoDaFonte, textoForaDeOrdem } from './logica/textos'
 import { podeMover } from '../core/ordem'
+import { textoTotalDePassageiros } from './logica/passageiros'
 import { useDados } from './useDados'
 
 interface Props {
@@ -22,13 +23,21 @@ interface Props {
   viagemId: string
   onVoltar: () => void
   onEditarEtapa: (etapaId: string | null) => void
+  onPassageiros: () => void
   onViagemExcluida: () => void
   /** Abre a tela principal da viagem (depois de iniciada). */
   onAbrirViagem: () => void
 }
 
-export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onViagemExcluida, onAbrirViagem }: Props) {
-  const { dados: plano, erro, recarregar } = useDados(() => repo.carregarPlano(viagemId), `${repo.espaco}:${viagemId}`)
+export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onPassageiros, onViagemExcluida, onAbrirViagem }: Props) {
+  const { dados, erro, recarregar } = useDados(
+    async () => {
+      const [plano, passageiros] = await Promise.all([repo.carregarPlano(viagemId), repo.listarPassageiros(viagemId)])
+      return { plano, passageiros }
+    },
+    `${repo.espaco}:${viagemId}`,
+  )
+  const plano = dados?.plano
   const [falha, setFalha] = useState<string | null>(null)
 
   if (erro) {
@@ -56,11 +65,13 @@ export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onViagem
   return (
     <Conteudo
       plano={plano}
+      passageiros={dados!.passageiros}
       repo={repo}
       falha={falha}
       agir={agir}
       onVoltar={onVoltar}
       onEditarEtapa={onEditarEtapa}
+      onPassageiros={onPassageiros}
       onViagemExcluida={onViagemExcluida}
       onAbrirViagem={onAbrirViagem}
     />
@@ -69,20 +80,22 @@ export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onViagem
 
 interface ConteudoProps {
   plano: DadosPlano
+  passageiros: Passageiro[]
   repo: Repositorio
   falha: string | null
   agir: (acao: () => Promise<unknown>) => Promise<void>
   onVoltar: () => void
   onEditarEtapa: (etapaId: string | null) => void
+  onPassageiros: () => void
   onViagemExcluida: () => void
   onAbrirViagem: () => void
 }
 
-function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemExcluida, onAbrirViagem }: ConteudoProps) {
+function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEtapa, onPassageiros, onViagemExcluida, onAbrirViagem }: ConteudoProps) {
   const { viagem, etapas, locais } = plano
   const planejando = viagem.status === 'planejando'
   const estados = estadosDoPlano(plano)
-  const avisos = avisosDoPlano(plano, estados)
+  const avisos = avisosDoPlano(plano, estados, passageiros)
   const foraDeOrdem = horariosForaDeOrdem(plano)
   const calculo = calcularPlanoOriginal(plano, agora())
   const bloqueios: BloqueioInicio[] = calculo.ok ? [] : calculo.bloqueios
@@ -180,6 +193,15 @@ function Conteudo({ plano, repo, falha, agir, onVoltar, onEditarEtapa, onViagemE
             Adicionar etapa
           </button>
         )}
+
+        <section className="cartao" aria-label="Passageiros">
+          <h2>Passageiros</h2>
+          <p className="linha-grande">{passageiros.length === 0 ? 'Nenhum cadastrado' : textoTotalDePassageiros(passageiros.length)}</p>
+          <p className="dica">Os nomes ficam só neste celular.</p>
+          <button type="button" className="botao largo" onClick={onPassageiros}>
+            {planejando ? 'Cadastrar passageiros' : 'Ver passageiros'}
+          </button>
+        </section>
 
         {falha && <p className="msg-erro">{falha}</p>}
 

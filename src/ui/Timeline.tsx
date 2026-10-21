@@ -22,8 +22,12 @@ interface Props {
 
 export function Timeline({ repo, viagemId, onVoltar }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
-    const [plano, eventos] = await Promise.all([repo.carregarPlano(viagemId), repo.listarEventos(viagemId)])
-    return { plano, eventos }
+    const [plano, eventos, passageiros] = await Promise.all([
+      repo.carregarPlano(viagemId),
+      repo.listarEventos(viagemId),
+      repo.listarPassageiros(viagemId),
+    ])
+    return { plano, eventos, passageiros }
   }, `timeline:${repo.espaco}:${viagemId}`)
   useAoMudar(recarregar)
   const agora = useAgora()
@@ -42,8 +46,8 @@ export function Timeline({ repo, viagemId, onVoltar }: Props) {
   }
   if (!dados?.plano || !original) return <Topo titulo="Timeline" onVoltar={onVoltar} />
 
-  const { plano, eventos } = dados
-  const itens = montarTimeline(plano, original, eventos, agora)
+  const { plano, eventos, passageiros } = dados
+  const itens = montarTimeline(plano, original, eventos, agora, passageiros)
   const alvo = corrigindo ? eventos.find((e) => e.id === corrigindo) : undefined
   const itemAlvo = itens.find((i) => i.id === corrigindo)
 

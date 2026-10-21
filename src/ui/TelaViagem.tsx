@@ -4,15 +4,17 @@
 
 import { useEffect, useState } from 'react'
 import { classificarAtraso } from '../core/atraso'
+import { contextoDeSaida, contextoDeVolta, resumoABordo, type DecisaoDePendente, type EstadoConferencia } from '../core/conferencia'
 import { pendenciasDeRegistro, validarPulo } from '../core/previsao'
 import { validarRecalibracao } from '../core/recalibracao'
 import { situacaoDaViagem } from '../core/registro'
 import { ordenarEtapas } from '../core/trechos'
 import type { ConteudoEvento } from '../core/eventos'
-import type { Evento, Instante, Local, MotivoParada, TipoImprevisto } from '../core/tipos'
+import type { Evento, Instante, Local, MotivoParada, Passageiro, TipoImprevisto } from '../core/tipos'
 import type { Repositorio, ResultadoRegistro } from '../data/repositorio'
 import { AvisoDesfazer } from './componentes/AvisoDesfazer'
 import { CampoHora } from './componentes/CampoHora'
+import { Conferencia } from './Conferencia'
 import { Confirmar } from './componentes/Confirmar'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
@@ -24,6 +26,7 @@ import { nomeDaEtapa } from './logica/textos'
 import {
   nomeDaEtapaEmUso,
   textoDaOrigemDaPrevisao,
+  textoABordo,
   textoDaSituacao,
   textoDoAtraso,
   textoDoCronometro,
@@ -32,6 +35,7 @@ import {
 } from './logica/textosViagem'
 import { useAgora, useAoMudar } from './useAgora'
 import { useDados } from './useDados'
+import { useVoltarFecha } from './useVoltarFecha'
 
 const JANELA_DESFAZER_MS = 8000
 
@@ -40,16 +44,21 @@ interface Props {
   viagemId: string
   onVoltar: () => void
   onTimeline: () => void
+  onPassageiros: () => void
   /** A demonstração usa para sair do cenário e entrar no modo livre. */
   aoRegistrar?: () => void
 }
 
 type Acao = 'parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | null
 
-export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, aoRegistrar }: Props) {
+export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros, aoRegistrar }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
-    const [plano, eventos] = await Promise.all([repo.carregarPlano(viagemId), repo.listarEventos(viagemId)])
-    return { plano, eventos }
+    const [plano, eventos, passageiros] = await Promise.all([
+      repo.carregarPlano(viagemId),
+      repo.listarEventos(viagemId),
+      repo.listarPassageiros(viagemId),
+    ])
+    return { plano, eventos, passageiros }
   }, `${repo.espaco}:${viagemId}`)
   useAoMudar(recarregar)
   const agora = useAgora()
@@ -76,10 +85,12 @@ export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, aoRegistrar }
       repo={repo}
       plano={dados.plano}
       eventos={dados.eventos}
+      passageiros={dados.passageiros}
       agora={agora}
       recarregar={recarregar}
       onVoltar={onVoltar}
       onTimeline={onTimeline}
+      onPassageiros={onPassageiros}
       aoRegistrar={aoRegistrar}
     />
   )
@@ -89,14 +100,16 @@ interface ConteudoProps {
   repo: Repositorio
   plano: NonNullable<Awaited<ReturnType<Repositorio['carregarPlano']>>>
   eventos: Evento[]
+  passageiros: Passageiro[]
   agora: Instante
   recarregar: () => void
   onVoltar: () => void
   onTimeline: () => void
+  onPassageiros: () => void
   aoRegistrar?: () => void
 }
 
-function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimeline, aoRegistrar }: ConteudoProps) {
+function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVoltar, onTimeline, onPassageiros, aoRegistrar }: ConteudoProps) {
   const { viagem, etapas, locais } = plano
   const original = viagem.planoOriginal!
   const s = situacaoDaViagem(plano, original, eventos, agora)
@@ -111,6 +124,9 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimelin
   const [erro, setErro] = useState<string | null>(null)
   const [desfazer, setDesfazer] = useState<{ ids: string[]; texto: string } | null>(null)
   const [horaPendente, setHoraPendente] = useState('')
+  /** A conferência aberta: na saída de uma etapa ou na volta à estrada (a próxima etapa). */
+  const [conferindo, setConferindo] = useState<{ momento: 'saida' | 'volta'; etapaId: string } | null>(null)
+  useVoltarFecha(conferindo !== null, () => setConferindo(null))
 
   useEffect(() => {
     if (!desfazer) return
@@ -163,9 +179,45 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimelin
 
   // ---------- Botões ----------
 
-  /** Ponto de entrada da conferência (fase 5): hoje grava a saída direto. */
-  const aoSair = (etapaId: string) =>
-    registrarConteudo({ tipo: 'saida', etapaId }, `Saída registrada às ${formatarHora(agora)}.`)
+  /** Todo SAÍMOS passa pela conferência. Sem passageiros cadastrados, grava a saída direto. */
+  const aoSair = async (etapaId: string) => {
+    if (passageiros.length === 0) {
+      await registrarConteudo({ tipo: 'saida', etapaId }, `Saída registrada às ${formatarHora(agora)}.`)
+      return
+    }
+    setErro(null)
+    setConferindo({ momento: 'saida', etapaId })
+  }
+  /** VOLTAMOS depois de uma parada não planejada também passa pela conferência (modo "só alguns"). */
+  const aoVoltar = async (etapaId: string) => {
+    if (passageiros.length === 0) {
+      await registrarConteudo(
+        { tipo: 'parada_nao_planejada', etapaId, dados: { fase: 'fim' } },
+        `VOLTAMOS registrado às ${formatarHora(agora)}.`,
+      )
+      return
+    }
+    setErro(null)
+    setConferindo({ momento: 'volta', etapaId })
+  }
+  async function confirmarConferencia(estado: EstadoConferencia, decisoes: DecisaoDePendente[]) {
+    if (!conferindo) return
+    const contexto =
+      conferindo.momento === 'saida'
+        ? contextoDeSaida(conferindo.etapaId, plano, passageiros, eventos)
+        : contextoDeVolta(conferindo.etapaId, plano, passageiros, eventos)
+    const ok =
+      conferindo.momento === 'saida'
+        ? await registrar(
+            () => repo.registrarSaidaComConferencia(viagem.id, conferindo.etapaId, { contexto, estado, decisoes }),
+            `Saída registrada às ${formatarHora(agora)}.`,
+          )
+        : await registrar(
+            () => repo.registrarVoltaComConferencia(viagem.id, { contexto, estado, decisoes }),
+            `VOLTAMOS registrado às ${formatarHora(agora)}.`,
+          )
+    if (ok) setConferindo(null)
+  }
   const aoChegar = (etapaId: string) =>
     registrar(() => repo.registrarChegada(viagem.id, etapaId), `Chegada registrada às ${formatarHora(agora)}.`)
 
@@ -196,6 +248,29 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimelin
   const estadoProxima = estadoDe(proxima)
   const chegadaProxima = estadoProxima?.chegada ?? null
   const saidaOrigem = estadoDe(primeira?.id ?? null)?.saida ?? null
+  const aBordo = resumoABordo(plano, passageiros, eventos, s)
+
+  if (conferindo) {
+    const contexto =
+      conferindo.momento === 'saida'
+        ? contextoDeSaida(conferindo.etapaId, plano, passageiros, eventos)
+        : contextoDeVolta(conferindo.etapaId, plano, passageiros, eventos)
+    const etapaConferida = etapaDe(conferindo.etapaId)
+    return (
+      <Conferencia
+        key={`${conferindo.momento}-${conferindo.etapaId}`}
+        contexto={contexto}
+        etapa={etapaConferida ?? { tipo: 'obrigatoria' }}
+        etapas={etapas}
+        titulo={conferindo.momento === 'saida' ? `Saída de ${nome(conferindo.etapaId)}` : 'Volta à estrada'}
+        rotuloSair={conferindo.momento === 'saida' ? 'SAÍMOS' : 'VOLTAMOS'}
+        ocupado={ocupado}
+        erro={erro}
+        onConfirmar={(estado, decisoes) => void confirmarConferencia(estado, decisoes)}
+        onFechar={() => setConferindo(null)}
+      />
+    )
+  }
 
   return (
     <>
@@ -288,7 +363,14 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimelin
           </section>
         )}
 
-        {/* Fase 5: a bordo e conferência. Fase 6: alternativas e viabilidade. Fase 7: GERAR ATUALIZAÇÃO. */}
+        {aBordo && (
+          <button type="button" className="cartao a-bordo" onClick={onPassageiros}>
+            <h2>A bordo</h2>
+            <span className="linha-grande">{textoABordo(aBordo)}</span>
+          </button>
+        )}
+
+        {/* Fase 6: alternativas e viabilidade. Fase 7: GERAR ATUALIZAÇÃO. */}
 
         {erro && acao === null && <p className="msg-erro" role="alert">{erro}</p>}
 
@@ -337,13 +419,7 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimelin
                     type="button"
                     className="botao-principal"
                     disabled={ocupado}
-                    onClick={() =>
-                      s.paradaNaoPlanejada &&
-                      void registrarConteudo(
-                        { tipo: 'parada_nao_planejada', etapaId: s.paradaNaoPlanejada.etapaId, dados: { fase: 'fim' } },
-                        `VOLTAMOS registrado às ${formatarHora(agora)}.`,
-                      )
-                    }
+                    onClick={() => s.paradaNaoPlanejada && void aoVoltar(s.paradaNaoPlanejada.etapaId)}
                   >
                     VOLTAMOS
                   </button>
@@ -371,6 +447,9 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, onTimelin
                 )}
                 <button type="button" className="botao" onClick={() => abrir('imprevisto')}>
                   REGISTRAR IMPREVISTO
+                </button>
+                <button type="button" className="botao" onClick={onPassageiros}>
+                  PASSAGEIROS
                 </button>
                 {podePular && (
                   <button type="button" className="botao" onClick={() => abrir('pular')}>

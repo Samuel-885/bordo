@@ -1,9 +1,10 @@
 // Textos da tela principal e da timeline. Nenhuma conta de horário: tudo vem do núcleo.
 
 import { atrasoMin, classificarAtraso } from '../../core/atraso'
+import type { ABordo } from '../../core/conferencia'
 import type { Situacao } from '../../core/registro'
 import { diferencaMin, ordenarPor } from '../../core/tempo'
-import type { DadosPlano, Etapa, Evento, HorarioPrevisto, Instante, Local, PlanoOriginal } from '../../core/tipos'
+import type { Conferencia, DadosPlano, Etapa, Evento, HorarioPrevisto, Instante, Local, Passageiro, PlanoOriginal } from '../../core/tipos'
 import { formatarDuracao } from './duracao'
 import { formatarHora } from './horarios'
 import { MOTIVOS_DE_PARADA, STATUS_DE_PASSAGEIRO, TIPOS_DE_IMPREVISTO, rotuloDe, CATEGORIAS } from './rotulos'
@@ -50,6 +51,12 @@ export function textoDoTempoRestante(previsao: Instante, agora: Instante): strin
 export const textoDoCronometro = (c: { faltaMin: number; excedeuMin: number }): string =>
   c.excedeuMin > 0 ? `excedeu em ${formatarDuracaoCurta(c.excedeuMin)}` : `faltam ${formatarDuracaoCurta(c.faltaMin)}`
 
+/** "38/38 a bordo · conferido às 06:30", "38/38 a bordo · sem conferência" ou "35 esperados na saída". */
+export function textoABordo(a: ABordo): string {
+  if (a.tipo === 'esperados') return `${a.total} esperados na saída`
+  return `${a.total}/${a.total} a bordo · ${a.conferidoEm ? `conferido às ${formatarHora(a.conferidoEm)}` : 'sem conferência'}`
+}
+
 // ---------- Timeline ----------
 
 export interface ItemTimeline {
@@ -95,9 +102,12 @@ export function montarTimeline(
   original: PlanoOriginal,
   eventos: readonly Evento[],
   agora: Instante,
+  /** Para mostrar nomes. Eles ficam só no celular: a mensagem da fase 7 nunca os leva. */
+  passageiros: readonly Passageiro[] = [],
 ): ItemTimeline[] {
   void agora
   const { etapas, locais } = plano
+  const nomeDe = (id: string) => passageiros.find((p) => p.id === id)?.nome ?? 'Passageiro'
   const etapaDe = (id: string) => etapas.find((e) => e.id === id)
   const nome = (id: string) => nomeDaEtapaEmUso(etapaDe(id), locais, eventos)
   const porSequencia = [...eventos].sort((a, b) => (a.sequencia ?? 0) - (b.sequencia ?? 0))
@@ -136,10 +146,21 @@ export function montarTimeline(
         return { ...item, titulo: `Imprevisto: ${tipo.toLowerCase()}`, detalhe: e.observacao ?? null }
       }
       case 'conferencia':
-        return { ...item, titulo: 'Conferência de passageiros', detalhe: null }
+        return {
+          ...item,
+          titulo: e.dados.momento === 'volta' ? 'Conferência ao voltar à estrada' : `Conferência na saída de ${nome(e.etapaId)}`,
+          detalhe: detalheDaConferencia(e.dados, nomeDe),
+        }
       case 'status_passageiro':
-        // Sem nome: a lista de passageiros chega na fase 5.
-        return { ...item, titulo: `Passageiro: ${STATUS_DE_PASSAGEIRO[e.dados.status]}`, detalhe: e.dados.motivo }
+        return { ...item, titulo: `${nomeDe(e.dados.passageiroId)}: ${STATUS_DE_PASSAGEIRO[e.dados.status]}`, detalhe: e.dados.motivo }
     }
   })
+}
+
+/** "37/38 a bordo · Falta: Fulano" ou "38/38 a bordo (completa por contagem)". */
+function detalheDaConferencia(c: Conferencia, nomeDe: (id: string) => string): string {
+  const total = c.confirmados.length + c.pendentes.length
+  const base = `${c.confirmados.length}/${total} a bordo`
+  if (c.pendentes.length > 0) return `${base} · Falta: ${c.pendentes.map(nomeDe).join(', ')}`
+  return c.resultado === 'completa_por_contagem' ? `${base} (completa por contagem)` : base
 }

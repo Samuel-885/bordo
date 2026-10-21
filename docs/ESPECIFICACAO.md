@@ -442,3 +442,39 @@ Aprovadas em 21/10/2026, na construção da tela principal, dos registros, da ti
 - Service worker gerado com Workbox: tudo o que o build emite entra no cache (o app abre sem internet depois da primeira visita). As fontes IBM Plex são hospedadas no próprio app (subconjunto latino).
 - O ícone do app e o favicon são o mesmo "B" branco sobre `#14181F`, com a barra azul `#1E4FD8`.
 - Versão nova do app não recarrega sozinha: aparece o aviso "Nova versão do Bordo" e a troca só acontece quando a pessoa toca em Atualizar.
+
+## Decisões da fase 5
+
+Aprovadas em 21/10/2026, na construção de passageiros e conferência. Complementam as seções anteriores.
+
+**Persistência**
+
+- O banco passa à versão 2 do esquema, que só adiciona a tabela `passageiros` (índices `id` e `viagemId`), nos dois bancos (`bordo` e `bordo-demo`). Nenhuma linha existente é reescrita: as viagens, etapas, locais, trechos e eventos que já estão nos celulares continuam como estavam.
+- O passageiro ganha o campo `viagemId` (o modelo de dados não o listava): sem ele não há como listar os passageiros de uma viagem por índice.
+- O `status` do passageiro é gravado sempre como "ativo". As mudanças (não embarcou, saiu da viagem) vivem só nos eventos "status do passageiro", como o estado derivado de sempre; desfazer um registro desfaz o status junto.
+- A semente da demonstração grava os 38 passageiros fictícios. Excluir uma viagem apaga os passageiros dela.
+
+**Cadastro**
+
+- Selects: embarque aceita a origem e os pontos obrigatórios; desembarque aceita os pontos obrigatórios e o destino (padrão). Paradas flexíveis ficam de fora, porque podem ser puladas. O desembarque precisa ser depois do embarque.
+- Planejando, o cadastro é livre. Com a viagem em andamento: dá para adicionar alguém de última hora e escolher embarque e desembarque só em etapas de onde ainda não saímos; quem já aparece em alguma conferência ou tem status só pode mudar o nome e não pode ser excluído (o caminho é o status "saiu da viagem"). Viagem concluída não aceita mudança. A lista de passageiros não faz parte do plano original e não o altera.
+- Conferências passadas guardam os ids de confirmados e pendentes, então mudar o cadastro depois não as reescreve.
+- "Nenhum passageiro cadastrado" entra nos avisos do início da viagem e não bloqueia. Sem passageiros cadastrados, o SAÍMOS e o VOLTAMOS gravam direto, sem conferência.
+
+**Conferência**
+
+- Esperados na saída de uma etapa = `esperadosNaSaida`, com a lista por nome vinda de `passageirosEsperados`. Na volta à estrada (VOLTAMOS), os esperados são os que seguem a bordo no trecho que chega na próxima etapa (`passageirosEmTransito`): embarcaram antes dela, desembarcam nela ou depois, e mudanças de status registradas nela já valem. É o mesmo conjunto de `esperadosNaSaida` da última etapa de que saímos, a menos que uma conferência anterior do mesmo trecho já tenha dado status a alguém.
+- O evento "conferência" ganha o campo opcional `momento` ("saida" ou "volta"); vazio vale "saida". Na volta, o evento e os status levam como etapa a próxima etapa, igual ao PARAMOS.
+- Modo inicial: volta = "só alguns"; senão, `modoConferencia` da etapa, se definido; origem e refeições (almoço, café, jantar) = "todos desceram"; banheiro, descanso, ponto obrigatório e parada flexível sem categoria = "só alguns". A tabela da especificação não cobre ponto obrigatório sem categoria nem parada sem categoria: o ponto obrigatório funciona como ponto de embarque (quem já estava a bordo confirmado, quem embarca ali pendente; sem embarcantes, todos confirmados) e a parada sem categoria usa "só alguns".
+- Trocar o modo reinicia a lista: "todos desceram" deixa todos pendentes e "só alguns" confirma todos, exceto no modo padrão de um ponto obrigatório, que volta ao estado de embarque.
+- Contagem rápida: número igual aos esperados confirma todos e o resultado é "completa por contagem"; qualquer toque depois em um nome volta o resultado para "completa". Número diferente mostra a diferença e não altera ninguém.
+- Sair sem todos: cada pendente recebe status (não embarcou ou saiu da viagem) e motivo. Ordem de gravação, numa só transação: conferência, um status por pendente e a saída (ou o fim da parada, na volta), todos com o mesmo horário e a mesma sequência crescente. Um DESFAZER desfaz tudo junto. Conferência e status são validados no registro: os ids precisam bater com os esperados e o status só pode ser "não embarcou" ou "saiu da viagem".
+- O VOLTAMOS passa pela conferência apenas pelo botão VOLTAMOS. O caminho "CHEGAMOS sem registrar a volta antes", em que a volta é informada depois, não abre conferência.
+- A tela fica acesa durante a conferência (Wake Lock, quando o navegador permite; pedido de novo ao voltar à aba). O botão voltar do celular fecha a conferência sem registrar nada.
+
+**Tela principal e timeline**
+
+- Em trânsito: "Y/Y a bordo · conferido às HH:MM", com o horário da última conferência da saída da etapa deixada ou da volta à estrada; "sem conferência" se a saída foi gravada sem ela. Parado ou aguardando a saída: "Y esperados na saída", sem X, porque ninguém foi conferido ainda. Sem passageiros cadastrados, nada aparece. A tela principal ganha o botão PASSAGEIROS, para o cadastro de última hora.
+- A timeline mostra a conferência ("37/38 a bordo · Falta: Nome") e as mudanças de status com o nome do passageiro e o motivo. Os nomes ficam só no celular: a mensagem da fase 7 nunca os leva.
+- Demonstração: o cenário "Passageiro faltando" grava a conferência incompleta de Monlevade antes da saída; os demais cenários continuam com SAÍMOS direto, sem conferência.
+

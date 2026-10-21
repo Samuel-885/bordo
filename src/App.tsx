@@ -14,6 +14,7 @@ import { AvisoAtualizacao } from './ui/componentes/AvisoAtualizacao'
 import { FaixaDemo } from './ui/componentes/FaixaDemo'
 import { EditorEtapa } from './ui/EditorEtapa'
 import { ListaViagens } from './ui/ListaViagens'
+import { Passageiros } from './ui/Passageiros'
 import { Planejamento } from './ui/Planejamento'
 import { TelaViagem } from './ui/TelaViagem'
 import { Timeline } from './ui/Timeline'
@@ -26,6 +27,7 @@ type Tela =
   | { nome: 'etapa'; viagemId: string; etapaId: string | null }
   | { nome: 'viagem'; viagemId: string }
   | { nome: 'timeline'; viagemId: string }
+  | { nome: 'passageiros'; viagemId: string }
 
 interface EstadoHistorico {
   tela: Tela
@@ -151,6 +153,7 @@ function App() {
           viagemId={tela.viagemId}
           onVoltar={() => voltar(LISTA)}
           onEditarEtapa={(etapaId) => irPara({ nome: 'etapa', viagemId: tela.viagemId, etapaId })}
+          onPassageiros={() => irPara({ nome: 'passageiros', viagemId: tela.viagemId })}
           onViagemExcluida={() => irPara(LISTA, true)}
           onAbrirViagem={() => irPara({ nome: 'viagem', viagemId: tela.viagemId }, true)}
         />
@@ -171,6 +174,7 @@ function App() {
           viagemId={tela.viagemId}
           onVoltar={() => voltar(LISTA)}
           onTimeline={() => irPara({ nome: 'timeline', viagemId: tela.viagemId })}
+          onPassageiros={() => irPara({ nome: 'passageiros', viagemId: tela.viagemId })}
           aoRegistrar={
             executor
               ? () => {
@@ -179,6 +183,14 @@ function App() {
                 }
               : undefined
           }
+        />
+      )}
+      {tela.nome === 'passageiros' && (
+        <Passageiros
+          key={`passageiros-${tela.viagemId}-${versao}`}
+          repo={repo}
+          viagemId={tela.viagemId}
+          onVoltar={() => voltar({ nome: 'viagem', viagemId: tela.viagemId })}
         />
       )}
       {tela.nome === 'timeline' && (
