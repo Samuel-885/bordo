@@ -116,6 +116,7 @@ function passageiro(n: number, etapaEmbarqueId: string): Passageiro {
   const numero = String(n).padStart(2, '0')
   return {
     id: `${ESPACO_DEMO}p-${numero}`,
+    viagemId: VIAGEM_DEMO_ID,
     nome: `Passageiro fictício ${numero}`,
     etapaEmbarqueId,
     etapaDesembarqueId: null,

@@ -107,6 +107,13 @@ export const ev = {
     criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado } }),
   parada: (etapaId: string, fase: 'inicio' | 'fim', horario: Instante) =>
     criar(horario, { tipo: 'parada_nao_planejada', etapaId, dados: { fase } }),
+  /** Conferência completa de todos (os ids não importam para quem só olha o horário). */
+  conferencia: (etapaId: string, horario: Instante, momento?: 'saida' | 'volta') =>
+    criar(horario, {
+      tipo: 'conferencia',
+      etapaId,
+      dados: { ...(momento ? { momento } : {}), modo: 'so_alguns', confirmados: [], pendentes: [], resultado: 'completa' },
+    }),
   status: (etapaId: string, passageiroId: string, status: StatusPassageiro, motivo: string, horario: Instante) =>
     criar(horario, { tipo: 'status_passageiro', etapaId, dados: { passageiroId, status, motivo } }),
 }
@@ -120,7 +127,7 @@ export const EVENTOS_CASO_3: Evento[] = [...EVENTOS_CASO_2, ev.saida('monlevade'
 
 function passageiro(n: number, etapaEmbarqueId: string): Passageiro {
   const id = `p-${String(n).padStart(2, '0')}`
-  return { id, nome: `Passageiro ${String(n).padStart(2, '0')}`, etapaEmbarqueId, etapaDesembarqueId: null, status: 'ativo' }
+  return { id, viagemId: VIAGEM_ID, nome: `Passageiro ${String(n).padStart(2, '0')}`, etapaEmbarqueId, etapaDesembarqueId: null, status: 'ativo' }
 }
 
 /** 35 embarcam em Ipatinga e 3 em Monlevade. */

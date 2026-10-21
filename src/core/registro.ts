@@ -1,12 +1,14 @@
 // Leitura e validação dos registros da tela principal: situação da viagem, cronômetro,
 // travas de chegada, saída e correção. Funções puras, sem efeito no cálculo da previsão.
 
+import { validarConferencia, validarStatus } from './conferencia'
+import { passageirosEmTransito, passageirosEsperados } from './passageiros'
 import { calcularEstado, validarPulo } from './previsao'
 import { validarRecalibracao } from './recalibracao'
 import { antes, mesmoInstante, naHoraDoDia, ordenarPor, truncarMinuto } from './tempo'
 import { ordenarEtapas } from './trechos'
 import type { ConteudoEvento } from './eventos'
-import type { DadosPlano, EstadoViagem, Etapa, Evento, Instante, MotivoParada, PlanoOriginal } from './tipos'
+import type { DadosPlano, EstadoViagem, Etapa, Evento, Instante, MotivoParada, Passageiro, PlanoOriginal } from './tipos'
 
 export type Resultado = { ok: true } | { ok: false; motivo: string }
 
@@ -271,6 +273,8 @@ export function validarRegistro(
   conteudo: ConteudoEvento,
   horario: Instante,
   agoraDoRelogio: Instante,
+  /** Sem a lista, conferência e status de passageiro só passam pela trava do horário. */
+  passageiros?: readonly Passageiro[],
 ): Resultado {
   if (d.viagem.status !== 'em_andamento') return { ok: false, motivo: 'A viagem não está em andamento.' }
   const agora = truncarMinuto(agoraDoRelogio)
@@ -317,10 +321,37 @@ export function validarRegistro(
       if (s.situacao === 'chegamos') return { ok: false, motivo: 'A viagem já chegou ao destino.' }
       return naoDepoisDeAgora()
     case 'troca_local':
-    case 'conferencia':
-    case 'status_passageiro':
-      // Validados nas fases 5 e 6; aqui só gravados (usados pelos cenários da demonstração).
+      // Validada na fase 6; aqui só gravada (usada pelos cenários da demonstração).
       return naoDepoisDeAgora()
+    case 'conferencia': {
+      const antesDoHorario = naoDepoisDeAgora()
+      if (!antesDoHorario.ok || !passageiros) return antesDoHorario
+      const { momento = 'saida' } = conteudo.dados
+      const noLugar =
+        momento === 'saida'
+          ? s.etapaAtualId === conteudo.etapaId
+          : s.situacao === 'em_viagem' && s.proximaEtapaId === conteudo.etapaId
+      if (!noLugar) {
+        return { ok: false, motivo: momento === 'saida' ? 'Só dá para conferir a etapa em que estamos.' : 'Só dá para conferir na volta à estrada, em viagem.' }
+      }
+      const esperados =
+        momento === 'saida'
+          ? passageirosEsperados(conteudo.etapaId, d.etapas, passageiros, eventos)
+          : passageirosEmTransito(conteudo.etapaId, d.etapas, passageiros, eventos)
+      return validarConferencia(conteudo.dados, esperados)
+    }
+    case 'status_passageiro': {
+      const antesDoHorario = naoDepoisDeAgora()
+      if (!antesDoHorario.ok || !passageiros) return antesDoHorario
+      const esperados =
+        s.etapaAtualId === conteudo.etapaId
+          ? passageirosEsperados(conteudo.etapaId, d.etapas, passageiros, eventos)
+          : s.situacao === 'em_viagem' && s.proximaEtapaId === conteudo.etapaId
+            ? passageirosEmTransito(conteudo.etapaId, d.etapas, passageiros, eventos)
+            : null
+      if (!esperados) return { ok: false, motivo: 'Só dá para mudar o status de passageiro na etapa em que estamos ou na volta à estrada.' }
+      return validarStatus(conteudo.dados.passageiroId, conteudo.dados.status, esperados)
+    }
     case 'inicio':
     case 'fim':
       return { ok: false, motivo: 'Este evento é registrado pelo app, não pelos botões.' }

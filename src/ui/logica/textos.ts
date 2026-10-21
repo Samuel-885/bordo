@@ -39,6 +39,7 @@ export function textoDoBloqueio(b: BloqueioInicio, etapas: readonly Etapa[], loc
 }
 
 export function textoDoAviso(a: AvisoPlano, etapas: readonly Etapa[], locais: readonly Local[]): string {
+  if (a.tipo === 'sem_passageiros') return 'Nenhum passageiro cadastrado.'
   const nome = nomeDaEtapa(etapas.find((e) => e.id === a.etapaId), locais)
   switch (a.tipo) {
     case 'flexivel_sem_local':

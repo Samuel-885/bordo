@@ -91,10 +91,13 @@ export type StatusPassageiro = 'ativo' | 'nao_embarcou' | 'saiu_da_viagem'
 
 export interface Passageiro {
   id: string
+  /** A viagem do passageiro (as etapas de embarque e desembarque são dela). */
+  viagemId: string
   nome: string
   etapaEmbarqueId: string
   /** Vazio = destino. */
   etapaDesembarqueId: string | null
+  /** Gravado sempre como "ativo": as mudanças de status vivem só nos eventos. */
   status: StatusPassageiro
 }
 
@@ -118,7 +121,12 @@ export type MotivoParada =
 
 export type ResultadoConferencia = 'completa' | 'completa_por_contagem' | 'incompleta'
 
+/** Conferência na saída de uma etapa, ou ao voltar à estrada depois de uma parada não planejada. */
+export type MomentoConferencia = 'saida' | 'volta'
+
 export interface Conferencia {
+  /** Vazio nos eventos antigos e da demonstração: vale "saida". Na "volta", o evento leva a próxima etapa. */
+  momento?: MomentoConferencia
   modo: ModoConferencia
   confirmados: string[]
   pendentes: string[]

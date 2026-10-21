@@ -34,7 +34,7 @@ describe('avisos do planejamento', () => {
     const doAlmoco = avisos(d).filter((a) => a.tipo === 'local_sem_horario' && a.etapaId === 'almoco')
     expect(doAlmoco).toEqual([{ tipo: 'local_sem_horario', etapaId: 'almoco', localIds: ['l-rest-a', 'l-rest-c'] }])
     // A origem, o ponto obrigatório e o destino não geram esse aviso.
-    expect(avisos(d).some((a) => a.etapaId === 'monlevade' || a.etapaId === 'origem')).toBe(false)
+    expect(avisos(d).some((a) => 'etapaId' in a && (a.etapaId === 'monlevade' || a.etapaId === 'origem'))).toBe(false)
   })
 
   it('chegada prevista fora da janela, antes ou depois', () => {
