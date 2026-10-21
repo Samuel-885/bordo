@@ -391,3 +391,46 @@ Aprovadas em 21/10/2026, na construção do planejamento com persistência. Comp
 
 - Bloqueios: os de `calcularPlanoOriginal`, mais um horário de roteiro anterior à saída da etapa anterior (daria trecho negativo) e viagem sem nome.
 - Avisos (não bloqueiam): parada flexível sem local, local candidato sem horário de funcionamento, chegada prevista fora da janela. O aviso de "nenhum passageiro cadastrado" entra na fase 5.
+
+## Decisões da fase 4
+
+Aprovadas em 21/10/2026, na construção da tela principal, dos registros, da timeline e do PWA. Complementam as seções anteriores.
+
+**Registros e travas**
+
+- Além das três travas da seção "Eventos, timeline, imprevistos e paradas não planejadas", valem duas, para a ordem dos eventos nunca ficar inconsistente: a chegada não pode ser depois da saída da própria etapa, e a saída não pode ser depois da chegada da etapa seguinte. "Anterior" e "seguinte" ignoram etapas puladas. Valem no registro pelos botões e na correção pela timeline.
+- Só chegadas e saídas podem ser corrigidas. Corrigir a chegada no destino move também o evento "fim".
+- Chegada só na próxima etapa, com o ônibus em viagem; saída só da etapa em que estamos (a origem aguardando a saída conta). Nada pode ser registrado depois de agora, e a viagem concluída não aceita novos registros.
+- Cada evento guarda uma sequência de gravação (1, 2, 3…). Os horários são arredondados ao minuto e empatam; a sequência diz qual foi o último registro.
+
+**Horário digitado**
+
+- Registro esquecido, correção, imprevisto e volta à estrada (VOLTAMOS): o "HH:MM" vira a ocorrência mais recente que não seja depois de agora. Não existe "+1 dia". Se violar uma trava, a tela mostra a trava. Quando o dia resultante não é o de hoje, a tela mostra o dia junto (ex.: "23:55 do dia 14").
+- Previsão informada na recalibração (que fica no futuro): vale o dia, hoje ou amanhã, que ficar mais perto de agora. Assim 12:05 às 12:10 vale hoje e é recusada (caso 7), e 00:10 às 23:50 vale amanhã.
+
+**Desfazer**
+
+- Todo botão de registro (SAÍMOS, CHEGAMOS, PARAMOS, VOLTAMOS, recalibração, imprevisto, pular) mostra, por 8 segundos, um aviso com DESFAZER.
+- Desfazer apaga os eventos criados por aquele registro, identificados pelo id, e só se ainda forem os últimos da viagem pela sequência de gravação. Se houve outro registro depois, recusa e manda corrigir pela timeline.
+- Um registro pode criar mais de um evento (VOLTAMOS + chegada; chegada no destino + "fim"): desfaz-se tudo junto. Desfazer a chegada no destino reabre a viagem (status "em andamento"). O evento "início" nunca é desfeito.
+
+**Parada não planejada esquecida aberta**
+
+- Com PARAMOS sem VOLTAMOS, o botão principal é VOLTAMOS. Se for registrar CHEGAMOS mesmo assim, a tela pergunta primeiro a que horas voltamos à estrada (mesma regra de horário) e grava o VOLTAMOS antes da chegada, numa só operação. A volta não pode ser antes do PARAMOS nem depois de agora.
+
+**Tela principal**
+
+- A situação (aguardando saída, em viagem, parados em um local, parada não planejada, chegamos) e o cronômetro vêm do núcleo (`src/core/registro.ts`), sem regra na interface. O cronômetro trabalha em minutos inteiros.
+- Aguardando a saída, a "próxima etapa" mostrada é a etapa depois da origem (é a ela que a recalibração se aplica e para onde o link do Google Maps aponta).
+- Chegada no destino conclui a viagem (evento "fim") e mostra o resumo original × real. O relatório completo é da fase 10.
+- O botão voltar do celular navega entre as telas (`history.pushState`).
+
+**Demonstração**
+
+- Os cenários rodam no banco da demonstração: escolher um cenário reinicia o banco, liga o relógio em `cenario.inicio`, inicia a viagem de verdade e fica no passo 0. Cada passo de registro passa pelo mesmo repositório e pelas mesmas travas da viagem real. O primeiro registro feito pelos botões liga o modo livre.
+- Eventos de passageiro e de conferência dos cenários são gravados, mas a timeline os mostra de forma genérica e sem nomes, até a fase 5.
+
+**PWA**
+
+- Service worker gerado com Workbox: tudo o que o build emite entra no cache (o app abre sem internet depois da primeira visita). As fontes IBM Plex são hospedadas no próprio app (subconjunto latino).
+- Versão nova do app não recarrega sozinha: aparece o aviso "Nova versão do Bordo" e a troca só acontece quando a pessoa toca em Atualizar.
