@@ -1,6 +1,6 @@
 # Bordo — Especificação da lógica
 
-Versão de 20/10/2026
+Versão de 21/10/2026
 
 ## Objetivo e princípios
 
@@ -23,15 +23,15 @@ São oito entidades. O registro de eventos é a fonte da verdade: o estado da vi
 | Entidade | Campos principais | Observações |
 | --- | --- | --- |
 | Viagem | id, nome, tipo (ida, volta), data de saída, status, viagem relacionada, fator ônibus, plano original | Plano original fica vazio até "Iniciar viagem". A volta aponta para a ida. |
-| Etapa | id, viagem, ordem, tipo, local, motivo, categoria, janela início/fim, permanência (min), chegada do roteiro, alternativas, modo de conferência | Tipos: origem, obrigatória, flexível, destino, não planejada. Na origem, o horário do roteiro é a saída. |
-| Local | id, nome, cidade, tipo, coordenadas, abre, fecha, telefone, ônibus para (sim, não, não sei), observações, marcação (favorito, evitar) | Catálogo reutilizado entre viagens e anos. |
-| Trecho | etapa de origem, local de origem, etapa de destino, local de destino, duração (min), fonte, distância (km), calculado em | Fonte: roteiro, rota, manual, estimado. Um trecho por par de locais candidatos. |
-| Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, pular etapa, parada não planejada, imprevisto, conferência, fim. |
+| Etapa | id, viagem, ordem, tipo, local, motivo, categoria, janela início/fim, permanência (min), chegada do roteiro, alternativas, modo de conferência | Tipos: origem, obrigatória, flexível, destino. Na origem, o horário do roteiro é a saída. O local é o preferido (o do roteiro); as alternativas são os outros candidatos. Parada não planejada não é etapa: é um par de eventos. |
+| Local | id, nome, cidade, tipo, coordenadas, abre, fecha, telefone, ônibus para (sim, não, não sei), observações, marcação (favorito, evitar) | Catálogo reutilizado entre viagens e anos. Abre e fecha são "HH:MM", um único horário por local, resolvidos pela data da chegada (única exceção à regra dos horários completos). |
+| Trecho | etapa de origem, local de origem, etapa de destino, local de destino, duração (min), fonte, distância (km), calculado em | Fonte: roteiro, rota, manual, estimado. Um trecho por par de locais candidatos. Só rota e manual são guardados; roteiro e estimado são derivados no cálculo. Na rota, a duração guardada é a de carro, sem o fator ônibus. |
+| Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, pular etapa, parada não planejada (fase início ou fim), imprevisto, conferência, status do passageiro, fim. Todo horário de evento é arredondado para baixo, para o minuto. |
 | Passageiro | id, nome, etapa de embarque, etapa de desembarque, status | Desembarque vazio = destino. Status: ativo, não embarcou, saiu da viagem. |
 | Conferência | etapa, modo, confirmados, pendentes, resultado, motivo | Resultado: completa ou incompleta. |
 | Feedback | local, viagem, etapa, nota (1 a 5), voltaria (sim, não), critérios, observação | Critérios opcionais: comida, banheiro, atendimento, rapidez, estacionamento. |
 
-Todo horário é guardado com data completa e fuso (por exemplo `2026-11-14T06:47-03:00`), nunca só "06:47". Isso resolve a virada da meia-noite e as viagens de ida e volta em dias diferentes. Ipatinga e Ribeirão Preto estão no mesmo fuso.
+Todo horário é guardado com data completa e fuso (por exemplo `2026-11-14T06:47:00-03:00`), nunca só "06:47". A única exceção é o horário de funcionamento dos locais. Isso resolve a virada da meia-noite e as viagens de ida e volta em dias diferentes. Ipatinga e Ribeirão Preto estão no mesmo fuso.
 
 O evento guarda dois horários: o do fato ("chegamos às 08:55") e o do registro (quando você apertou o botão). Corrigir um horário muda só o do fato.
 
@@ -126,7 +126,7 @@ Regras:
 - Vale só durante o trecho atual. Quando a chegada é registrada, a recalibração deixa de existir (a chegada real a substitui).
 - Uma nova recalibração no mesmo trecho substitui a anterior.
 - Horário anterior ao atual é recusado, com aviso.
-- Só pode ser feita em trânsito ou parado na etapa anterior. Não existe recalibração direta do destino.
+- Só pode ser feita em trânsito ou parado na etapa anterior (aguardando a saída da origem conta como parado). Não existe recalibração direta do destino. Veja "Decisões da fase 1" para o efeito em cada caso.
 - A previsão mostra a origem: "Google Maps, informado às 11:40".
 - Pode ser desfeita, voltando ao cálculo pelo trecho.
 
@@ -322,7 +322,48 @@ Os valores abaixo estão neste documento como proposta. Cada um vira uma configu
 - [ ] Tolerância de "no horário": 5 min?
 - [ ] Margem mínima para "viável": 15 min?
 - [ ] Fator ônibus: 1,15, a calibrar com o roteiro da empresa.
-- [ ] Horário de funcionamento por dia da semana, ou um único horário por local na primeira versão?
+- [x] Horário de funcionamento: um único horário por local na primeira versão (ver "Decisões da fase 1").
 - [x] Texto de identificação na mensagem (unidade, cidade).
 - [ ] Regras de descanso do motorista: confirmar com a empresa de ônibus se há um ou dois motoristas e se existe parada mínima obrigatória.
 - [ ] Serviço de rotas e hospedagem: definir na fase de stack, com os limites gratuitos confirmados.
+
+## Decisões da fase 1
+
+Aprovadas em 21/10/2026, na construção do núcleo de cálculo. Complementam e, onde divergem, prevalecem sobre as seções anteriores.
+
+**Horários**
+
+- Todo horário de evento (do fato, do registro, o informado na recalibração e o corrigido) é arredondado para baixo, para o minuto, ao ser criado. O app trabalha só com minutos inteiros.
+- Os horários são guardados com segundos (`2026-11-14T06:47:00-03:00`).
+- Horários nunca são comparados como texto: toda comparação e conta é feita pelo valor numérico.
+- Abre e fecha de um local são "HH:MM", um único horário por local, resolvidos pela data da chegada. Fecha antes de abrir significa fechar no dia seguinte; por isso, uma chegada depois da meia-noite também é comparada com o período que começou na véspera.
+
+**Duração dos trechos**
+
+- A fonte roteiro só vale entre etapas vizinhas no plano e quando as duas estão no local preferido. Ao pular uma etapa, as etapas que ficam vizinhas não usam o roteiro: vale o trecho direto, se tiver sido calculado, ou a soma dos trechos que passavam pela pulada, com fonte "estimado".
+- Rota × fator ônibus é arredondada para cima, para o minuto.
+
+**Regra do relógio e registros esquecidos**
+
+- A regra do relógio vale para o primeiro evento sem registro depois do último registrado, e vale por cima de qualquer outra origem da previsão, inclusive a recalibração.
+- Um evento sem registro que vem antes de um registrado (por exemplo, chegada registrada sem a saída da etapa anterior ou da origem) é um registro esquecido: a regra do relógio não o empurra, e o app aponta a pendência para que o horário seja informado.
+
+**Recalibração**
+
+- Feita em trânsito: a chegada prevista é o horário informado.
+- Feita parado na etapa anterior, ou aguardando a saída da origem: vira duração do trecho (horário informado − horário em que foi informada), aplicada a partir da saída real ou prevista da etapa anterior. Se a saída atrasar, a chegada atrasa junto.
+- O tempo das paradas não planejadas iniciadas depois da recalibração é somado a ela.
+- Trocar o local da etapa depois de uma recalibração a cancela: a previsão volta a ser calculada pelo trecho.
+
+**Parada não planejada**
+
+- Não é uma etapa: é um par de eventos (PARAMOS = início, VOLTAMOS = fim) ligado à próxima etapa. Enquanto dura, conta o tempo até agora. A conferência no modo "só alguns" vale para a saída depois de VOLTAMOS.
+
+**Alternativas**
+
+- Cada alternativa é calculada pelas regras completas da previsão, como se fosse a escolhida (incluindo paradas não planejadas do trecho; a recalibração vale só para o local já escolhido).
+- O aviso "mal avaliado em viagem anterior" fica para a fase 10.
+
+**Passageiros**
+
+- Mudança de status (não embarcou, saiu da viagem) é o evento "status do passageiro", com passageiro, status, motivo e a etapa onde aconteceu. Vale dessa etapa em diante.
