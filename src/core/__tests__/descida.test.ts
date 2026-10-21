@@ -11,6 +11,8 @@ import {
   marcacaoDeDescida,
   oferecerDescidaAoChegar,
   podeSair,
+  alternarPassageiro,
+  trocarModo,
 } from '../conferencia'
 import { passageirosABordoNaParada } from '../passageiros'
 import { calcularEstado } from '../previsao'
@@ -113,11 +115,17 @@ describe('estado inicial da conferência com e sem marcação', () => {
     expect(e.confirmados).not.toContain('p-36')
   })
 
-  it('a troca de modo (sem marcação) reinicia a lista', () => {
+  it('trocar para o outro modo reinicia a lista, sem a marcação', () => {
     const marcado = iniciarConferencia(ctx(), PLANO.etapas, 'todos_desceram', almoco, ate(3))
-    const trocado = iniciarConferencia(ctx(), PLANO.etapas, 'so_alguns', almoco)
+    const trocado = trocarModo(ctx(), PLANO.etapas, marcado, 'so_alguns', almoco)
     expect(marcado.confirmados).toHaveLength(35)
+    expect(trocado.modo).toBe('so_alguns')
     expect(trocado.confirmados).toHaveLength(38)
+  })
+
+  it('tocar no modo que já está selecionado não faz nada: a lista e a marcação ficam', () => {
+    const marcado = alternarPassageiro(iniciarConferencia(ctx(), PLANO.etapas, 'todos_desceram', almoco, ate(3)), 'p-01')
+    expect(trocarModo(ctx(), PLANO.etapas, marcado, 'todos_desceram', almoco)).toBe(marcado)
   })
 
   it('a marcação da conferência só leva quem é esperado (quem saiu da viagem no meio fica de fora)', () => {

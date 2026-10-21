@@ -14,6 +14,7 @@ import {
   pendentesDa,
   podeSair,
   quadroDeSituacao,
+  trocarModo,
   type ContextoConferencia,
   type DecisaoDePendente,
   type EstadoConferencia,
@@ -69,7 +70,8 @@ export function Conferencia({ contexto, etapa, etapas, titulo, rotuloSair, desce
   const lista = listaParaTela(contexto, estado)
 
   function trocarModo(modo: ModoConferencia) {
-    setEstado(iniciarConferencia(contexto, etapas, modo, etapa))
+    if (modo === estado.modo) return
+    setEstado(trocarModo(contexto, etapas, estado, modo, etapa))
     setAvisoDaMarcacao(null)
     setResposta(null)
   }

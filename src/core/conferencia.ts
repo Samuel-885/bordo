@@ -128,6 +128,21 @@ function estadoBase(
 
 // ---------- Operações ----------
 
+/**
+ * Troca o modo: reinicia a lista no estado do novo modo (sem a marcação de quem desceu).
+ * Tocar no modo que já está selecionado não faz nada: devolve o mesmo estado.
+ */
+export function trocarModo(
+  ctx: ContextoConferencia,
+  etapas: readonly Etapa[],
+  estado: EstadoConferencia,
+  modo: ModoConferencia,
+  etapa: Pick<Etapa, 'tipo' | 'categoria' | 'modoConferencia'>,
+): EstadoConferencia {
+  if (modo === estado.modo) return estado
+  return iniciarConferencia(ctx, etapas, modo, etapa)
+}
+
 export function alternarPassageiro(estado: EstadoConferencia, passageiroId: string): EstadoConferencia {
   const confirmados = estado.confirmados.includes(passageiroId)
     ? estado.confirmados.filter((id) => id !== passageiroId)
