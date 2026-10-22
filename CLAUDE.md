@@ -39,6 +39,7 @@ A especificação completa está em `docs/ESPECIFICACAO.md` e é a fonte da verd
 - Uma fase por vez, na ordem abaixo. Não adiante funcionalidades de fases futuras.
 - Comece cada fase apresentando um plano e espere aprovação antes de escrever código.
 - Uma fase só termina com `npm test` e `npm run build` passando, sem erros de TypeScript.
+- Nunca faça push sem antes rodar `npm test` e `npm run build` com sucesso, nesta ordem, inclusive em correções pequenas.
 - Commits pequenos e frequentes, mensagens em português.
 
 ## Fases
