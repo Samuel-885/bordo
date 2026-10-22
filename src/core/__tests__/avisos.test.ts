@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { avisosDoPlano, horariosForaDeOrdem } from '../avisos'
 import { estadosDoPlano } from '../previsao'
 import type { DadosPlano, Etapa, Local } from '../tipos'
-import { h, LOCAIS, PLANO } from './fixtures'
+import { h, LOCAIS, PLANO, TRECHOS_DAS_ALTERNATIVAS } from './fixtures'
 
 function comEtapa(id: string, mudanca: Partial<Etapa>, locais: Local[] = LOCAIS): DadosPlano {
   return {
@@ -19,7 +19,7 @@ function avisos(d: DadosPlano) {
 describe('avisos do planejamento', () => {
   it('plano completo, com horário de funcionamento, não tem avisos de local', () => {
     const locaisComHorario = LOCAIS.map((l) => ({ ...l, abre: '07:00', fecha: '23:00' }))
-    const d = { ...PLANO, locais: locaisComHorario }
+    const d = { ...PLANO, locais: locaisComHorario, trechos: TRECHOS_DAS_ALTERNATIVAS }
     expect(avisos(d)).toEqual([])
   })
 

@@ -1,7 +1,8 @@
 // Duração de um trecho, sempre com fonte ("Regras de cálculo da previsão").
 
+import { paresVizinhos } from './ordem'
 import { diferencaMin, somarMinutos } from './tempo'
-import type { DadosPlano, DuracaoTrecho, Etapa, Instante } from './tipos'
+import type { DadosPlano, DuracaoTrecho, Etapa, Instante, Trecho } from './tipos'
 
 export const SEM_TEMPO: DuracaoTrecho = { minutos: null, fonte: null }
 
@@ -110,4 +111,34 @@ export function duracaoComPuladas(
     total += parte.minutos
   }
   return { minutos: total, fonte: 'estimado' }
+}
+
+/** Os quatro campos que identificam um trecho: etapa e local de cada ponta. */
+export type ParDeTrecho = Pick<Trecho, 'etapaOrigemId' | 'localOrigemId' | 'etapaDestinoId' | 'localDestinoId'>
+
+export interface ParDeAlternativas {
+  par: ParDeTrecho
+  duracao: DuracaoTrecho
+}
+
+/**
+ * Pares de locais candidatos de etapas vizinhas em que ao menos uma das etapas tem
+ * alternativas, menos o par preferido → preferido (esse já aparece na linha de trecho
+ * entre as etapas). Cada par traz a duração que o cálculo usa hoje, com a fonte.
+ */
+export function paresDeTrechoDasAlternativas(d: DadosPlano): ParDeAlternativas[] {
+  const candidatos = (e: Etapa) => [...new Set([e.localId, ...e.alternativas])].filter((id): id is string => id !== null)
+  const resultado: ParDeAlternativas[] = []
+  for (const [a, b] of paresVizinhos(d.etapas)) {
+    for (const localA of candidatos(a)) {
+      for (const localB of candidatos(b)) {
+        if (localA === a.localId && localB === b.localId) continue
+        resultado.push({
+          par: { etapaOrigemId: a.id, localOrigemId: localA, etapaDestinoId: b.id, localDestinoId: localB },
+          duracao: duracaoTrecho(d, a, localA, b, localB),
+        })
+      }
+    }
+  }
+  return resultado
 }

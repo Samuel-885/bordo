@@ -4,6 +4,7 @@
 import { contextoDeDescidaNaEtapa, contextoDeDescidaNaoPlanejada, validarConferencia, validarStatus } from './conferencia'
 import { passageirosEmTransito, passageirosEsperados } from './passageiros'
 import { calcularEstado, validarPulo } from './previsao'
+import { validarTroca } from './viabilidade'
 import { validarRecalibracao } from './recalibracao'
 import { antes, mesmoInstante, naHoraDoDia, ordenarPor, truncarMinuto } from './tempo'
 import { ordenarEtapas } from './trechos'
@@ -320,9 +321,11 @@ export function validarRegistro(
     case 'imprevisto':
       if (s.situacao === 'chegamos') return { ok: false, motivo: 'A viagem já chegou ao destino.' }
       return naoDepoisDeAgora()
-    case 'troca_local':
-      // Validada na fase 6; aqui só gravada (usada pelos cenários da demonstração).
-      return naoDepoisDeAgora()
+    case 'troca_local': {
+      const antesDoHorario = naoDepoisDeAgora()
+      if (!antesDoHorario.ok) return antesDoHorario
+      return validarTroca(d, original, eventos, agora, conteudo.etapaId, conteudo.dados.localId)
+    }
     case 'conferencia': {
       const antesDoHorario = naoDepoisDeAgora()
       if (!antesDoHorario.ok || !passageiros) return antesDoHorario

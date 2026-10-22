@@ -15,6 +15,7 @@ import type {
   Passageiro,
   PlanoOriginal,
   StatusPassageiro,
+  Trecho,
 } from '../tipos'
 
 const MEIA_NOITE = instante('2026-11-14T00:00:00-03:00')
@@ -151,3 +152,11 @@ export function esperarHorario(obtido: Instante | null | undefined, esperado: In
   expect(obtido, `esperado ${esperado}`).toBeTruthy()
   expect({ obtido, diferencaMin: diferencaMin(obtido!, esperado) }).toEqual({ obtido, diferencaMin: 0 })
 }
+
+/** Trechos manuais entre os locais do almoço (B e C) e os vizinhos; o A usa o roteiro. */
+export const TRECHOS_DAS_ALTERNATIVAS: Trecho[] = [
+  { etapaOrigemId: 'monlevade', localOrigemId: 'l-monlevade', etapaDestinoId: 'almoco', localDestinoId: 'l-rest-b', duracaoMin: 220, fonte: 'manual' },
+  { etapaOrigemId: 'monlevade', localOrigemId: 'l-monlevade', etapaDestinoId: 'almoco', localDestinoId: 'l-rest-c', duracaoMin: 250, fonte: 'manual' },
+  { etapaOrigemId: 'almoco', localOrigemId: 'l-rest-b', etapaDestinoId: 'cafe', localDestinoId: 'l-cafe', duracaoMin: 180, fonte: 'manual' },
+  { etapaOrigemId: 'almoco', localOrigemId: 'l-rest-c', etapaDestinoId: 'cafe', localDestinoId: 'l-cafe', duracaoMin: 180, fonte: 'manual' },
+]

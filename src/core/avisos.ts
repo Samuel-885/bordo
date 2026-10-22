@@ -2,7 +2,7 @@
 // início da viagem. Os bloqueios continuam sendo os de `calcularPlanoOriginal`.
 
 import { antes, diferencaMin } from './tempo'
-import { ordenarEtapas, saidaRoteiro } from './trechos'
+import { ordenarEtapas, paresDeTrechoDasAlternativas, saidaRoteiro } from './trechos'
 import type { DadosPlano, EstadoEtapa, Passageiro } from './tipos'
 
 export type AvisoPlano =
@@ -10,6 +10,8 @@ export type AvisoPlano =
   /** Locais candidatos de uma parada flexível sem abre/fecha: a viabilidade fica "sem horário". */
   | { tipo: 'local_sem_horario'; etapaId: string; localIds: string[] }
   | { tipo: 'chegada_fora_da_janela'; etapaId: string }
+  /** Alternativas (não preferidas) com algum trecho sem duração: não dá para trocar para elas na viagem. */
+  | { tipo: 'alternativa_sem_trecho'; etapaId: string; localIds: string[] }
   | { tipo: 'sem_passageiros' }
 
 /**
@@ -49,6 +51,22 @@ export function avisosDoPlano(dados: DadosPlano, estados: readonly EstadoEtapa[]
         avisos.push({ tipo: 'chegada_fora_da_janela', etapaId: etapa.id })
       }
     }
+  }
+
+  const semTrecho = new Map<string, Set<string>>()
+  const marcar = (etapaId: string, localId: string) => {
+    const e = dados.etapas.find((x) => x.id === etapaId)
+    if (!e || localId === e.localId) return
+    semTrecho.set(etapaId, (semTrecho.get(etapaId) ?? new Set()).add(localId))
+  }
+  for (const { par, duracao } of paresDeTrechoDasAlternativas(dados)) {
+    if (duracao.minutos !== null) continue
+    marcar(par.etapaOrigemId, par.localOrigemId)
+    marcar(par.etapaDestinoId, par.localDestinoId)
+  }
+  for (const etapa of ordenarEtapas(dados.etapas)) {
+    const locais = semTrecho.get(etapa.id)
+    if (locais) avisos.push({ tipo: 'alternativa_sem_trecho', etapaId: etapa.id, localIds: [...locais] })
   }
   return avisos
 }
