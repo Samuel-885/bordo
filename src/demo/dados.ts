@@ -42,12 +42,14 @@ function local(id: string, nome: string, cidade: string, extra: Partial<Local> =
 }
 
 const ABRE_ALMOCO = '11:00'
+/** Número fictício (DDD 00), só para o LIGAR aparecer na demonstração. */
+const TELEFONE_FICTICIO = '(00) 5555-0142'
 
 const LOCAIS: Local[] = [
   local(LOCAL.saida, 'Ponto de saída', 'Ipatinga'),
   local(LOCAL.monlevade, 'Ponto de embarque', 'João Monlevade'),
   local(LOCAL.restA, 'Restaurante A', 'Cidade do almoço', { abre: ABRE_ALMOCO, fecha: '14:00' }),
-  local(LOCAL.restB, 'Restaurante B', 'Cidade do almoço', { abre: ABRE_ALMOCO, fecha: '15:00' }),
+  local(LOCAL.restB, 'Restaurante B', 'Cidade do almoço', { abre: ABRE_ALMOCO, fecha: '15:00', telefone: TELEFONE_FICTICIO }),
   local(LOCAL.restC, 'Restaurante C', 'Cidade do almoço', { abre: ABRE_ALMOCO, fecha: '16:30' }),
   local(LOCAL.cafe, 'Lanchonete do café', 'Cidade do café'),
   local(LOCAL.jantar, 'Restaurante do jantar', 'Cidade do jantar'),

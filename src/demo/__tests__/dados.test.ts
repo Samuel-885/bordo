@@ -3,6 +3,7 @@ import { ETAPAS as ETAPAS_TESTE, LOCAIS as LOCAIS_TESTE, PASSAGEIROS as PASSAGEI
 import { calcularPlanoOriginal } from '../../core/previsao'
 import { esperadosNaSaida } from '../../core/passageiros'
 import { ESPACO_DEMO, ETAPA, horaDemo, PASSAGEIROS_DEMO, PLANO_DEMO } from '../dados'
+import { linkTelefone } from '../../ui/logica/alternativas'
 import { esperarHorario } from './ajudas'
 
 describe('dados da demonstração', () => {
@@ -13,6 +14,13 @@ describe('dados da demonstração', () => {
     expect(PASSAGEIROS_DEMO.every((p) => p.nome.startsWith('Passageiro fictício'))).toBe(true)
     expect(esperadosNaSaida(ETAPA.origem, PLANO_DEMO.etapas, PASSAGEIROS_DEMO, [])).toBe(35)
     expect(esperadosNaSaida(ETAPA.monlevade, PLANO_DEMO.etapas, PASSAGEIROS_DEMO, [])).toBe(38)
+  })
+
+  it('têm um telefone fictício num só restaurante, para o LIGAR aparecer', () => {
+    const comTelefone = PLANO_DEMO.locais.filter((l) => l.telefone)
+    expect(comTelefone.map((l) => l.nome)).toEqual(['Restaurante B'])
+    expect(comTelefone[0]!.telefone).toBe('(00) 5555-0142') // DDD 00: não existe
+    expect(linkTelefone(comTelefone[0]!.telefone)).toBe('tel:0055550142')
   })
 
   it('têm todos os ids com o prefixo da demonstração', () => {
