@@ -15,6 +15,7 @@ import { AvisoBanco } from './ui/componentes/AvisoBanco'
 import { FaixaDemo } from './ui/componentes/FaixaDemo'
 import { EditorEtapa } from './ui/EditorEtapa'
 import { ListaViagens } from './ui/ListaViagens'
+import { Alternativas } from './ui/Alternativas'
 import { Passageiros } from './ui/Passageiros'
 import { Planejamento } from './ui/Planejamento'
 import { TelaViagem } from './ui/TelaViagem'
@@ -30,6 +31,7 @@ type Tela =
   | { nome: 'viagem'; viagemId: string }
   | { nome: 'timeline'; viagemId: string }
   | { nome: 'passageiros'; viagemId: string }
+  | { nome: 'alternativas'; viagemId: string }
 
 interface EstadoHistorico {
   tela: Tela
@@ -178,6 +180,7 @@ function App() {
           onVoltar={() => voltar(LISTA)}
           onTimeline={() => irPara({ nome: 'timeline', viagemId: tela.viagemId })}
           onPassageiros={() => irPara({ nome: 'passageiros', viagemId: tela.viagemId })}
+          onAlternativas={() => irPara({ nome: 'alternativas', viagemId: tela.viagemId })}
           aoRegistrar={
             executor
               ? () => {
@@ -194,6 +197,22 @@ function App() {
           repo={repo}
           viagemId={tela.viagemId}
           onVoltar={() => voltar({ nome: 'viagem', viagemId: tela.viagemId })}
+        />
+      )}
+      {tela.nome === 'alternativas' && (
+        <Alternativas
+          key={`alternativas-${tela.viagemId}-${versao}`}
+          repo={repo}
+          viagemId={tela.viagemId}
+          onVoltar={() => voltar({ nome: 'viagem', viagemId: tela.viagemId })}
+          aoRegistrar={
+            executor
+              ? () => {
+                  executor.entrarNoModoLivre()
+                  avisarMudanca()
+                }
+              : undefined
+          }
         />
       )}
       {tela.nome === 'timeline' && (

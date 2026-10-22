@@ -10,7 +10,8 @@ import {
   normalizarOrdem,
   trechosQueDeixamDeValer,
 } from '../core/ordem'
-import { calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from '../core/previsao'
+import { calcularEstado, calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from '../core/previsao'
+import { validarTrechoManualEmViagem } from '../core/viabilidade'
 import { paradaAberta, validarCorrecao, validarHorario, validarRegistro } from '../core/registro'
 import { agora, simuladoAtivo } from '../core/relogio'
 import { diferencaMin, naHoraDoDia, somarMinutos } from '../core/tempo'
@@ -245,6 +246,30 @@ export class Repositorio {
     await this.#db.transaction('rw', viagens, trechos, async () => {
       await this.#exigirPlanejando(viagemId)
       await trechos.put({ ...par, duracaoMin, fonte: 'manual' })
+    })
+  }
+
+  /**
+   * Duração digitada à mão com a viagem em andamento (ex.: alternativa sem trecho). Só para
+   * trecho ainda não percorrido e sem tempo (regras no núcleo). Não é um evento e não mexe
+   * no plano original, que guarda horários.
+   */
+  async salvarTrechoManualEmViagem(
+    viagemId: string,
+    par: Pick<Trecho, 'etapaOrigemId' | 'localOrigemId' | 'etapaDestinoId' | 'localDestinoId'>,
+    duracaoMin: number,
+  ): Promise<{ ok: true } | { ok: false; motivo: string }> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, etapas, locais, trechos, eventos } = this.#db
+    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, async () => {
+      const dados = await this.carregarPlano(viagemId)
+      const original = dados?.viagem.planoOriginal
+      if (!dados || !original) return { ok: false as const, motivo: 'A viagem não está em andamento.' }
+      const estado = calcularEstado(dados, original, await this.listarEventos(viagemId), agora())
+      const r = validarTrechoManualEmViagem(dados, estado, par, duracaoMin)
+      if (!r.ok) return r
+      await trechos.put({ ...par, duracaoMin, fonte: 'manual' })
+      return { ok: true as const }
     })
   }
 

@@ -5,7 +5,7 @@ import { agora, usarRelogioReal } from '../../core/relogio'
 import { mesmoInstante } from '../../core/tempo'
 import { repositorioDeTeste } from '../../data/__tests__/ajudas'
 import { CENARIOS } from '../cenarios'
-import { VIAGEM_DEMO_ID } from '../dados'
+import { ETAPA, LOCAL, VIAGEM_DEMO_ID } from '../dados'
 import { ExecutorNoBanco } from '../executorNoBanco'
 import { SessaoDemo } from '../executor'
 
@@ -49,6 +49,27 @@ describe('cenários no banco da demonstração', () => {
       /* roda todos os passos */
     }
     expect((await repo.obterViagem(VIAGEM_DEMO_ID))!.status).toBe('concluida')
+  })
+
+  it('"restaurante inviável e troca": parando antes do último passo, a troca feita à mão (tela de alternativas) dá o mesmo resultado', async () => {
+    const cenario = CENARIOS.find((c) => c.id === 'restaurante-inviavel-e-troca')!
+    const repo = repositorioDeTeste('demo')
+    const executor = await ExecutorNoBanco.iniciar(repo, cenario)
+    for (let i = 0; i < cenario.passos.length - 1; i++) await executor.avancarPasso()
+    const antes = (await repo.listarEventos(VIAGEM_DEMO_ID)).length
+
+    const r = await repo.registrarEvento(VIAGEM_DEMO_ID, {
+      tipo: 'troca_local',
+      etapaId: ETAPA.almoco,
+      dados: { localId: LOCAL.restC },
+    })
+    expect(r.ok).toBe(true)
+    expect((await repo.listarEventos(VIAGEM_DEMO_ID)).length).toBe(antes + 1)
+
+    const dados = (await repo.carregarPlano(VIAGEM_DEMO_ID))!
+    const estado = calcularEstado(dados, dados.viagem.planoOriginal!, await repo.listarEventos(VIAGEM_DEMO_ID), agora())
+    expect(estado.etapas.find((e) => e.etapaId === ETAPA.almoco)?.localId).toBe(LOCAL.restC)
+    expect(estado.atrasoDestinoMin).toBe(185)
   })
 
   it('o modo livre desliga o próximo passo; reiniciar volta ao passo 0', async () => {

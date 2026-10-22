@@ -57,6 +57,23 @@ function fechamentoSeAberto(local: Local & { abre: string; fecha: string }, cheg
   return null
 }
 
+/** O local preferido e as alternativas, sem repetidos e sem vazios. */
+export function candidatosDaEtapa(etapa: Etapa): string[] {
+  return [...new Set([etapa.localId, ...etapa.alternativas])].filter((id): id is string => id !== null)
+}
+
+/** Paradas flexíveis ainda não alcançadas nem puladas, na ordem do percurso. */
+export function paradasFlexiveisPendentes(d: DadosPlano, estado: EstadoViagem): Etapa[] {
+  return ordenarEtapas(d.etapas).filter(
+    (e) => e.tipo === 'flexivel' && estado.etapas.find((x) => x.etapaId === e.id)?.estado === 'pendente',
+  )
+}
+
+/** Há escolha a fazer: alguma parada flexível pendente com mais de um local. */
+export function temAlternativasPendentes(d: DadosPlano, estado: EstadoViagem): boolean {
+  return paradasFlexiveisPendentes(d, estado).some((e) => candidatosDaEtapa(e).length > 1)
+}
+
 export function classificar(
   local: Local,
   chegada: Instante | null,
@@ -109,7 +126,7 @@ export function avaliarAlternativas(
   const estadoEtapa = atual.etapas.find((e) => e.etapaId === etapaId)
   if (estadoEtapa?.estado !== 'pendente') return []
 
-  const candidatos = [...new Set([etapa.localId, ...etapa.alternativas])].filter((id) => id !== null)
+  const candidatos = candidatosDaEtapa(etapa)
   const avaliacoes: AvaliacaoAlternativa[] = []
   for (const localId of candidatos) {
     const local = d.locais.find((l) => l.id === localId)

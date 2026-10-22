@@ -50,6 +50,10 @@ export function textoDoAviso(a: AvisoPlano, etapas: readonly Etapa[], locais: re
     }
     case 'chegada_fora_da_janela':
       return `${nome}: a chegada prevista fica fora da janela.`
+    case 'alternativa_sem_trecho': {
+      const nomes = a.localIds.map((id) => locais.find((l) => l.id === id)?.nome ?? 'local').join(', ')
+      return `${nome}: falta o tempo de trecho para ${nomes}. Sem ele não dá para trocar para esse local na viagem.`
+    }
   }
 }
 

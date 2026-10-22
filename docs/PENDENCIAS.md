@@ -1,5 +1,4 @@
 # Pendências entre fases
 
-- **Fase 6:** incluir a entrada manual de duração dos trechos das alternativas. Na fase 3, o trecho manual só existe entre os locais preferidos; os pares com alternativas ficam "sem tempo" até lá (ou até as rotas automáticas da fase 8). A troca de local pela tela principal também é da fase 6 (hoje só os cenários da demonstração gravam esse evento).
 - **Fase 10:** o registro esquecido (`pendenciasDeRegistro`) segue ligado na tela principal, mas nem os botões da fase 4 nem a conferência da fase 5 produzem essa situação: a conferência faz parte do SAÍMOS e só existe junto com ele, e uma saída gravada sem conferência não é pendência (a tela mostra "sem conferência"). Ela só aparece com evento fora da ordem, por exemplo ao restaurar um backup. Na restauração, decidir se uma saída sem conferência deve aparecer marcada na timeline.
 - **Fase 10:** "Apagar passageiros" ao fim da viagem. A fase 5 não deixa excluir passageiro de viagem concluída nem de quem já passou por conferência; o apagamento em massa precisa manter as contagens no relatório.

@@ -18,6 +18,7 @@ import {
   type EstadoConferencia,
 } from '../core/conferencia'
 import { pendenciasDeRegistro, validarPulo } from '../core/previsao'
+import { temAlternativasPendentes } from '../core/viabilidade'
 import { validarRecalibracao } from '../core/recalibracao'
 import { situacaoDaViagem } from '../core/registro'
 import { ordenarEtapas } from '../core/trechos'
@@ -59,13 +60,14 @@ interface Props {
   onVoltar: () => void
   onTimeline: () => void
   onPassageiros: () => void
+  onAlternativas: () => void
   /** A demonstração usa para sair do cenário e entrar no modo livre. */
   aoRegistrar?: () => void
 }
 
 type Acao = 'parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | null
 
-export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros, aoRegistrar }: Props) {
+export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros, onAlternativas, aoRegistrar }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
     const [plano, eventos, passageiros] = await Promise.all([
       repo.carregarPlano(viagemId),
@@ -105,6 +107,7 @@ export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros
       onVoltar={onVoltar}
       onTimeline={onTimeline}
       onPassageiros={onPassageiros}
+      onAlternativas={onAlternativas}
       aoRegistrar={aoRegistrar}
     />
   )
@@ -120,10 +123,11 @@ interface ConteudoProps {
   onVoltar: () => void
   onTimeline: () => void
   onPassageiros: () => void
+  onAlternativas: () => void
   aoRegistrar?: () => void
 }
 
-function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVoltar, onTimeline, onPassageiros, aoRegistrar }: ConteudoProps) {
+function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVoltar, onTimeline, onPassageiros, onAlternativas, aoRegistrar }: ConteudoProps) {
   const { viagem, etapas, locais } = plano
   const original = viagem.planoOriginal!
   const s = situacaoDaViagem(plano, original, eventos, agora)
@@ -512,6 +516,11 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
                 <button type="button" className="botao" onClick={onPassageiros}>
                   PASSAGEIROS
                 </button>
+                {temAlternativasPendentes(plano, s.estado) && (
+                  <button type="button" className="botao" onClick={onAlternativas}>
+                    VER ALTERNATIVAS
+                  </button>
+                )}
                 {podePular && (
                   <button type="button" className="botao" onClick={() => abrir('pular')}>
                     PULAR ETAPA

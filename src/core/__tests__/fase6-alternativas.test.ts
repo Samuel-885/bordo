@@ -6,6 +6,8 @@ import { paresDeTrechoDasAlternativas } from '../trechos'
 import type { DadosPlano, Trecho } from '../tipos'
 import {
   avaliarAlternativas,
+  paradasFlexiveisPendentes,
+  temAlternativasPendentes,
   validarTrechoManualEmViagem,
   validarTroca,
 } from '../viabilidade'
@@ -212,5 +214,23 @@ describe('fase 6: trecho manual durante a viagem', () => {
       trechos: [...d.trechos, { ...parCafe, duracaoMin: 180, fonte: 'manual' }],
     }
     expect(JSON.stringify(congelar(comTrecho))).toBe(antes)
+  })
+})
+
+describe('fase 6: paradas pendentes e botão VER ALTERNATIVAS', () => {
+  const original = congelar(plano())
+  const estado = (eventos: typeof EM_TRANSITO) => calcularEstado(plano(), original, eventos, h('12:00'))
+
+  it('há alternativas pendentes enquanto o almoço não foi alcançado nem pulado', () => {
+    expect(paradasFlexiveisPendentes(plano(), estado(EM_TRANSITO)).map((e) => e.id)).toEqual(['almoco', 'cafe', 'jantar'])
+    expect(temAlternativasPendentes(plano(), estado(EM_TRANSITO))).toBe(true)
+  })
+
+  it('sem parada flexível com mais de um local pendente, não há o que ver', () => {
+    const chegou = [...EM_TRANSITO, ev.chegada('almoco', h('14:15'))]
+    expect(paradasFlexiveisPendentes(plano(), estado(chegou)).map((e) => e.id)).toEqual(['cafe', 'jantar'])
+    expect(temAlternativasPendentes(plano(), estado(chegou))).toBe(false)
+    const pulou = [...EM_TRANSITO, ev.pular('almoco', h('10:56'))]
+    expect(temAlternativasPendentes(plano(), estado(pulou))).toBe(false)
   })
 })

@@ -6,6 +6,7 @@ import { avisosDoPlano, horariosForaDeOrdem } from '../core/avisos'
 import { calcularPlanoOriginal, estadosDoPlano } from '../core/previsao'
 import { agora } from '../core/relogio'
 import type { BloqueioInicio } from '../core/previsao'
+import type { ParDeAlternativas, ParDeTrecho } from '../core/trechos'
 import type { DadosPlano, DuracaoTrecho, Etapa, EstadoEtapa, Passageiro, TipoViagem } from '../core/tipos'
 import type { Repositorio } from '../data/repositorio'
 import { Confirmar } from './componentes/Confirmar'
@@ -15,6 +16,7 @@ import { dataParaInstante, diasDepois, formatarData, formatarHora } from './logi
 import { etiquetaDaEtapa } from './logica/rotulos'
 import { resumoDaEtapa, textoDoAviso, textoManuaisApagados, textoDoBloqueio, textoDaFonte, textoForaDeOrdem } from './logica/textos'
 import { podeMover } from '../core/ordem'
+import { paresDeTrechoDasAlternativas } from '../core/trechos'
 import { textoTotalDePassageiros } from './logica/passageiros'
 import { useDados } from './useDados'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
@@ -97,6 +99,7 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
   const planejando = viagem.status === 'planejando'
   const estados = estadosDoPlano(plano)
   const avisos = avisosDoPlano(plano, estados, passageiros)
+  const paresDasAlternativas = paresDeTrechoDasAlternativas(plano)
   const foraDeOrdem = horariosForaDeOrdem(plano)
   const calculo = calcularPlanoOriginal(plano, agora())
   const bloqueios: BloqueioInicio[] = calculo.ok ? [] : calculo.bloqueios
@@ -182,6 +185,15 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
                     duracaoManual={manual}
                     onSalvar={(min) => agir(() => repo.salvarTrechoManual(viagem.id, par!, min))}
                     onRemover={() => agir(() => repo.removerTrecho(viagem.id, par!))}
+                  />
+                )}
+                {estadoProximo && (
+                  <TemposDasAlternativas
+                    pares={paresDasAlternativas.filter((p) => p.par.etapaOrigemId === etapa.id)}
+                    plano={plano}
+                    editavel={planejando}
+                    onSalvar={(par, min) => agir(() => repo.salvarTrechoManual(viagem.id, par, min))}
+                    onRemover={(par) => agir(() => repo.removerTrecho(viagem.id, par))}
                   />
                 )}
               </Fragment>
@@ -408,7 +420,54 @@ function LinhaEtapa({ etapa, estado, dataSaida, local, editavel, podeSubir, pode
   )
 }
 
+interface TemposDasAlternativasProps {
+  pares: ParDeAlternativas[]
+  plano: DadosPlano
+  editavel: boolean
+  onSalvar: (par: ParDeTrecho, minutos: number) => void
+  onRemover: (par: ParDeTrecho) => void
+}
+
+/** Tempo de cada par de locais candidatos (alternativas) entre duas etapas vizinhas. */
+function TemposDasAlternativas({ pares, plano, editavel, onSalvar, onRemover }: TemposDasAlternativasProps) {
+  if (pares.length === 0) return null
+  const semTempo = pares.filter((p) => p.duracao.minutos === null).length
+  const nome = (id: string) => plano.locais.find((l) => l.id === id)?.nome ?? 'local'
+  return (
+    <details className="tempos-alternativas" open={semTempo > 0}>
+      <summary>
+        Tempos das alternativas
+        {semTempo > 0 ? ` (${semTempo} sem tempo)` : ''}
+      </summary>
+      {pares.map(({ par, duracao }) => {
+        const manual =
+          plano.trechos.find(
+            (t) =>
+              t.etapaOrigemId === par.etapaOrigemId &&
+              t.localOrigemId === par.localOrigemId &&
+              t.etapaDestinoId === par.etapaDestinoId &&
+              t.localDestinoId === par.localDestinoId,
+          )?.duracaoMin ?? null
+        return (
+          <LinhaTrecho
+            key={`${par.localOrigemId}>${par.localDestinoId}-${manual}`}
+            rotulo={`${nome(par.localOrigemId)} → ${nome(par.localDestinoId)}`}
+            trecho={duracao}
+            editavel={editavel}
+            pode
+            duracaoManual={manual}
+            onSalvar={(min) => onSalvar(par, min)}
+            onRemover={() => onRemover(par)}
+          />
+        )
+      })}
+    </details>
+  )
+}
+
 interface LinhaTrechoProps {
+  /** Nome do par de locais, quando a linha não é o trecho principal entre as etapas. */
+  rotulo?: string
   trecho: DuracaoTrecho | null
   editavel: boolean
   /** Os dois locais estão escolhidos: dá para digitar a duração. */
@@ -418,7 +477,7 @@ interface LinhaTrechoProps {
   onRemover: () => void
 }
 
-function LinhaTrecho({ trecho, editavel, pode, duracaoManual, onSalvar, onRemover }: LinhaTrechoProps) {
+function LinhaTrecho({ rotulo, trecho, editavel, pode, duracaoManual, onSalvar, onRemover }: LinhaTrechoProps) {
   const [editando, setEditando] = useState(false)
   const inicial = horasEMinutosDe(duracaoManual ?? 0)
   const [horas, setHoras] = useState(duracaoManual ? inicial.horas : '')
@@ -438,6 +497,7 @@ function LinhaTrecho({ trecho, editavel, pode, duracaoManual, onSalvar, onRemove
 
   return (
     <div className={`trecho ${semTempo ? 'sem-tempo' : ''}`}>
+      {rotulo && <span className="rotulo-trecho">{rotulo}</span>}
       {semTempo ? <strong>Sem tempo definido</strong> : (
         <>
           <span className="mono">{formatarDuracao(trecho.minutos)}</span>

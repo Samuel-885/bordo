@@ -115,7 +115,8 @@ export const CENARIOS: Cenario[] = [
     nome: 'Restaurante inviável e troca',
     descricao:
       'Problema mecânico em Monlevade: saímos só às 10:55. O Restaurante A chega fechado, o B com pouca margem e ' +
-      'o C com folga (caso 9). Trocamos para o C.',
+      'o C com folga (caso 9). O último passo troca para o C; para fazer a troca você mesmo, ' +
+      'pare no passo anterior e use VER ALTERNATIVAS na tela da viagem.',
     inicio: INICIO_PADRAO,
     passos: [
       relogio('06:30', 'São 06:30.'),

@@ -491,3 +491,32 @@ Aprovadas em 21/10/2026, na construção de passageiros e conferência. Compleme
 - A timeline mostra a conferência ("37/38 a bordo · Falta: Nome") e as mudanças de status com o nome do passageiro e o motivo. Os nomes ficam só no celular: a mensagem da fase 7 nunca os leva.
 - Demonstração: o cenário "Passageiro faltando" grava a conferência incompleta de Monlevade antes da saída; os demais cenários continuam com SAÍMOS direto, sem conferência.
 
+## Decisões da fase 6
+
+Aprovadas em 22/10/2026, na construção das alternativas e da viabilidade na viagem. Complementam as seções anteriores.
+
+**Planejamento**
+
+- Entre duas etapas vizinhas em que ao menos uma tem alternativas, a seção "Tempos das alternativas" lista todos os pares de locais candidatos (da etapa anterior até cada alternativa e de cada alternativa até a seguinte, inclusive quando a vizinha também tem alternativas), menos o par preferido → preferido, que continua na linha de trecho entre as etapas. Cada par mostra a duração e a fonte, ou "sem tempo", e aceita horas e minutos (fonte "manual").
+- Alternativa com algum par sem tempo gera o aviso "alternativa sem trecho" no início da viagem. Não bloqueia.
+
+**Troca de local na viagem**
+
+- O evento "troca de local" só é aceito para parada flexível ainda pendente (não alcançada nem pulada), com local entre os candidatos da etapa e diferente do atual. "Inviável" é aceita (a tela pede confirmação).
+- A troca é recusada quando falta o tempo de algum trecho: o da etapa anterior até o novo local ou o do novo local até a etapa seguinte (com as puladas entre elas). A mensagem diz qual: "Falta o tempo de X até Y." Alternativa "Sem tempo" não pode ser escolhida.
+- Trocar o local cancela a recalibração da etapa (decisão da fase 1). A tela avisa antes, e pede confirmação, quando há uma previsão do Google Maps ativa naquela etapa.
+- DESFAZER funciona como nos outros registros.
+
+**Trecho manual durante a viagem**
+
+- Dá para gravar a duração manual de um trecho com a viagem em andamento, só quando o trecho ainda não foi percorrido (a etapa de destino não foi alcançada e a de origem não foi deixada, ou está pulada), liga etapas vizinhas e locais candidatos, e o par ainda não tem tempo definido. Nada que já entra na previsão é alterado em silêncio.
+- Não é evento e não aparece na timeline. O plano original guarda horários, não durações, e não muda.
+- Consequência: em trânsito, o trecho que já está em curso (da etapa que acabamos de deixar até a próxima) não aceita duração. Uma alternativa da parada seguinte que não tinha esse tempo no planejamento só pode ser escolhida se o tempo for informado antes da saída (parado na etapa anterior). O aviso do início da viagem existe para isso.
+
+**Tela de alternativas**
+
+- Botão VER ALTERNATIVAS na tela principal enquanto houver parada flexível pendente com mais de um local. A tela lista as paradas flexíveis pendentes, cada uma com as alternativas na ordem de `avaliarAlternativas`: classe, chegada estimada, fim da parada, "fecha às" (o horário cadastrado no local), margem, impacto na chegada ao destino ("+20 min", "−5 min") e os avisos. A escolhida atual vem marcada.
+- Em cada alternativa: link do Google Maps e, havendo telefone, LIGAR (link `tel:` só com dígitos). O espaço da mensagem para o restaurante fica para a fase 7.
+- PULAR ESTA PARADA vale para qualquer parada flexível pendente, com confirmação, usando `validarPulo`. O botão PULAR ETAPA da tela principal continua para a próxima parada.
+- Demonstração: o cenário "Restaurante inviável e troca" continua como está. Parando no passo anterior ao último, a troca para o Restaurante C pode ser feita pela tela de alternativas, no modo livre, com o mesmo resultado do cenário.
+
