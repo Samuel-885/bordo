@@ -8,7 +8,7 @@ import { validarTroca } from './viabilidade'
 import { validarRecalibracao } from './recalibracao'
 import { antes, mesmoInstante, naHoraDoDia, ordenarPor, truncarMinuto } from './tempo'
 import { ordenarEtapas } from './trechos'
-import type { ConteudoEvento } from './eventos'
+import { emOrdemDeGravacao, type ConteudoEvento } from './eventos'
 import type { DadosPlano, EstadoViagem, Etapa, Evento, Instante, MotivoParada, Passageiro, PlanoOriginal } from './tipos'
 
 export type Resultado = { ok: true } | { ok: false; motivo: string }
@@ -44,7 +44,7 @@ export interface ParadaAberta {
 /** PARAMOS sem VOLTAMOS no trecho que chega em `etapaId` (ou em qualquer etapa, sem o argumento). */
 export function paradaAberta(eventos: readonly Evento[], etapaId?: string): ParadaAberta | null {
   const abertas = new Map<string, ParadaAberta>()
-  for (const e of ordenarPor(eventos, (x) => x.horarioFato)) {
+  for (const e of ordenarPor(emOrdemDeGravacao(eventos), (x) => x.horarioFato)) {
     if (e.tipo !== 'parada_nao_planejada') continue
     if (e.dados.fase === 'inicio' && !abertas.has(e.etapaId)) {
       abertas.set(e.etapaId, { etapaId: e.etapaId, inicio: e.horarioFato, motivo: e.dados.motivo })

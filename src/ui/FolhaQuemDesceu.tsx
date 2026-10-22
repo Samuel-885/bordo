@@ -19,7 +19,7 @@ interface Props {
 
 export function FolhaQuemDesceu({ aBordo, atual, automatica, ocupado, erro, onSalvar, onFechar }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
-  const [escolhendo, setEscolhendo] = useState(atual !== null)
+  const [escolhendo, setEscolhendo] = useState(!automatica || atual !== null)
   const [marcados, setMarcados] = useState<string[]>(() => (atual ?? []).filter((id) => aBordo.some((p) => p.id === id)))
   const ordenados = [...aBordo].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
 

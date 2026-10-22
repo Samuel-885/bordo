@@ -2,6 +2,7 @@
 // zero a partir do plano e dos eventos; nada aqui é guardado.
 
 import { atrasoMin } from './atraso'
+import { emOrdemDeGravacao } from './eventos'
 import { antes, diferencaMin, ordenarPor, somarMinutos, truncarMinuto } from './tempo'
 import {
   duracaoComPuladas,
@@ -63,7 +64,8 @@ function indexarEventos(eventos: readonly Evento[]): Fatos {
     recalibracao: new Map(),
     paradas: new Map(),
   }
-  for (const e of ordenarPor(eventos, (x) => x.horarioFato)) {
+  // Mesmo horário do fato: vale a ordem de gravação (ordenarPor é estável).
+  for (const e of ordenarPor(emOrdemDeGravacao(eventos), (x) => x.horarioFato)) {
     switch (e.tipo) {
       case 'chegada':
         fatos.chegada.set(e.etapaId, e.horarioFato)

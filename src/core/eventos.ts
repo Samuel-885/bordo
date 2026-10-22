@@ -28,3 +28,17 @@ export function criarEvento(base: EventoBase, conteudo: ConteudoEvento): Evento 
 export function corrigirHorario(evento: Evento, horarioFato: Instante): Evento {
   return { ...evento, horarioFato: truncarMinuto(horarioFato) }
 }
+
+/**
+ * Os eventos na ordem de gravação: a sequência, quando existe; senão a posição na lista (um
+ * evento acrescentado no fim, como o simulado da avaliação das alternativas, vale por último).
+ * Quem depois ordena pelo horário do fato (`ordenarPor`, que é estável) desempata o mesmo
+ * minuto pela ordem de gravação, e não pela ordem em que o banco devolveu a lista.
+ */
+export function emOrdemDeGravacao(eventos: readonly Evento[]): Evento[] {
+  const chave = (e: Evento, i: number) => e.sequencia ?? 1e9 + i
+  return eventos
+    .map((e, i) => ({ e, k: chave(e, i) }))
+    .sort((a, b) => a.k - b.k)
+    .map((x) => x.e)
+}

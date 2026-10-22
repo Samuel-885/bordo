@@ -68,8 +68,9 @@ export const fluxo = {
         await page.waitForTimeout(200)
         esperar(!(await lerBanco(page, 'eventos')).some((e) => e.tipo === 'desceram'), 'não deveria gravar a marcação')
         await botao(page, 'Marcar quem desceu').click()
-        // Sem marcação anterior, a folha oferece as três opções; com marcação, abre direto na lista (próximo passo).
-        await botao(page, 'Escolher nomes').click()
+        // Aberta pelo botão do cartão, a folha vai direto à lista, mesmo sem marcação anterior.
+        esperar(await dialogoAberto(page).locator('ul[aria-label="Passageiros a bordo"]').isVisible(), 'a lista deveria abrir direto')
+        esperar((await dialogoAberto(page).getByRole('button', { name: 'Escolher nomes' }).count()) === 0, 'não deveria oferecer "Escolher nomes"')
         await dialogoAberto(page).locator('li button', { hasText: nome(3) }).click()
         await botao(page, 'Salvar (1 desceu)').click()
         await page.getByText('Desceram: 1').waitFor()

@@ -40,9 +40,6 @@ export const fluxo = {
     await passo('escolher um local inviável pede confirmação; cancelar não grava, confirmar grava', async () => {
       await alternativa('Restaurante C').getByRole('button', { name: 'ESCOLHER' }).click()
       await aviso('Local trocado para Restaurante C.')
-      // Um minuto depois: duas trocas no mesmo minuto empatam no horário e hoje o desempate pela
-      // ordem de gravação não vale para elas (ver o pendente registrado em docs/PENDENCIAS.md).
-      await h.defineRelogio(page, '10:58')
       await alternativa('Restaurante A').getByRole('button', { name: 'ESCOLHER' }).click()
       await confirmacao().waitFor()
       esperar((await confirmacao().innerText()).includes('Restaurante A está fechado no horário previsto de chegada'), 'motivo da confirmação')

@@ -1,5 +1,6 @@
 // Passageiros esperados a bordo, contagem rápida e cadastro ("Passageiros e conferência").
 
+import { emOrdemDeGravacao } from './eventos'
 import { ordenarPor } from './tempo'
 import { ordenarEtapas } from './trechos'
 import type { Etapa, Evento, Passageiro, StatusPassageiro } from './tipos'
@@ -16,7 +17,7 @@ function statusAte(
   ate: number,
 ): Map<string, StatusPassageiro> {
   const status = new Map<string, StatusPassageiro>(passageiros.map((p) => [p.id, p.status]))
-  for (const e of ordenarPor(eventos, (x) => x.horarioFato)) {
+  for (const e of ordenarPor(emOrdemDeGravacao(eventos), (x) => x.horarioFato)) {
     if (e.tipo !== 'status_passageiro') continue
     const onde = ordem.get(e.etapaId)
     if (onde !== undefined && onde <= ate) status.set(e.dados.passageiroId, e.dados.status)

@@ -1,6 +1,7 @@
 // Textos da tela principal e da timeline. Nenhuma conta de horário: tudo vem do núcleo.
 
 import { atrasoMin, classificarAtraso } from '../../core/atraso'
+import { emOrdemDeGravacao } from '../../core/eventos'
 import type { ABordo } from '../../core/conferencia'
 import { rotuloHorario, type Situacao } from '../../core/registro'
 import { diferencaMin, ordenarPor } from '../../core/tempo'
@@ -91,7 +92,7 @@ function nomeCompleto(etapa: Etapa | undefined, locais: readonly Local[], localI
 /** Nome da etapa com o local em uso: o trocado mais recente, senão o preferido. */
 export function nomeDaEtapaEmUso(etapa: Etapa | undefined, locais: readonly Local[], eventos: readonly Evento[]): string {
   const troca = ordenarPor(
-    eventos.filter((e) => e.tipo === 'troca_local' && e.etapaId === etapa?.id),
+    emOrdemDeGravacao(eventos.filter((e) => e.tipo === 'troca_local' && e.etapaId === etapa?.id)),
     (e) => e.horarioFato,
   ).at(-1)
   const localId = troca?.tipo === 'troca_local' ? troca.dados.localId : (etapa?.localId ?? null)
