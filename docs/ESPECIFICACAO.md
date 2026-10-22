@@ -22,11 +22,11 @@ São oito entidades. O registro de eventos é a fonte da verdade: o estado da vi
 
 | Entidade | Campos principais | Observações |
 | --- | --- | --- |
-| Viagem | id, nome, tipo (ida, volta), data de saída, status, viagem relacionada, fator ônibus, plano original | Plano original fica vazio até "Iniciar viagem". A volta aponta para a ida. |
+| Viagem | id, nome, tipo (ida, volta), data de saída, status, viagem relacionada, fator ônibus, identificação, equipe, plano original | Plano original fica vazio até "Iniciar viagem". A volta aponta para a ida. Identificação (texto) e equipe (número de motoristas e responsáveis, padrão 0) são opcionais e só alimentam as mensagens (fase 7). |
 | Etapa | id, viagem, ordem, tipo, local, motivo, categoria, janela início/fim, permanência (min), chegada do roteiro, alternativas, modo de conferência | Tipos: origem, obrigatória, flexível, destino. Na origem, o horário do roteiro é a saída. O local é o preferido (o do roteiro); as alternativas são os outros candidatos. Parada não planejada não é etapa: é um par de eventos. |
 | Local | id, nome, cidade, tipo, coordenadas, abre, fecha, telefone, ônibus para (sim, não, não sei), observações, marcação (favorito, evitar) | Catálogo reutilizado entre viagens e anos. Abre e fecha são "HH:MM", um único horário por local, resolvidos pela data da chegada (única exceção à regra dos horários completos). |
 | Trecho | etapa de origem, local de origem, etapa de destino, local de destino, duração (min), fonte, distância (km), calculado em | Fonte: roteiro, rota, manual, estimado. Um trecho por par de locais candidatos. Só rota e manual são guardados; roteiro e estimado são derivados no cálculo. Na rota, a duração guardada é a de carro, sem o fator ônibus. |
-| Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, pular etapa, parada não planejada (fase início ou fim), imprevisto, conferência, status do passageiro, fim. Todo horário de evento é arredondado para baixo, para o minuto. |
+| Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, pular etapa, parada não planejada (fase início ou fim), imprevisto, conferência, status do passageiro, atualização gerada, observação, fim. Todo horário de evento é arredondado para baixo, para o minuto. |
 | Passageiro | id, nome, etapa de embarque, etapa de desembarque, status | Desembarque vazio = destino. Status: ativo, não embarcou, saiu da viagem. |
 | Conferência | etapa, modo, confirmados, pendentes, resultado, motivo | Resultado: completa ou incompleta. |
 | Feedback | local, viagem, etapa, nota (1 a 5), voltaria (sim, não), critérios, observação | Critérios opcionais: comida, banheiro, atendimento, rapidez, estacionamento. |
@@ -220,9 +220,7 @@ Para calibrar o fator ônibus antes da viagem: compare dois ou três trechos do 
 
 ## Mensagem de atualização para Ribeirão Preto
 
-GERAR ATUALIZAÇÃO monta um texto a partir do estado atual, mostra uma prévia editável e oferece COPIAR e COMPARTILHAR (menu nativo do celular, que inclui o WhatsApp). Sem compartilhamento disponível, só copiar.
-
-Campos, nesta ordem, com os ícones do seu exemplo:
+GERAR ATUALIZAÇÃO monta um texto a partir do estado atual, mostra uma prévia editável e oferece COPIAR e COMPARTILHAR (menu nativo do celular, que inclui o WhatsApp; sem ele, um link do WhatsApp com o texto). O formato do texto é um modelo editável (ver "Decisões da fase 7"). Os campos, nesta ordem, são os do modelo padrão:
 
 | Campo | Origem |
 | --- | --- |
@@ -238,7 +236,7 @@ Campos, nesta ordem, com os ícones do seu exemplo:
 
 A mensagem nunca leva nomes de passageiros, só contagens.
 
-Na parada flexível há uma segunda mensagem, para o restaurante: "Grupo de N pessoas, chegada prevista às HH:MM", com o telefone do local pronto para ligar.
+Na parada flexível há uma segunda mensagem, para o restaurante: o tamanho do grupo e a chegada prevista naquele local, com o telefone do local pronto para ligar.
 
 ## Relatório final, feedback e uso na volta
 
@@ -277,6 +275,7 @@ O Bordo é um app web instalável (PWA) que guarda tudo no próprio celular e fu
 | Planejar, registrar, recalcular, conferir, timeline, relatório | Funciona |
 | Copiar mensagem | Funciona |
 | Compartilhar no WhatsApp | Abre, mas a mensagem só sai quando houver sinal |
+| Editar modelos de mensagem, registrar observação | Funciona |
 | Calcular rotas | Não funciona (só no planejamento) |
 | Mapa | Só as áreas já carregadas antes |
 | Abrir no Google Maps | Depende do próprio Google Maps |
@@ -536,3 +535,46 @@ Aprovadas em 22/10/2026, na construção das alternativas e da viabilidade na vi
 - **Parado na etapa anterior**, a consulta informa a duração até o local, não um horário absoluto: a chegada vale horário consultado + (agora − momento da consulta). Consultado às 08:30 com chegada 12:00 e aplicado às 08:38, a chegada é 12:08, e a duração se mantém. Em trânsito o horário é absoluto.
 - **ESCOLHER** uma alternativa com consulta vigente grava troca + recalibração com a chegada da consulta (calculada no momento do registro), numa só transação (`registrarTrocaComChegada`); o DESFAZER retira os dois eventos, e a consulta usada é consumida. O núcleo valida com as mesmas travas da recalibração, avaliadas já com a troca. Com a consulta, o trecho de chegada sem tempo deixa de impedir a escolha, também parado; o trecho do local até a etapa seguinte continua obrigatório. Para o local já escolhido, a consulta vira ATUALIZAR PREVISÃO (só a recalibração). DESCARTAR CONSULTA apaga a consulta.
 
+## Decisões da fase 7
+
+Aprovadas em 22/10/2026, na construção da mensagem de atualização, da mensagem para o restaurante, dos modelos editáveis e das observações. Complementam as seções anteriores.
+
+**Dados novos da viagem**
+
+- `identificacao` (texto, opcional) e `equipe` (número inteiro de 0 a 99, opcional, padrão 0; "Equipe (motoristas e responsáveis)"). Editáveis no planejamento e com a viagem iniciada (a equipe não muda em viagem concluída). Não fazem parte do plano original e não entram em nenhum cálculo; a equipe só entra no tamanho do grupo da mensagem do restaurante. Sem mudança de esquema: a tabela `viagens` guarda o objeto inteiro.
+
+**GERAR ATUALIZAÇÃO e OBSERVAÇÃO**
+
+- Os dois botões só aparecem com a viagem em andamento.
+- GERAR ATUALIZAÇÃO abre uma prévia com o texto editável e os botões COPIAR (área de transferência, com cópia alternativa quando o navegador recusa) e COMPARTILHAR (Web Share API quando existir; senão, abre o link `https://wa.me/?text=…` em outra aba). Um aviso fixo diz que, sem sinal, a mensagem só sai quando houver internet; com o aparelho sem conexão, o aviso ganha destaque.
+- O texto editado na prévia é o que sai. A mensagem nunca leva nomes de passageiros, nem o motivo de uma parada não planejada.
+- Evento **atualização gerada**: gravado ao COPIAR ou COMPARTILHAR, uma vez por prévia (não ao abrir a prévia). Guarda só o horário e a previsão informada no destino com o atraso (`previsaoDestino`, `atrasoMin`), nunca o texto. Aparece na timeline como "Atualização gerada · previsão 23:47 (+17 min)". Não altera a previsão, o plano original, as travas nem as pendências, e o DESFAZER o ignora (um registro anterior continua desfazível mesmo depois de uma atualização gerada).
+- Evento **observação**: texto livre de até 500 caracteres (`dados.texto`) e horário que começa em agora e pode ser anterior (mesma regra do imprevisto: a ocorrência mais recente que não seja depois de agora). Sem efeito no cálculo. Aparece na timeline com o horário e o texto; DESFAZER funciona como nos outros registros (aviso de 8 segundos). Pela timeline, o texto e o horário podem ser corrigidos (o horário não pode ser depois de agora). Fica só no celular e nunca entra nas mensagens automáticas.
+
+**Modelos de mensagem**
+
+- Dois modelos, "atualização" e "restaurante": texto livre com variáveis entre chaves que o app preenche ao gerar. Valem para todas as viagens do espaço (real e demonstração têm os seus). Tela "Modelos de mensagem", aberta pela prévia, pela mensagem do restaurante e pela lista de viagens: lista das variáveis com a descrição (tocar insere no cursor), prévia ao vivo com a viagem em andamento (ou valores de exemplo, marcados como "exemplo", quando não há viagem iniciada) e "Voltar ao padrão".
+- Linha que contém variável vazia é removida inteira; linhas em branco seguidas viram uma só e o texto é aparado nas pontas. Só `{nome}` com letras, números e sublinhado conta como variável; chave solta é texto comum. Variável desconhecida bloqueia o SALVAR; se um modelo salvo mesmo assim tiver uma, a geração usa o modelo padrão e avisa. O modelo não pode ficar vazio.
+- Variáveis da atualização: `{identificacao}`, `{situacao}`, `{proxima_parada}`, `{hora_proxima}`, `{previsao_destino}` (horário já com o atraso: "23:47 (atraso de 17 min)", "23:30 (no horário)", "23:25 (adiantado 5 min)"; sem plano original, só o horário), `{destino}` (cidade do último local), `{passageiros}` ("35 a bordo" ou "35 esperados na saída"; vazio sem passageiros cadastrados e ao chegar) e `{agora}`.
+- `{situacao}`: "aguardando saída", "em viagem", "parados em <etapa>", "parada não planejada" (sem o motivo) ou, no destino, "chegamos a <destino> às 23:47 (atraso de 17 min)"; nesse caso as variáveis da próxima parada e da previsão ficam vazias.
+- Variáveis do restaurante: `{grupo}` (passageiros a bordo ao chegar naquele local, incluindo quem desce ali, mais a equipe), `{chegada}` (chegada prevista naquele local, a da avaliação da alternativa), `{local}` e `{identificacao}`. Sem passageiros e sem equipe, o botão fica desligado, com a dica.
+- Nenhuma variável expõe nomes de passageiros.
+- Modelos padrão:
+
+```
+🚌 Atualização da viagem
+{identificacao}
+
+Situação: {situacao}
+Próxima parada: {proxima_parada}, às {hora_proxima}
+Chegada em {destino}: {previsao_destino}
+Passageiros: {passageiros}
+
+Atualizado às {agora}
+```
+
+```
+Olá! Somos um grupo de {grupo} pessoas ({identificacao}), em ônibus, com chegada prevista às {chegada}. Podem nos receber? Se o horário mudar, avisamos.
+```
+
+- **Onde ficam:** tabela `modelos` do Dexie (esquema v4, só adiciona a tabela), uma linha por modelo (`atualizacao`, `restaurante`) com o texto e a data. Sem linha gravada, vale o padrão, que mora no código. É a segunda exceção à regra "só plano e eventos" (a primeira é `consultas`): é configuração do app, não fato da viagem nem estado derivado. **Entra no backup da fase 10**, ao contrário das consultas.
