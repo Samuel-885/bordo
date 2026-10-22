@@ -6,7 +6,7 @@ import { limitesDoHorario } from '../core/registro'
 import type { Repositorio } from '../data/repositorio'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
-import { FolhaHorario } from './Folhas'
+import { FolhaHorario, FolhaObservacao } from './Folhas'
 import { formatarHora } from './logica/horarios'
 import { montarTimeline, textoDoAtraso } from './logica/textosViagem'
 import { useAgora, useAoMudar } from './useAgora'
@@ -71,6 +71,25 @@ export function Timeline({ repo, viagemId, onVoltar }: Props) {
     }
   }
 
+  async function corrigirObservacao(horario: Instante, texto: string) {
+    if (!corrigindo) return
+    setOcupado(true)
+    setFalha(null)
+    try {
+      const r = await repo.corrigirObservacao(viagemId, corrigindo, texto, horario)
+      if (!r.ok) {
+        setFalha(r.motivo)
+        return
+      }
+      setCorrigindo(null)
+      recarregar()
+    } catch (x) {
+      setFalha(mensagemDeErroDoBanco(x, 'Não foi possível corrigir.'))
+    } finally {
+      setOcupado(false)
+    }
+  }
+
   return (
     <>
       <Topo titulo="Timeline" onVoltar={onVoltar} />
@@ -101,10 +120,26 @@ export function Timeline({ repo, viagemId, onVoltar }: Props) {
             )
           })}
         </ol>
-        <p className="dica">Toque em uma chegada ou saída para corrigir o horário.</p>
+        <p className="dica">Toque em uma chegada, saída ou observação para corrigir.</p>
       </main>
 
-      {alvo && itemAlvo && (
+      {alvo?.tipo === 'observacao' && (
+        <FolhaObservacao
+          key={alvo.id}
+          aberta
+          ocupado={ocupado}
+          erro={falha}
+          agora={agora}
+          titulo="Corrigir observação"
+          rotuloConfirmar="Salvar"
+          textoInicial={alvo.dados.texto}
+          horaInicial={formatarHora(alvo.horarioFato)}
+          onCancelar={() => setCorrigindo(null)}
+          onConfirmar={({ horario, texto }) => void corrigirObservacao(horario, texto)}
+        />
+      )}
+
+      {alvo && alvo.tipo !== 'observacao' && itemAlvo && (
         <FolhaHorario
           key={alvo.id}
           aberta

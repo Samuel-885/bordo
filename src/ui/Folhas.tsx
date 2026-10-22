@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import type { MotivoParada, TipoImprevisto, Instante } from '../core/tipos'
-import { rotuloHorario, type LimitesHorario } from '../core/registro'
+import { MAX_OBSERVACAO, rotuloHorario, type LimitesHorario } from '../core/registro'
 import { CampoHora } from './componentes/CampoHora'
 import { Folha } from './componentes/Folha'
 import { horaValida, resolverHorarioPassado, resolverHorarioProximo } from './logica/horarioDigitado'
@@ -155,6 +155,51 @@ export function FolhaHorario({
           Não depois de {rotuloHorario(limites.maximo.instante, agora)}.
         </p>
       )}
+    </Folha>
+  )
+}
+
+/**
+ * Observação livre (OBSERVAÇÃO na tela principal) ou a correção de uma já registrada pela
+ * timeline. O horário começa no informado e pode ser anterior (mesma regra do imprevisto).
+ */
+export function FolhaObservacao({
+  aberta, ocupado, erro, agora, onConfirmar, onCancelar,
+  titulo = 'Observação', rotuloConfirmar = 'Registrar', textoInicial = '', horaInicial,
+}: Comum & {
+  titulo?: string
+  rotuloConfirmar?: string
+  textoInicial?: string
+  horaInicial?: string
+  onConfirmar: (dados: { horario: Instante; texto: string }) => void
+}) {
+  const [hora, setHora] = useState(() => horaInicial ?? formatarHora(agora))
+  const [texto, setTexto] = useState(textoInicial)
+  const resolvido = resolverHorarioPassado(hora, agora)
+  return (
+    <Folha
+      aberta={aberta}
+      titulo={titulo}
+      rotuloConfirmar={rotuloConfirmar}
+      ocupado={ocupado}
+      erro={erro}
+      podeConfirmar={resolvido !== null && texto.trim() !== '' && texto.length <= MAX_OBSERVACAO}
+      onCancelar={onCancelar}
+      onConfirmar={() => resolvido && onConfirmar({ horario: resolvido, texto: texto.trim() })}
+    >
+      <CampoHora id="observacao-hora" rotulo="Horário" valor={hora} onMudar={setHora} resolvido={resolvido} agora={agora} />
+      <div className="campo">
+        <label htmlFor="observacao-texto">Observação</label>
+        <textarea
+          id="observacao-texto"
+          rows={5}
+          maxLength={MAX_OBSERVACAO}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+        />
+        <p className="contador">{texto.length}/{MAX_OBSERVACAO}</p>
+        <p className="dica">Fica só no celular. Não entra nas mensagens automáticas.</p>
+      </div>
     </Folha>
   )
 }

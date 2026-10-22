@@ -1094,3 +1094,96 @@ dialog.folha .acoes.colunas {
   color: var(--texto-suave);
   font-weight: 400;
 }
+
+/* ---------- Mensagens, modelos e observações (fase 7) ---------- */
+
+dialog.folha-mensagem textarea {
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.aviso-rede {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--fundo);
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+.aviso-rede.offline {
+  background: var(--atencao-fundo);
+  border: 1px solid var(--atencao-borda);
+  color: var(--texto);
+}
+.acoes-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.acoes-linha .botao {
+  flex: 1 1 auto;
+}
+.mensagem-restaurante {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--linha);
+  border-radius: 8px;
+}
+.mensagem-restaurante h3 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+.mensagem-restaurante .texto-mensagem {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+  font-size: 14px;
+}
+.modelo-abas {
+  display: flex;
+  gap: 8px;
+}
+.modelo-abas .botao {
+  flex: 1;
+}
+.modelo-abas .botao[aria-selected='true'] {
+  background: var(--azul);
+  color: #fff;
+  border-color: var(--azul);
+}
+.variaveis {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.variaveis li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.variaveis .botao {
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.variaveis span {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+.previa-modelo {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 14px;
+  background: var(--fundo);
+  border-radius: 8px;
+  padding: 10px;
+}
+.contador {
+  font-size: 12px;
+  color: var(--texto-suave);
+  text-align: right;
+}

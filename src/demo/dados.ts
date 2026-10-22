@@ -105,6 +105,7 @@ export const PLANO_DEMO: DadosPlano = {
     dataSaida: horaDemo('06:30'),
     status: 'em_andamento',
     fatorOnibus: 1.15,
+    identificacao: 'Unidade Demo — Ipatinga',
     planoOriginal: null,
   },
   etapas: ETAPAS,

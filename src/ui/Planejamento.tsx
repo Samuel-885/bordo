@@ -336,6 +336,9 @@ function DadosDaViagem({
 }) {
   const { viagem } = plano
   const [nome, setNome] = useState(viagem.nome)
+  const [identificacao, setIdentificacao] = useState(viagem.identificacao ?? '')
+  const [equipe, setEquipe] = useState(String(viagem.equipe ?? 0))
+  const equipeNumero = /^\d{1,2}$/.test(equipe.trim()) ? Number(equipe) : null
   return (
     <section className="cartao" aria-label="Dados da viagem">
       <div className="campo">
@@ -347,6 +350,29 @@ function DadosDaViagem({
           onBlur={() => nome !== viagem.nome && void salvar({ ...viagem, nome })}
           autoComplete="off"
         />
+      </div>
+      <div className="campo">
+        <label htmlFor="v-identificacao">Identificação (aparece nas mensagens)</label>
+        <input
+          id="v-identificacao"
+          value={identificacao}
+          placeholder="Por exemplo: Unidade X — Ipatinga"
+          onChange={(e) => setIdentificacao(e.target.value)}
+          onBlur={() => identificacao.trim() !== (viagem.identificacao ?? '') && void salvar({ ...viagem, identificacao: identificacao.trim() })}
+          autoComplete="off"
+        />
+      </div>
+      <div className="campo">
+        <label htmlFor="v-equipe">Equipe (motoristas e responsáveis)</label>
+        <input
+          id="v-equipe"
+          inputMode="numeric"
+          value={equipe}
+          disabled={viagem.status === 'concluida'}
+          onChange={(e) => setEquipe(e.target.value)}
+          onBlur={() => equipeNumero !== null && equipeNumero !== (viagem.equipe ?? 0) && void salvar({ ...viagem, equipe: equipeNumero })}
+        />
+        <p className="dica">Entra no tamanho do grupo da mensagem para o restaurante.</p>
       </div>
       <div className="linha-campos">
         <div className="campo">

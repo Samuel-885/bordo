@@ -377,8 +377,45 @@ export function validarRegistro(
       if (!esperados) return { ok: false, motivo: 'Só dá para mudar o status de passageiro na etapa em que estamos ou na volta à estrada.' }
       return validarStatus(conteudo.dados.passageiroId, conteudo.dados.status, esperados)
     }
+    case 'observacao': {
+      const texto = validarTextoDaObservacao(conteudo.dados.texto)
+      return texto.ok ? naoDepoisDeAgora() : texto
+    }
+    case 'atualizacao_gerada':
+      return naoDepoisDeAgora()
     case 'inicio':
     case 'fim':
       return { ok: false, motivo: 'Este evento é registrado pelo app, não pelos botões.' }
   }
+}
+
+// ---------- Observação livre ----------
+
+/** Tamanho máximo do texto de uma observação. */
+export const MAX_OBSERVACAO = 500
+
+export function validarTextoDaObservacao(texto: string): Resultado {
+  if (texto.trim() === '') return { ok: false, motivo: 'Escreva a observação.' }
+  if (texto.length > MAX_OBSERVACAO) return { ok: false, motivo: `A observação passa de ${MAX_OBSERVACAO} caracteres.` }
+  return { ok: true }
+}
+
+/** Correção pela timeline: o texto e o horário de uma observação (o horário não pode ser depois de agora). */
+export function validarCorrecaoDaObservacao(
+  eventos: readonly Evento[],
+  eventoId: string,
+  novoTexto: string,
+  novoHorario: Instante,
+  agoraDoRelogio: Instante,
+): Resultado {
+  const evento = eventos.find((e) => e.id === eventoId)
+  if (!evento) return { ok: false, motivo: 'Evento não encontrado.' }
+  if (evento.tipo !== 'observacao') return { ok: false, motivo: 'Este evento não é uma observação.' }
+  const texto = validarTextoDaObservacao(novoTexto)
+  if (!texto.ok) return texto
+  const agora = truncarMinuto(agoraDoRelogio)
+  if (antes(agora, truncarMinuto(novoHorario))) {
+    return { ok: false, motivo: `Não pode ser depois de agora (${rotuloHorario(agora, agora)}).` }
+  }
+  return { ok: true }
 }

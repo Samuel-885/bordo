@@ -16,6 +16,7 @@ import { FaixaDemo } from './ui/componentes/FaixaDemo'
 import { EditorEtapa } from './ui/EditorEtapa'
 import { ListaViagens } from './ui/ListaViagens'
 import { Alternativas } from './ui/Alternativas'
+import { Modelos } from './ui/Modelos'
 import { Passageiros } from './ui/Passageiros'
 import { Planejamento } from './ui/Planejamento'
 import { TelaViagem } from './ui/TelaViagem'
@@ -32,6 +33,8 @@ type Tela =
   | { nome: 'timeline'; viagemId: string }
   | { nome: 'passageiros'; viagemId: string }
   | { nome: 'alternativas'; viagemId: string }
+  /** `viagemId` é a viagem da prévia ao vivo; vazio = a em andamento mais recente. */
+  | { nome: 'modelos'; viagemId: string | null }
 
 interface EstadoHistorico {
   tela: Tela
@@ -149,7 +152,14 @@ function App() {
       <AvisoBanco />
       {falha && <p className="msg-erro" style={{ padding: '0 12px' }}>{falha}</p>}
       {tela.nome === 'lista' && (
-        <ListaViagens key={`lista-${versao}`} repo={repo} demo={demo} onAbrir={abrirViagem} onEntrarNaDemonstracao={abrirDemonstracao} />
+        <ListaViagens
+          key={`lista-${versao}`}
+          repo={repo}
+          demo={demo}
+          onAbrir={abrirViagem}
+          onEntrarNaDemonstracao={abrirDemonstracao}
+          onModelos={() => irPara({ nome: 'modelos', viagemId: null })}
+        />
       )}
       {tela.nome === 'planejamento' && (
         <Planejamento
@@ -181,6 +191,7 @@ function App() {
           onTimeline={() => irPara({ nome: 'timeline', viagemId: tela.viagemId })}
           onPassageiros={() => irPara({ nome: 'passageiros', viagemId: tela.viagemId })}
           onAlternativas={() => irPara({ nome: 'alternativas', viagemId: tela.viagemId })}
+          onModelos={() => irPara({ nome: 'modelos', viagemId: tela.viagemId })}
           aoRegistrar={
             executor
               ? () => {
@@ -205,6 +216,7 @@ function App() {
           repo={repo}
           viagemId={tela.viagemId}
           onVoltar={() => voltar({ nome: 'viagem', viagemId: tela.viagemId })}
+          onModelos={() => irPara({ nome: 'modelos', viagemId: tela.viagemId })}
           aoRegistrar={
             executor
               ? () => {
@@ -213,6 +225,14 @@ function App() {
                 }
               : undefined
           }
+        />
+      )}
+      {tela.nome === 'modelos' && (
+        <Modelos
+          key={`modelos-${versao}`}
+          repo={repo}
+          viagemId={tela.viagemId}
+          onVoltar={() => voltar(LISTA)}
         />
       )}
       {tela.nome === 'timeline' && (

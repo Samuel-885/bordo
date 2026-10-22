@@ -119,6 +119,9 @@ export const ev = {
     criar(horario, { tipo: 'desceram', etapaId, dados: { local, passageiroIds } }),
   status: (etapaId: string, passageiroId: string, status: StatusPassageiro, motivo: string, horario: Instante) =>
     criar(horario, { tipo: 'status_passageiro', etapaId, dados: { passageiroId, status, motivo } }),
+  atualizacao: (horario: Instante, previsaoDestino: Instante | null = null, atrasoMin: number | null = null) =>
+    criar(horario, { tipo: 'atualizacao_gerada', dados: { previsaoDestino, atrasoMin } }),
+  observacao: (texto: string, horario: Instante) => criar(horario, { tipo: 'observacao', dados: { texto } }),
 }
 
 /** Cadeia dos casos 1 → 2 → 3. */

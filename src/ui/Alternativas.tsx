@@ -13,11 +13,14 @@ import {
   type TrechoFaltante,
 } from '../core/viabilidade'
 import type { ConteudoEvento } from '../core/eventos'
-import type { Consulta, DadosPlano, Evento, Etapa, Instante, Local } from '../core/tipos'
+import type { IdModelo } from '../core/modelos'
+import type { Consulta, DadosPlano, Evento, Etapa, Instante, Local, Passageiro } from '../core/tipos'
 import type { Repositorio, ResultadoRegistro } from '../data/repositorio'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 import { AvisoDesfazer } from './componentes/AvisoDesfazer'
 import { Confirmar } from './componentes/Confirmar'
+import { FolhaDadosDaViagem } from './componentes/FolhaDadosDaViagem'
+import { FolhaMensagem } from './componentes/FolhaMensagem'
 import { Folha } from './componentes/Folha'
 import { FolhaRecalibracao } from './Folhas'
 import { Hora } from './componentes/Hora'
@@ -31,7 +34,9 @@ import {
   textoDoImpacto,
 } from './logica/alternativas'
 import { formatarDuracao, minutosDeHorasEMinutos } from './logica/duracao'
+import { copiarTexto, compartilharTexto } from './logica/compartilhar'
 import { formatarHora } from './logica/horarios'
+import { gerarMensagem, valoresDoRestaurante } from './logica/mensagens'
 import { linkGoogleMaps } from './logica/linkMaps'
 import { nomeDaEtapa } from './logica/textos'
 import { useAgora, useAoMudar } from './useAgora'
@@ -43,18 +48,21 @@ interface Props {
   repo: Repositorio
   viagemId: string
   onVoltar: () => void
+  onModelos: () => void
   /** A demonstração usa para sair do cenário e entrar no modo livre. */
   aoRegistrar?: () => void
 }
 
-export function Alternativas({ repo, viagemId, onVoltar, aoRegistrar }: Props) {
+export function Alternativas({ repo, viagemId, onVoltar, onModelos, aoRegistrar }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
-    const [plano, eventos, consultas] = await Promise.all([
+    const [plano, eventos, consultas, passageiros, modelos] = await Promise.all([
       repo.carregarPlano(viagemId),
       repo.listarEventos(viagemId),
       repo.listarConsultas(viagemId),
+      repo.listarPassageiros(viagemId),
+      repo.obterModelos(),
     ])
-    return { plano, eventos, consultas }
+    return { plano, eventos, consultas, passageiros, modelos }
   }, `alternativas:${repo.espaco}:${viagemId}`)
   useAoMudar(recarregar)
   const agora = useAgora()
@@ -74,9 +82,12 @@ export function Alternativas({ repo, viagemId, onVoltar, aoRegistrar }: Props) {
       plano={dados.plano}
       eventos={dados.eventos}
       consultas={dados.consultas}
+      passageiros={dados.passageiros}
+      modelos={dados.modelos}
       agora={agora}
       recarregar={recarregar}
       onVoltar={onVoltar}
+      onModelos={onModelos}
       aoRegistrar={aoRegistrar}
     />
   )
@@ -87,9 +98,12 @@ interface ConteudoProps {
   plano: DadosPlano
   eventos: Evento[]
   consultas: Consulta[]
+  passageiros: Passageiro[]
+  modelos: Record<IdModelo, string | null>
   agora: Instante
   recarregar: () => void
   onVoltar: () => void
+  onModelos: () => void
   aoRegistrar?: () => void
 }
 
@@ -102,7 +116,7 @@ interface TrocaPendente {
   consulta?: boolean
 }
 
-function Conteudo({ repo, plano, eventos, consultas, agora, recarregar, onVoltar, aoRegistrar }: ConteudoProps) {
+function Conteudo({ repo, plano, eventos, consultas, passageiros, modelos, agora, recarregar, onVoltar, onModelos, aoRegistrar }: ConteudoProps) {
   const { viagem, locais } = plano
   const original = viagem.planoOriginal!
   const estado = calcularEstado(plano, original, eventos, agora)
@@ -118,6 +132,10 @@ function Conteudo({ repo, plano, eventos, consultas, agora, recarregar, onVoltar
   /** CONSULTAR NO MAPS: a folha que pede a chegada e guarda a consulta (não altera a previsão). */
   const [consultando, setConsultando] = useState<{ etapaId: string; localId: string; nome: string } | null>(null)
   const [chegadaMaps, setChegadaMaps] = useState<{ etapaId: string; localId: string; nome: string } | null>(null)
+  /** Mensagem para o restaurante: a prévia editável aberta e o retorno de COPIAR e COMPARTILHAR de cada local. */
+  const [previaRestaurante, setPreviaRestaurante] = useState<{ etapaId: string; localId: string; chegada: Instante } | null>(null)
+  const [retornoMensagem, setRetornoMensagem] = useState<{ chave: string; texto: string } | null>(null)
+  const [dadosAbertos, setDadosAbertos] = useState(false)
   const [horas, setHoras] = useState('')
   const [minutos, setMinutos] = useState('')
 
@@ -185,6 +203,39 @@ function Conteudo({ repo, plano, eventos, consultas, agora, recarregar, onVoltar
           `Local trocado para ${t.nome}.`,
         )
     if (ok) setTroca(null)
+  }
+
+  async function salvarDados(dados: { identificacao: string; equipe: number }) {
+    setOcupado(true)
+    setErro(null)
+    try {
+      await repo.salvarViagem({ ...viagem, identificacao: dados.identificacao, equipe: dados.equipe })
+      setDadosAbertos(false)
+      recarregar()
+    } catch (x) {
+      setErro(mensagemDeErroDoBanco(x, 'Não foi possível salvar.'))
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  const mensagemDoRestaurante = (etapaId: string, localId: string, chegada: Instante) => {
+    const { valores, grupo } = valoresDoRestaurante(plano, eventos, passageiros, etapaId, localId, chegada, agora)
+    return { grupo, ...gerarMensagem('restaurante', modelos.restaurante, valores) }
+  }
+
+  async function copiarMensagem(chave: string, texto: string) {
+    const ok = await copiarTexto(texto)
+    setRetornoMensagem({ chave, texto: ok ? 'Copiado.' : 'Não foi possível copiar.' })
+  }
+
+  async function compartilharMensagem(chave: string, texto: string) {
+    const r = await compartilharTexto(texto)
+    if (r === 'cancelado') return setRetornoMensagem(null)
+    setRetornoMensagem({
+      chave,
+      texto: r === 'falhou' ? 'Não foi possível compartilhar. Use COPIAR.' : r === 'whatsapp' ? 'Abrindo o WhatsApp com o texto.' : 'Compartilhado.',
+    })
   }
 
   async function guardarConsulta(horario: Instante) {
@@ -389,7 +440,43 @@ function Conteudo({ repo, plano, eventos, consultas, agora, recarregar, onVoltar
                           </a>
                         )}
                       </div>
-                      {/* Fase 7: aqui entra a mensagem para o restaurante ("Grupo de N pessoas, chegada prevista às HH:MM"). */}
+                      {(() => {
+                        const chave = `${etapa.id}:${a.localId}`
+                        if (!a.chegada) {
+                          return <p className="dica">Sem chegada estimada: não dá para gerar a mensagem para o restaurante.</p>
+                        }
+                        const m = mensagemDoRestaurante(etapa.id, a.localId, a.chegada)
+                        if (m.grupo === 0) {
+                          return (
+                            <div className="mensagem-restaurante">
+                              <h3>Mensagem para o restaurante</h3>
+                              <p className="dica">Cadastre os passageiros ou informe a equipe para gerar a mensagem.</p>
+                              <button type="button" className="botao pequeno" onClick={() => { setErro(null); setDadosAbertos(true) }}>
+                                Informar equipe
+                              </button>
+                            </div>
+                          )
+                        }
+                        return (
+                          <div className="mensagem-restaurante">
+                            <h3>Mensagem para o restaurante</h3>
+                            {m.aviso && <p className="msg-erro">{m.aviso}</p>}
+                            <p className="texto-mensagem">{m.texto}</p>
+                            <div className="acoes-alternativa">
+                              <button type="button" className="botao" onClick={() => void copiarMensagem(chave, m.texto)}>
+                                COPIAR
+                              </button>
+                              <button type="button" className="botao" onClick={() => void compartilharMensagem(chave, m.texto)}>
+                                COMPARTILHAR
+                              </button>
+                              <button type="button" className="botao" onClick={() => setPreviaRestaurante({ etapaId: etapa.id, localId: a.localId, chegada: a.chegada! })}>
+                                EDITAR
+                              </button>
+                            </div>
+                            {retornoMensagem?.chave === chave && <p className="dica" role="status">{retornoMensagem.texto}</p>}
+                          </div>
+                        )
+                      })()}
                     </li>
                   )
                 })}
@@ -404,10 +491,31 @@ function Conteudo({ repo, plano, eventos, consultas, agora, recarregar, onVoltar
           )
         })}
 
-        {erro && !troca && !pulando && !informando && !chegadaMaps && !consultando && <p className="msg-erro" role="alert">{erro}</p>}
+        {erro && !troca && !pulando && !informando && !chegadaMaps && !consultando && !dadosAbertos && <p className="msg-erro" role="alert">{erro}</p>}
       </main>
 
       {desfazer && <AvisoDesfazer texto={desfazer.texto} onDesfazer={() => void desfazerUltimo()} />}
+
+      {previaRestaurante && (
+        <FolhaMensagem
+          titulo={`Mensagem para ${localDe(previaRestaurante.localId)?.nome ?? 'o restaurante'}`}
+          gerar={() => mensagemDoRestaurante(previaRestaurante.etapaId, previaRestaurante.localId, previaRestaurante.chegada)}
+          chave={`${viagem.identificacao ?? ''}|${viagem.equipe ?? 0}`}
+          onEditarModelo={() => { setPreviaRestaurante(null); onModelos() }}
+          onDados={() => { setErro(null); setDadosAbertos(true) }}
+          onFechar={() => setPreviaRestaurante(null)}
+        />
+      )}
+
+      {dadosAbertos && (
+        <FolhaDadosDaViagem
+          viagem={viagem}
+          ocupado={ocupado}
+          erro={erro}
+          onSalvar={(d) => void salvarDados(d)}
+          onCancelar={() => { setErro(null); setDadosAbertos(false) }}
+        />
+      )}
 
       <Confirmar
         aberto={troca !== null}

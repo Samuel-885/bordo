@@ -23,6 +23,7 @@ import { validarRecalibracao } from '../core/recalibracao'
 import { situacaoDaViagem } from '../core/registro'
 import { ordenarEtapas } from '../core/trechos'
 import type { ConteudoEvento } from '../core/eventos'
+import type { IdModelo } from '../core/modelos'
 import type { Evento, Instante, Local, MotivoParada, Passageiro, TipoImprevisto } from '../core/tipos'
 import type { Repositorio, ResultadoRegistro } from '../data/repositorio'
 import { AvisoDesfazer } from './componentes/AvisoDesfazer'
@@ -30,12 +31,15 @@ import { CampoHora } from './componentes/CampoHora'
 import { Conferencia } from './Conferencia'
 import { FolhaQuemDesceu } from './FolhaQuemDesceu'
 import { Confirmar } from './componentes/Confirmar'
+import { FolhaDadosDaViagem } from './componentes/FolhaDadosDaViagem'
+import { FolhaMensagem } from './componentes/FolhaMensagem'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
-import { FolhaHorario, FolhaImprevisto, FolhaParada, FolhaRecalibracao } from './Folhas'
+import { FolhaHorario, FolhaImprevisto, FolhaObservacao, FolhaParada, FolhaRecalibracao } from './Folhas'
 import { resolverHorarioPassado } from './logica/horarioDigitado'
 import { formatarHora } from './logica/horarios'
 import { linkGoogleMaps } from './logica/linkMaps'
+import { gerarMensagem, previsaoInformada, valoresDaAtualizacao } from './logica/mensagens'
 import { nomeDaEtapa } from './logica/textos'
 import {
   nomeDaEtapaEmUso,
@@ -61,20 +65,22 @@ interface Props {
   onTimeline: () => void
   onPassageiros: () => void
   onAlternativas: () => void
+  onModelos: () => void
   /** A demonstração usa para sair do cenário e entrar no modo livre. */
   aoRegistrar?: () => void
 }
 
-type Acao = 'parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | null
+type Acao = 'parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | 'observacao' | null
 
-export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros, onAlternativas, aoRegistrar }: Props) {
+export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, aoRegistrar }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
-    const [plano, eventos, passageiros] = await Promise.all([
+    const [plano, eventos, passageiros, modelos] = await Promise.all([
       repo.carregarPlano(viagemId),
       repo.listarEventos(viagemId),
       repo.listarPassageiros(viagemId),
+      repo.obterModelos(),
     ])
-    return { plano, eventos, passageiros }
+    return { plano, eventos, passageiros, modelos }
   }, `${repo.espaco}:${viagemId}`)
   useAoMudar(recarregar)
   const agora = useAgora()
@@ -102,12 +108,14 @@ export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros
       plano={dados.plano}
       eventos={dados.eventos}
       passageiros={dados.passageiros}
+      modelos={dados.modelos}
       agora={agora}
       recarregar={recarregar}
       onVoltar={onVoltar}
       onTimeline={onTimeline}
       onPassageiros={onPassageiros}
       onAlternativas={onAlternativas}
+      onModelos={onModelos}
       aoRegistrar={aoRegistrar}
     />
   )
@@ -118,16 +126,18 @@ interface ConteudoProps {
   plano: NonNullable<Awaited<ReturnType<Repositorio['carregarPlano']>>>
   eventos: Evento[]
   passageiros: Passageiro[]
+  modelos: Record<IdModelo, string | null>
   agora: Instante
   recarregar: () => void
   onVoltar: () => void
   onTimeline: () => void
   onPassageiros: () => void
   onAlternativas: () => void
+  onModelos: () => void
   aoRegistrar?: () => void
 }
 
-function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVoltar, onTimeline, onPassageiros, onAlternativas, aoRegistrar }: ConteudoProps) {
+function Conteudo({ repo, plano, eventos, passageiros, modelos, agora, recarregar, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, aoRegistrar }: ConteudoProps) {
   const { viagem, etapas, locais } = plano
   const original = viagem.planoOriginal!
   const s = situacaoDaViagem(plano, original, eventos, agora)
@@ -147,6 +157,10 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
   useVoltarFecha(conferindo !== null, () => setConferindo(null))
   /** A folha "Quem desceu?": aberta sozinha (CHEGAMOS, PARAMOS) ou pelo botão do cartão. */
   const [descida, setDescida] = useState<{ local: 'etapa' | 'nao_planejada'; etapaId: string; automatica: boolean } | null>(null)
+
+  /** A prévia da mensagem de atualização e a folha de identificação e equipe. */
+  const [previa, setPrevia] = useState(false)
+  const [dadosAbertos, setDadosAbertos] = useState(false)
 
   useEffect(() => {
     if (!desfazer) return
@@ -267,6 +281,31 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
       passageiroIds.length === 1 ? '1 passageiro marcado como desceu.' : `${passageiroIds.length} passageiros marcados como desceram.`,
     )
     if (ok) setDescida(null)
+  }
+
+  /** Grava na timeline que uma atualização foi gerada (só o horário e a previsão informada, nunca o texto). */
+  async function registrarAtualizacaoGerada() {
+    try {
+      const r = await repo.registrarEvento(viagem.id, { tipo: 'atualizacao_gerada', dados: previsaoInformada(plano, eventos, agora) })
+      if (!r.ok) setErro(r.motivo)
+      recarregar()
+    } catch (x) {
+      setErro(mensagemDeErroDoBanco(x, 'Não foi possível registrar a atualização na timeline.'))
+    }
+  }
+
+  async function salvarDados(dados: { identificacao: string; equipe: number }) {
+    setOcupado(true)
+    setErro(null)
+    try {
+      await repo.salvarViagem({ ...viagem, identificacao: dados.identificacao, equipe: dados.equipe })
+      setDadosAbertos(false)
+      recarregar()
+    } catch (x) {
+      setErro(mensagemDeErroDoBanco(x, 'Não foi possível salvar.'))
+    } finally {
+      setOcupado(false)
+    }
   }
 
   const proxima = s.proximaEtapaId
@@ -435,7 +474,11 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
           </button>
         )}
 
-        {/* Fase 6: alternativas e viabilidade. Fase 7: GERAR ATUALIZAÇÃO. */}
+        {!concluida && (
+          <button type="button" className="botao largo" onClick={() => { setErro(null); setPrevia(true) }}>
+            GERAR ATUALIZAÇÃO
+          </button>
+        )}
 
         {erro && acao === null && <p className="msg-erro" role="alert">{erro}</p>}
 
@@ -513,6 +556,9 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
                 <button type="button" className="botao" onClick={() => abrir('imprevisto')}>
                   REGISTRAR IMPREVISTO
                 </button>
+                <button type="button" className="botao" onClick={() => abrir('observacao')}>
+                  OBSERVAÇÃO
+                </button>
                 <button type="button" className="botao" onClick={onPassageiros}>
                   PASSAGEIROS
                 </button>
@@ -544,6 +590,42 @@ function Conteudo({ repo, plano, eventos, passageiros, agora, recarregar, onVolt
           erro={erro}
           onSalvar={(ids) => void salvarDescida(ids)}
           onFechar={() => setDescida(null)}
+        />
+      )}
+
+      {previa && (
+        <FolhaMensagem
+          titulo="Mensagem de atualização"
+          gerar={() => gerarMensagem('atualizacao', modelos.atualizacao, valoresDaAtualizacao(plano, eventos, passageiros, agora))}
+          chave={`${viagem.identificacao ?? ''}|${viagem.equipe ?? 0}`}
+          aoUsar={registrarAtualizacaoGerada}
+          onEditarModelo={() => { setPrevia(false); onModelos() }}
+          onDados={() => { setErro(null); setDadosAbertos(true) }}
+          onFechar={() => setPrevia(false)}
+        />
+      )}
+
+      {dadosAbertos && (
+        <FolhaDadosDaViagem
+          viagem={viagem}
+          ocupado={ocupado}
+          erro={erro}
+          onSalvar={(d) => void salvarDados(d)}
+          onCancelar={() => { setErro(null); setDadosAbertos(false) }}
+        />
+      )}
+
+      {acao === 'observacao' && (
+        <FolhaObservacao
+          aberta
+          ocupado={ocupado}
+          erro={erro}
+          agora={agora}
+          onCancelar={fechar}
+          onConfirmar={async ({ horario, texto }) => {
+            const ok = await registrarConteudo({ tipo: 'observacao', dados: { texto } }, 'Observação registrada.', { horarioFato: horario })
+            if (ok) fechar()
+          }}
         />
       )}
 

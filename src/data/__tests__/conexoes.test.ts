@@ -35,7 +35,7 @@ describe('app aberto em mais de um lugar', () => {
 
     expect(antiga.isOpen()).toBe(false)
     expect(avisos).toHaveBeenCalledWith('atualizado')
-    expect(nova.verno).toBe(3)
+    expect(nova.verno).toBe(4)
     expect((await nova.viagens.get('v1'))?.status).toBe('em_andamento')
     expect(await nova.passageiros.count()).toBe(0)
     nova.close()

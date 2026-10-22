@@ -2,7 +2,7 @@
 
 import { atrasoMin, classificarAtraso } from '../../core/atraso'
 import type { ABordo } from '../../core/conferencia'
-import type { Situacao } from '../../core/registro'
+import { rotuloHorario, type Situacao } from '../../core/registro'
 import { diferencaMin, ordenarPor } from '../../core/tempo'
 import type { Conferencia, DadosPlano, Etapa, Evento, HorarioPrevisto, Instante, Local, Passageiro, PlanoOriginal } from '../../core/tipos'
 import { formatarDuracao } from './duracao'
@@ -67,7 +67,7 @@ export interface ItemTimeline {
   detalhe: string | null
   /** Só em chegada e saída. */
   atraso: number | null
-  /** Só chegada e saída podem ser corrigidas. */
+  /** Só chegada, saída e observação podem ser corrigidas. */
   corrigivel: boolean
   riscado: boolean
 }
@@ -160,6 +160,14 @@ export function montarTimeline(
         }
       case 'status_passageiro':
         return { ...item, titulo: `${nomeDe(e.dados.passageiroId)}: ${STATUS_DE_PASSAGEIRO[e.dados.status]}`, detalhe: e.dados.motivo }
+      case 'atualizacao_gerada': {
+        const { previsaoDestino, atrasoMin: atraso } = e.dados
+        const previsao = previsaoDestino ? ` · previsão ${rotuloHorario(previsaoDestino, e.horarioFato)}` : ''
+        const quanto = previsaoDestino && atraso !== null ? ` (${textoDoAtraso(atraso)})` : ''
+        return { ...item, titulo: `Atualização gerada${previsao}${quanto}` }
+      }
+      case 'observacao':
+        return { ...item, titulo: 'Observação', detalhe: e.dados.texto, corrigivel: true }
     }
   })
 }

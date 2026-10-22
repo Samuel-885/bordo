@@ -13,11 +13,12 @@ import {
 import { calcularEstado, calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from '../core/previsao'
 import { chegadaDaConsulta, validarConsulta, vigenciaDaConsulta } from '../core/consulta'
 import { validarTrechoManualEmViagem, validarTrocaComChegada } from '../core/viabilidade'
-import { paradaAberta, validarCorrecao, validarHorario, validarRegistro } from '../core/registro'
+import { paradaAberta, validarCorrecao, validarCorrecaoDaObservacao, validarHorario, validarRegistro } from '../core/registro'
 import { agora, simuladoAtivo } from '../core/relogio'
 import { diferencaMin, naHoraDoDia, somarMinutos, truncarMinuto } from '../core/tempo'
 import { eventosDaConferencia, type ContextoConferencia, type DecisaoDePendente, type EstadoConferencia } from '../core/conferencia'
 import { validarCadastro, validarExclusao, type DadosPassageiro } from '../core/passageiros'
+import { validarModelo, type IdModelo } from '../core/modelos'
 import type { Consulta, DadosPlano, Etapa, Evento, Instante, Local, Passageiro, Trecho, Viagem } from '../core/tipos'
 import type { BancoBordo, Espaco } from './banco'
 
@@ -42,6 +43,11 @@ export class LocalEmUso extends Error {}
 
 export function novoId(): string {
   return crypto.randomUUID()
+}
+
+/** Equipe: inteiro de 0 a 99. Vazio ou inválido vale 0. */
+export function equipeValida(equipe: number | undefined): number {
+  return equipe !== undefined && Number.isInteger(equipe) && equipe > 0 ? Math.min(equipe, 99) : 0
 }
 
 const chaveTrecho = (t: Pick<Trecho, 'etapaOrigemId' | 'localOrigemId' | 'etapaDestinoId' | 'localDestinoId'>) =>
@@ -79,7 +85,8 @@ export class Repositorio {
   }
 
   /**
-   * Cria ou atualiza os dados da viagem. Depois de iniciada, só o nome pode mudar.
+   * Cria ou atualiza os dados da viagem. Depois de iniciada, só o nome, a identificação e a
+   * equipe podem mudar (a equipe não muda em viagem concluída).
    * Mudar a data de saída desloca junto os horários já gravados das etapas.
    */
   async salvarViagem(viagem: Viagem): Promise<void> {
@@ -89,7 +96,15 @@ export class Repositorio {
       const atual = await viagens.get(viagem.id)
       if (atual && atual.status !== 'planejando') {
         // Plano original e status nunca são alterados por aqui.
-        await viagens.put({ ...atual, nome: viagem.nome })
+        const mudancas: Partial<Viagem> = { nome: viagem.nome }
+        if (viagem.identificacao?.trim()) mudancas.identificacao = viagem.identificacao.trim()
+        else delete atual.identificacao
+        if (atual.status === 'em_andamento') {
+          const equipe = equipeValida(viagem.equipe)
+          if (equipe) mudancas.equipe = equipe
+          else delete atual.equipe
+        }
+        await viagens.put({ ...atual, ...mudancas })
         return
       }
       if (atual) {
@@ -110,7 +125,14 @@ export class Repositorio {
           )
         }
       }
-      await viagens.put({ ...viagem, status: 'planejando', planoOriginal: null })
+      const { identificacao, equipe, ...resto } = viagem
+      await viagens.put({
+        ...resto,
+        ...(identificacao?.trim() ? { identificacao: identificacao.trim() } : {}),
+        ...(equipeValida(equipe) ? { equipe: equipeValida(equipe) } : {}),
+        status: 'planejando',
+        planoOriginal: null,
+      })
     })
   }
 
@@ -597,7 +619,10 @@ export class Repositorio {
     this.#exigirRelogioDoEspaco()
     const { viagens, eventos } = this.#db
     return this.#db.transaction('rw', viagens, eventos, async () => {
-      const lista = (await this.listarEventos(viagemId)).sort((a, b) => (b.sequencia ?? 0) - (a.sequencia ?? 0))
+      // A atualização gerada não é um registro da viagem: o desfazer a ignora.
+      const lista = (await this.listarEventos(viagemId))
+        .filter((e) => e.tipo !== 'atualizacao_gerada')
+        .sort((a, b) => (b.sequencia ?? 0) - (a.sequencia ?? 0))
       const ultimos = lista.slice(0, ids.length)
       const mesmos = ids.length > 0 && ultimos.length === ids.length && ultimos.every((e) => ids.includes(e.id))
       if (!mesmos) return { ok: false as const, motivo: 'Já houve outro registro depois: corrija pela timeline.' }
@@ -635,6 +660,51 @@ export class Repositorio {
       }
       return { ok: true as const }
     })
+  }
+
+  /** Corrige o texto e o horário de uma observação pela timeline (o horário não pode ser depois de agora). */
+  async corrigirObservacao(
+    viagemId: string,
+    eventoId: string,
+    texto: string,
+    novoHorario: Instante,
+  ): Promise<{ ok: true } | { ok: false; motivo: string }> {
+    this.#exigirRelogioDoEspaco()
+    const { eventos } = this.#db
+    return this.#db.transaction('rw', eventos, async () => {
+      const lista = await this.listarEventos(viagemId)
+      const r = validarCorrecaoDaObservacao(lista, eventoId, texto, novoHorario, agora())
+      if (!r.ok) return r
+      const evento = lista.find((e) => e.id === eventoId)
+      if (evento?.tipo !== 'observacao') return { ok: false as const, motivo: 'Este evento não é uma observação.' }
+      await eventos.put({ ...evento, horarioFato: corrigirHorario(evento, novoHorario).horarioFato, dados: { texto: texto.trim() } })
+      return { ok: true as const }
+    })
+  }
+
+  // ---------- Modelos de mensagem ----------
+
+  /** O texto salvo de cada modelo; `null` = sem linha gravada (vale o padrão). */
+  async obterModelos(): Promise<Record<IdModelo, string | null>> {
+    this.#exigirRelogioDoEspaco()
+    const linhas = await this.#db.modelos.toArray()
+    const texto = (id: IdModelo) => linhas.find((l) => l.id === id)?.texto ?? null
+    return { atualizacao: texto('atualizacao'), restaurante: texto('restaurante') }
+  }
+
+  /** Salva o modelo se não estiver vazio e só tiver variáveis conhecidas. */
+  async salvarModelo(id: IdModelo, texto: string): Promise<{ ok: true } | { ok: false; motivo: string }> {
+    this.#exigirRelogioDoEspaco()
+    const r = validarModelo(id, texto)
+    if (!r.ok) return r
+    await this.#db.modelos.put({ id, texto, atualizadoEm: truncarMinuto(agora()) })
+    return { ok: true }
+  }
+
+  /** Volta ao modelo padrão: apaga a linha gravada. */
+  async restaurarModelo(id: IdModelo): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    await this.#db.modelos.delete(id)
   }
 
   async #registrar(

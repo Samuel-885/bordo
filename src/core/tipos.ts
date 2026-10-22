@@ -27,6 +27,10 @@ export interface Viagem {
   status: StatusViagem
   viagemRelacionadaId?: string
   fatorOnibus: number
+  /** Texto da primeira linha das mensagens (por exemplo, "Unidade X — Ipatinga"). Não entra em nenhum cálculo. */
+  identificacao?: string
+  /** Motoristas e responsáveis (inteiro, padrão 0). Só entra no tamanho do grupo da mensagem do restaurante. */
+  equipe?: number
   /** Vazio até "Iniciar viagem". Nada o altera depois. */
   planoOriginal: PlanoOriginal | null
 }
@@ -184,6 +188,13 @@ export type Evento = EventoBase &
         etapaId: string
         dados: { passageiroId: string; status: StatusPassageiro; motivo: string }
       }
+    /**
+     * Uma mensagem de atualização foi copiada ou compartilhada. Guarda só a previsão informada
+     * (nunca o texto). Sem efeito no cálculo.
+     */
+    | { tipo: 'atualizacao_gerada'; dados: { previsaoDestino: Instante | null; atrasoMin: number | null } }
+    /** Observação livre, só no celular e sem efeito no cálculo. Nunca entra nas mensagens. */
+    | { tipo: 'observacao'; dados: { texto: string } }
   )
 
 export type TipoEvento = Evento['tipo']
@@ -221,6 +232,16 @@ export interface Consulta {
   parado: boolean
   /** Maior sequência de saída, chegada, troca de local e pulo no momento da consulta. */
   base: number
+}
+
+/**
+ * Modelo de mensagem editado pela pessoa (fase 7). É configuração do app, não fato da viagem
+ * nem estado derivado; sem linha gravada, vale o modelo padrão (que mora no código).
+ */
+export interface ModeloSalvo {
+  id: 'atualizacao' | 'restaurante'
+  texto: string
+  atualizadoEm: Instante
 }
 
 /** O que o cálculo precisa do planejamento. */
