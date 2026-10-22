@@ -24,7 +24,7 @@ import { situacaoDaViagem } from '../core/registro'
 import { ordenarEtapas } from '../core/trechos'
 import type { ConteudoEvento } from '../core/eventos'
 import type { IdModelo } from '../core/modelos'
-import type { Evento, Instante, Local, MotivoParada, Passageiro, TipoImprevisto } from '../core/tipos'
+import type { Evento, Instante, Local, Passageiro, TipoImprevisto } from '../core/tipos'
 import type { Repositorio, ResultadoRegistro } from '../data/repositorio'
 import { AvisoDesfazer } from './componentes/AvisoDesfazer'
 import { CampoHora } from './componentes/CampoHora'
@@ -35,7 +35,7 @@ import { FolhaDadosDaViagem } from './componentes/FolhaDadosDaViagem'
 import { FolhaMensagem } from './componentes/FolhaMensagem'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
-import { FolhaHorario, FolhaImprevisto, FolhaObservacao, FolhaParada, FolhaRecalibracao } from './Folhas'
+import { FolhaAjusteDaParada, FolhaHorario, FolhaImprevisto, FolhaObservacao, FolhaParada, FolhaRecalibracao, type DadosDaParada } from './Folhas'
 import { resolverHorarioPassado } from './logica/horarioDigitado'
 import { formatarHora } from './logica/horarios'
 import { linkGoogleMaps } from './logica/linkMaps'
@@ -70,7 +70,7 @@ interface Props {
   aoRegistrar?: () => void
 }
 
-type Acao = 'parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | 'observacao' | null
+type Acao = 'parada' | 'ajuste_parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | 'observacao' | null
 
 export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, aoRegistrar }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
@@ -441,7 +441,19 @@ function Conteudo({ repo, plano, eventos, passageiros, modelos, agora, recarrega
           <section className="cartao atencao" aria-label="Parada não planejada">
             <h2>Parada não planejada</h2>
             <p className="cronometro">parados há {formatarDuracaoCurta(s.paradaNaoPlanejada.decorridoMin)}</p>
-            <p className="dica">Desde as {formatarHora(s.paradaNaoPlanejada.inicio)}.</p>
+            <p className="dica">
+              Desde as {formatarHora(s.paradaNaoPlanejada.inicio)}
+              {s.paradaNaoPlanejada.onde ? ` · ${s.paradaNaoPlanejada.onde}` : ''}.
+            </p>
+            {s.paradaNaoPlanejada.tempoPrevistoMin !== undefined && (
+              <p className="linha">
+                Previsto {formatarDuracaoCurta(s.paradaNaoPlanejada.tempoPrevistoMin)}
+                <span className="suave"> · {textoDoCronometro({ faltaMin: s.paradaNaoPlanejada.faltaMin ?? 0, excedeuMin: s.paradaNaoPlanejada.excedeuMin ?? 0 })}</span>
+              </p>
+            )}
+            <button type="button" className="botao" onClick={() => abrir('ajuste_parada')}>
+              {s.paradaNaoPlanejada.tempoPrevistoMin !== undefined || s.paradaNaoPlanejada.onde ? 'Alterar lugar e tempo previsto' : 'Definir tempo previsto'}
+            </button>
             {botaoMarcarDescida('nao_planejada', s.paradaNaoPlanejada.etapaId)}
           </section>
         )}
@@ -635,15 +647,30 @@ function Conteudo({ repo, plano, eventos, passageiros, modelos, agora, recarrega
           ocupado={ocupado}
           erro={erro}
           onCancelar={fechar}
-          onConfirmar={async (motivo?: MotivoParada) => {
+          onConfirmar={async (dados: DadosDaParada) => {
             const ok = await registrarConteudo(
-              { tipo: 'parada_nao_planejada', etapaId: proxima, dados: { fase: 'inicio', ...(motivo ? { motivo } : {}) } },
+              { tipo: 'parada_nao_planejada', etapaId: proxima, dados: { fase: 'inicio', ...dados } },
               `PARAMOS registrado às ${formatarHora(agora)}.`,
             )
             if (ok) {
               fechar()
               oferecerDescida('nao_planejada', proxima)
             }
+          }}
+        />
+      )}
+
+      {acao === 'ajuste_parada' && s.paradaNaoPlanejada && (
+        <FolhaAjusteDaParada
+          aberta
+          ocupado={ocupado}
+          erro={erro}
+          inicial={{ onde: s.paradaNaoPlanejada.onde, tempoPrevistoMin: s.paradaNaoPlanejada.tempoPrevistoMin }}
+          onCancelar={fechar}
+          onConfirmar={async (dados) => {
+            const etapaId = s.paradaNaoPlanejada!.etapaId
+            const ok = await registrarConteudo({ tipo: 'parada_nao_planejada', etapaId, dados: { fase: 'previsao', ...dados } }, 'Parada ajustada.')
+            if (ok) fechar()
           }}
         />
       )}

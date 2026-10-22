@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import type { MotivoParada, TipoImprevisto, Instante } from '../core/tipos'
-import { MAX_OBSERVACAO, rotuloHorario, type LimitesHorario } from '../core/registro'
+import { MAX_OBSERVACAO, MAX_ONDE_PARADA, MAX_TEMPO_PREVISTO_MIN, normalizarOnde, rotuloHorario, type LimitesHorario } from '../core/registro'
 import { CampoHora } from './componentes/CampoHora'
 import { Folha } from './componentes/Folha'
 import { horaValida, resolverHorarioPassado, resolverHorarioProximo } from './logica/horarioDigitado'
@@ -18,10 +18,49 @@ interface Comum {
   onCancelar: () => void
 }
 
-export function FolhaParada({ aberta, ocupado, erro, onConfirmar, onCancelar }: Omit<Comum, 'agora'> & { onConfirmar: (motivo?: MotivoParada) => void }) {
-  const [motivo, setMotivo] = useState<MotivoParada | ''>('')
+/** O que a folha da parada devolve: só o que foi digitado, já sem espaços sobrando; o núcleo valida. */
+export interface DadosDaParada {
+  motivo?: MotivoParada
+  onde?: string
+  tempoPrevistoMin?: number
+}
+
+/** "" = sem tempo previsto; só dígitos vira número; o resto vira NaN, que o núcleo recusa com a mensagem. */
+const lerTempoPrevisto = (texto: string): number | undefined => {
+  const t = texto.trim()
+  if (t === '') return undefined
+  return /^\d+$/.test(t) ? Number(t) : Number.NaN
+}
+
+function CamposOndeETempo({ onde, tempo, onOnde, onTempo }: { onde: string; tempo: string; onOnde: (v: string) => void; onTempo: (v: string) => void }) {
   return (
-    <Folha aberta={aberta} titulo="PARAMOS" rotuloConfirmar="Registrar parada" ocupado={ocupado} erro={erro} onCancelar={onCancelar} onConfirmar={() => onConfirmar(motivo || undefined)}>
+    <>
+      <div className="campo">
+        <label htmlFor="parada-onde">Onde (opcional)</label>
+        <input id="parada-onde" type="text" maxLength={MAX_ONDE_PARADA} value={onde} onChange={(e) => onOnde(e.target.value)} />
+        <p className="dica">Nome do lugar. Sem nomes de passageiros.</p>
+      </div>
+      <div className="campo">
+        <label htmlFor="parada-tempo">Tempo previsto, em minutos (opcional)</label>
+        <input id="parada-tempo" type="text" inputMode="numeric" value={tempo} onChange={(e) => onTempo(e.target.value)} />
+        <p className="dica">De 1 a {MAX_TEMPO_PREVISTO_MIN}. A previsão já conta esse tempo e passa a acompanhar o relógio se estourar.</p>
+      </div>
+    </>
+  )
+}
+
+const dadosDigitados = (onde: string, tempo: string): Pick<DadosDaParada, 'onde' | 'tempoPrevistoMin'> => {
+  const o = normalizarOnde(onde)
+  const t = lerTempoPrevisto(tempo)
+  return { ...(o !== undefined ? { onde: o } : {}), ...(t !== undefined ? { tempoPrevistoMin: t } : {}) }
+}
+
+export function FolhaParada({ aberta, ocupado, erro, onConfirmar, onCancelar }: Omit<Comum, 'agora'> & { onConfirmar: (dados: DadosDaParada) => void }) {
+  const [motivo, setMotivo] = useState<MotivoParada | ''>('')
+  const [onde, setOnde] = useState('')
+  const [tempo, setTempo] = useState('')
+  return (
+    <Folha aberta={aberta} titulo="PARAMOS" rotuloConfirmar="Registrar parada" ocupado={ocupado} erro={erro} onCancelar={onCancelar} onConfirmar={() => onConfirmar({ ...(motivo ? { motivo } : {}), ...dadosDigitados(onde, tempo) })}>
       <fieldset className="opcoes">
         <legend>Motivo (opcional)</legend>
         {MOTIVOS_DE_PARADA.map((m) => (
@@ -35,6 +74,20 @@ export function FolhaParada({ aberta, ocupado, erro, onConfirmar, onCancelar }: 
           Sem motivo
         </label>
       </fieldset>
+      <CamposOndeETempo onde={onde} tempo={tempo} onOnde={setOnde} onTempo={setTempo} />
+    </Folha>
+  )
+}
+
+/** Com a parada aberta: corrige o lugar e o tempo previsto. Apagar um campo tira o valor. */
+export function FolhaAjusteDaParada({
+  aberta, ocupado, erro, inicial, onConfirmar, onCancelar,
+}: Omit<Comum, 'agora'> & { inicial: { onde?: string; tempoPrevistoMin?: number }; onConfirmar: (dados: Pick<DadosDaParada, 'onde' | 'tempoPrevistoMin'>) => void }) {
+  const [onde, setOnde] = useState(inicial.onde ?? '')
+  const [tempo, setTempo] = useState(inicial.tempoPrevistoMin !== undefined ? String(inicial.tempoPrevistoMin) : '')
+  return (
+    <Folha aberta={aberta} titulo="Parada não planejada" rotuloConfirmar="Salvar" ocupado={ocupado} erro={erro} onCancelar={onCancelar} onConfirmar={() => onConfirmar(dadosDigitados(onde, tempo))}>
+      <CamposOndeETempo onde={onde} tempo={tempo} onOnde={setOnde} onTempo={setTempo} />
     </Folha>
   )
 }

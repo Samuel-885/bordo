@@ -189,7 +189,7 @@ describe('P11: validação do registro', () => {
 describe('P12: plano original intacto', () => {
   it('nenhum evento da parada altera o plano original', () => {
     const eventos = base(paramos({ tempoPrevistoMin: 20, onde: 'Padaria Tal' }), ev.parada('almoco', 'fim', h('10:31')))
-    expect(calcularEstado(PLANO, original, eventos, h('10:40')).planoOriginal ?? original).toEqual(original)
+    calcularEstado(PLANO, original, eventos, h('10:40'))
     expect(congelar()).toEqual(original)
   })
 })

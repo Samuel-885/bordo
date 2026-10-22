@@ -183,6 +183,33 @@ export const CENARIOS: Cenario[] = [
     ],
   },
   {
+    id: 'parada-para-cafe',
+    nome: 'Parada para café',
+    descricao: 'Parada por escolha antes do almoço, com tempo previsto de 20 min: a previsão já conta ao parar e a parada estoura (30 min reais).',
+    inicio: INICIO_PADRAO,
+    passos: [
+      relogio('06:47', 'São 06:47.'),
+      saimos(ETAPA.origem, 'SAÍMOS de Ipatinga.'),
+      relogio('08:55', 'São 08:55.'),
+      chegamos(ETAPA.monlevade, 'CHEGAMOS em Monlevade.'),
+      relogio('09:14', 'São 09:14.'),
+      saimos(ETAPA.monlevade, 'SAÍMOS de Monlevade.'),
+      relogio('10:00', 'São 10:00.'),
+      registrar('PARAMOS para um café, com 20 min previstos.', {
+        tipo: 'parada_nao_planejada',
+        etapaId: ETAPA.almoco,
+        dados: { fase: 'inicio', motivo: 'cafe', onde: 'Padaria Exemplo', tempoPrevistoMin: 20 },
+      }),
+      avancar(15, 'Passam 15 min: faltam 5 do previsto.'),
+      avancar(15, 'Passam mais 15 min: a parada excedeu o previsto.'),
+      registrar('VOLTAMOS para a estrada.', {
+        tipo: 'parada_nao_planejada',
+        etapaId: ETAPA.almoco,
+        dados: { fase: 'fim' },
+      }),
+    ],
+  },
+  {
     id: 'chegada-ao-destino',
     nome: 'Chegada ao destino',
     descricao: 'A viagem inteira com 17 min de atraso mantidos até Ribeirão Preto, às 23:47.',

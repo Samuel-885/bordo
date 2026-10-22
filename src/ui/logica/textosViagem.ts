@@ -140,9 +140,23 @@ export function montarTimeline(
         return { ...item, titulo: `Trocamos o local para ${novo}`, detalhe: nome(e.etapaId) }
       }
       case 'parada_nao_planejada':
-        return e.dados.fase === 'inicio'
-          ? { ...item, titulo: 'PARAMOS', detalhe: e.dados.motivo ? rotuloDe(MOTIVOS_DE_PARADA, e.dados.motivo) : null }
-          : { ...item, titulo: 'VOLTAMOS para a estrada' }
+        if (e.dados.fase === 'fim') return { ...item, titulo: 'VOLTAMOS para a estrada' }
+        if (e.dados.fase === 'previsao') {
+          const partes = [e.dados.onde, e.dados.tempoPrevistoMin !== undefined ? `previsto ${formatarDuracaoCurta(e.dados.tempoPrevistoMin)}` : null]
+          return { ...item, titulo: 'Parada ajustada', detalhe: partes.filter(Boolean).join(' · ') || 'Sem lugar nem tempo previsto' }
+        }
+        return {
+          ...item,
+          titulo: 'PARAMOS',
+          detalhe:
+            [
+              e.dados.motivo ? rotuloDe(MOTIVOS_DE_PARADA, e.dados.motivo) : null,
+              e.dados.onde ?? null,
+              e.dados.tempoPrevistoMin !== undefined ? `previsto ${formatarDuracaoCurta(e.dados.tempoPrevistoMin)}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || null,
+        }
       case 'imprevisto': {
         const tipo = rotuloDe(TIPOS_DE_IMPREVISTO, e.dados.categoria)
         return { ...item, titulo: `Imprevisto: ${tipo.toLowerCase()}`, detalhe: e.observacao ?? null }

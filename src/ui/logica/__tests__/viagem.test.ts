@@ -88,6 +88,27 @@ describe('timeline', () => {
   })
 })
 
+describe('timeline do PARAMOS com lugar e tempo previsto', () => {
+  it('mostra motivo, lugar e tempo previsto; a previsão vira "Parada ajustada"', () => {
+    const calculo = calcularPlanoOriginal(PLANO_DEMO, horaDemo('06:00'))
+    if (!calculo.ok) throw new Error('plano')
+    const base = (id: string, hora: string, seq: number) => ({ id, viagemId: 'v', horarioFato: horaDemo(hora), registradoEm: horaDemo(hora), sequencia: seq })
+    const eventos = [
+      criarEvento(base('a', '09:00', 1), { tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'inicio', motivo: 'cafe', onde: 'Padaria Exemplo', tempoPrevistoMin: 20 } }),
+      criarEvento(base('b', '09:10', 2), { tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'previsao', onde: 'Padaria Exemplo', tempoPrevistoMin: 40 } }),
+      criarEvento(base('c', '09:12', 3), { tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'previsao' } }),
+      criarEvento(base('d', '09:30', 4), { tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'inicio' } }),
+    ]
+    const t = montarTimeline(PLANO_DEMO, calculo.plano, eventos, horaDemo('11:00'))
+    expect(t.map((x) => [x.titulo, x.detalhe])).toEqual([
+      ['PARAMOS', 'Café / lanche · Padaria Exemplo · previsto 20 min'],
+      ['Parada ajustada', 'Padaria Exemplo · previsto 40 min'],
+      ['Parada ajustada', 'Sem lugar nem tempo previsto'],
+      ['PARAMOS', null],
+    ])
+  })
+})
+
 describe('motivos do PARAMOS', () => {
   it('inclui acidente na estrada e trânsito parado, e a timeline mostra o rótulo', () => {
     expect(MOTIVOS_DE_PARADA.map((m) => m.valor)).toEqual(

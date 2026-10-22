@@ -171,6 +171,33 @@ describe('cenário: parada não planejada (caso 8)', () => {
   })
 })
 
+describe('cenário: parada para café (tempo previsto de 20 min)', () => {
+  // Saída de Monlevade 09:14 + 3h20 = 12:34. Parados das 10:00 com 20 min previstos: 12:54 já ao parar.
+  it('ao parar (10:00) o almoço já está em 12:54, destino 00:24', () => {
+    const s = new SessaoDemo(cenarioPorId('parada-para-cafe'))
+    sessao = s
+    s.executarAte(8)
+    esperarHorario(etapaDe(s.estado(), ETAPA.almoco).chegada?.instante, horaDemo('12:54'))
+    esperarHorario(s.estado().chegadaDestino?.instante, horaDemo('00:24', 1))
+  })
+
+  it('aos 10:15 continua 12:54; aos 10:30 (excedeu 10 min) acompanha o relógio: 13:04', () => {
+    const s = new SessaoDemo(cenarioPorId('parada-para-cafe'))
+    sessao = s
+    s.executarAte(9)
+    esperarHorario(etapaDe(s.estado(), ETAPA.almoco).chegada?.instante, horaDemo('12:54'))
+    s.executarAte(10)
+    esperarHorario(etapaDe(s.estado(), ETAPA.almoco).chegada?.instante, horaDemo('13:04'))
+  })
+
+  it('depois do VOLTAMOS vale a duração real (30 min): almoço 13:04, destino 00:34, atraso +64', () => {
+    const e = rodar('parada-para-cafe').estado()
+    esperarHorario(etapaDe(e, ETAPA.almoco).chegada?.instante, horaDemo('13:04'))
+    esperarHorario(e.chegadaDestino?.instante, horaDemo('00:34', 1))
+    expect(e.atrasoDestinoMin).toBe(64)
+  })
+})
+
 describe('cenário: chegada ao destino', () => {
   // 17 min de atraso o tempo todo: 06:47 + 1h55 = 08:42; 08:57 + 3h20 = 12:17;
   // 13:17 + 3h = 16:17; 16:47 + 4h = 20:47; 21:37 + 2h10 = 23:47.

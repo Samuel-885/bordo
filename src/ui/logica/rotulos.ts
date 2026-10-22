@@ -70,6 +70,7 @@ export const MOTIVOS_DE_PARADA: Array<{ valor: MotivoParada; rotulo: string }> =
   { valor: 'pneu', rotulo: 'Pneu' },
   { valor: 'policia', rotulo: 'Polícia' },
   { valor: 'banheiro', rotulo: 'Banheiro' },
+  { valor: 'cafe', rotulo: 'Café / lanche' },
   { valor: 'passageiro_mal', rotulo: 'Passageiro passando mal' },
   { valor: 'acidente', rotulo: 'Acidente na estrada' },
   { valor: 'transito_parado', rotulo: 'Trânsito parado' },

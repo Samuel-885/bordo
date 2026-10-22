@@ -132,6 +132,58 @@ describe('corrigir horário', () => {
   })
 })
 
+describe('PARAMOS com "onde" e tempo previsto', () => {
+  async function paradaAberta() {
+    relogio('06:47')
+    await registrar(saida(ETAPA.origem))
+    relogio('08:55')
+    await registrar(chegada(ETAPA.monlevade))
+    relogio('09:14')
+    await registrar(saida(ETAPA.monlevade))
+    relogio('10:00')
+    return registrar({
+      tipo: 'parada_nao_planejada',
+      etapaId: ETAPA.almoco,
+      dados: { fase: 'inicio', motivo: 'cafe', onde: 'Padaria Exemplo', tempoPrevistoMin: 20 },
+    })
+  }
+
+  it('grava motivo, lugar e tempo previsto no evento', async () => {
+    const r = await paradaAberta()
+    expect(r.eventos[0]).toMatchObject({ dados: { fase: 'inicio', motivo: 'cafe', onde: 'Padaria Exemplo', tempoPrevistoMin: 20 } })
+  })
+
+  it('a previsão é gravada com a parada aberta e o DESFAZER a retira', async () => {
+    await paradaAberta()
+    relogio('10:12')
+    const r = await registrar({
+      tipo: 'parada_nao_planejada',
+      etapaId: ETAPA.almoco,
+      dados: { fase: 'previsao', onde: 'Padaria Exemplo', tempoPrevistoMin: 40 },
+    })
+    expect((await eventos()).filter((e) => e.tipo === 'parada_nao_planejada')).toHaveLength(2)
+    expect(await repo.desfazerRegistro(V, r.eventos.map((e) => e.id))).toEqual({ ok: true })
+    expect((await eventos()).filter((e) => e.tipo === 'parada_nao_planejada')).toHaveLength(1)
+  })
+
+  it('recusa tempo previsto fora de 1 a 600 e a previsão com a parada fechada, sem gravar nada', async () => {
+    await paradaAberta()
+    relogio('10:12')
+    const antes = (await eventos()).length
+    const invalida = await repo.registrarEvento(V, {
+      tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'previsao', tempoPrevistoMin: 601 },
+    })
+    expect(invalida.ok).toBe(false)
+    await registrar({ tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'fim' } })
+    relogio('10:20')
+    const fechada = await repo.registrarEvento(V, {
+      tipo: 'parada_nao_planejada', etapaId: ETAPA.almoco, dados: { fase: 'previsao', tempoPrevistoMin: 30 },
+    })
+    expect(fechada.ok).toBe(false)
+    expect((await eventos()).length).toBe(antes + 1)
+  })
+})
+
 describe('parada não planejada aberta (acréscimo A)', () => {
   async function ateOTrecho() {
     relogio('06:47')
