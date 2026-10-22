@@ -12,6 +12,7 @@ import type {
   Evento,
   Instante,
   Local,
+  MotivoParada,
   Passageiro,
   PlanoOriginal,
   StatusPassageiro,
@@ -106,8 +107,12 @@ export const ev = {
     criar(horario, { tipo: 'troca_local', etapaId, dados: { localId } }),
   recalibracao: (etapaId: string, informado: Instante, horario: Instante) =>
     criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado } }),
-  parada: (etapaId: string, fase: 'inicio' | 'fim', horario: Instante) =>
-    criar(horario, { tipo: 'parada_nao_planejada', etapaId, dados: { fase } }),
+  parada: (
+    etapaId: string,
+    fase: 'inicio' | 'fim' | 'previsao',
+    horario: Instante,
+    extra: { motivo?: MotivoParada; onde?: string; tempoPrevistoMin?: number } = {},
+  ) => criar(horario, { tipo: 'parada_nao_planejada', etapaId, dados: { fase, ...extra } }),
   /** Conferência completa de todos (os ids não importam para quem só olha o horário). */
   conferencia: (etapaId: string, horario: Instante, momento?: 'saida' | 'volta') =>
     criar(horario, {

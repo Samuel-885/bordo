@@ -39,6 +39,10 @@ export interface ParadaAberta {
   etapaId: string
   inicio: Instante
   motivo?: MotivoParada
+  /** Nome do lugar; o evento `previsao` mais recente substitui o do PARAMOS. */
+  onde?: string
+  /** Tempo previsto em minutos; o evento `previsao` mais recente substitui o do PARAMOS. */
+  tempoPrevistoMin?: number
 }
 
 /** PARAMOS sem VOLTAMOS no trecho que chega em `etapaId` (ou em qualquer etapa, sem o argumento). */
@@ -47,7 +51,22 @@ export function paradaAberta(eventos: readonly Evento[], etapaId?: string): Para
   for (const e of ordenarPor(emOrdemDeGravacao(eventos), (x) => x.horarioFato)) {
     if (e.tipo !== 'parada_nao_planejada') continue
     if (e.dados.fase === 'inicio' && !abertas.has(e.etapaId)) {
-      abertas.set(e.etapaId, { etapaId: e.etapaId, inicio: e.horarioFato, motivo: e.dados.motivo })
+      abertas.set(e.etapaId, {
+        etapaId: e.etapaId,
+        inicio: e.horarioFato,
+        motivo: e.dados.motivo,
+        ...(e.dados.onde !== undefined ? { onde: e.dados.onde } : {}),
+        ...(e.dados.tempoPrevistoMin !== undefined ? { tempoPrevistoMin: e.dados.tempoPrevistoMin } : {}),
+      })
+    }
+    const atual = abertas.get(e.etapaId)
+    if (e.dados.fase === 'previsao' && atual) {
+      const { onde: _onde, tempoPrevistoMin: _tempo, ...resto } = atual
+      abertas.set(e.etapaId, {
+        ...resto,
+        ...(e.dados.onde !== undefined ? { onde: e.dados.onde } : {}),
+        ...(e.dados.tempoPrevistoMin !== undefined ? { tempoPrevistoMin: e.dados.tempoPrevistoMin } : {}),
+      })
     }
     if (e.dados.fase === 'fim') abertas.delete(e.etapaId)
   }
@@ -79,7 +98,8 @@ export interface SituacaoViagem {
    * saída, é a etapa depois da origem. Vazio ao chegar.
    */
   proximaEtapaId: string | null
-  paradaNaoPlanejada: (ParadaAberta & { decorridoMin: number }) | null
+  /** Com tempo previsto, `faltaMin` (zero ao passar) e `excedeuMin` (zero até passar), em minutos inteiros. */
+  paradaNaoPlanejada: (ParadaAberta & { decorridoMin: number; faltaMin?: number; excedeuMin?: number }) | null
   cronometro: Cronometro | null
 }
 
@@ -125,11 +145,21 @@ export function situacaoDaViagem(
 
   const aberta = proximaEtapaId ? paradaAberta(eventos, proximaEtapaId) : null
   if (aberta) {
+    const decorridoMin = Math.max(0, minutosEntre(agora, aberta.inicio))
     return {
       ...base,
       situacao: 'parada_nao_planejada',
       etapaAtualId: null,
-      paradaNaoPlanejada: { ...aberta, decorridoMin: Math.max(0, minutosEntre(agora, aberta.inicio)) },
+      paradaNaoPlanejada: {
+        ...aberta,
+        decorridoMin,
+        ...(aberta.tempoPrevistoMin !== undefined
+          ? {
+              faltaMin: Math.max(0, aberta.tempoPrevistoMin - decorridoMin),
+              excedeuMin: Math.max(0, decorridoMin - aberta.tempoPrevistoMin),
+            }
+          : {}),
+      },
     }
   }
   return { ...base, situacao: 'em_viagem', etapaAtualId: null }
@@ -306,6 +336,8 @@ export function validarRegistro(
       return validarRecalibracao(d, original, eventos, conteudo.etapaId, conteudo.dados.horario, agora)
     case 'parada_nao_planejada': {
       const aberta = paradaAberta(eventos, conteudo.etapaId)
+      const dadosValidos = validarDadosDaParada(conteudo.dados)
+      if (!dadosValidos.ok) return dadosValidos
       if (conteudo.dados.fase === 'inicio') {
         if (s.situacao !== 'em_viagem' || s.proximaEtapaId !== conteudo.etapaId) {
           return { ok: false, motivo: 'PARAMOS só vale com o ônibus em viagem.' }
@@ -393,6 +425,39 @@ export function validarRegistro(
 
 /** Tamanho máximo do texto de uma observação. */
 export const MAX_OBSERVACAO = 500
+
+/** Limites do ajuste do PARAMOS: nome do lugar e tempo previsto. */
+export const MAX_ONDE_PARADA = 60
+export const MIN_TEMPO_PREVISTO_MIN = 1
+export const MAX_TEMPO_PREVISTO_MIN = 600
+
+/** "Onde" aparado; vazio vira ausente (para quem monta o evento). */
+export function normalizarOnde(texto: string | undefined | null): string | undefined {
+  const aparado = (texto ?? '').trim()
+  return aparado === '' ? undefined : aparado
+}
+
+/** Só o PARAMOS e a previsão levam "onde" e tempo previsto; o VOLTAMOS não. */
+export function validarDadosDaParada(dados: {
+  fase: 'inicio' | 'fim' | 'previsao'
+  onde?: string
+  tempoPrevistoMin?: number
+}): Resultado {
+  if (dados.fase === 'fim') {
+    return dados.onde !== undefined || dados.tempoPrevistoMin !== undefined
+      ? { ok: false, motivo: 'O VOLTAMOS não leva lugar nem tempo previsto.' }
+      : { ok: true }
+  }
+  const t = dados.tempoPrevistoMin
+  if (t !== undefined && (!Number.isInteger(t) || t < MIN_TEMPO_PREVISTO_MIN || t > MAX_TEMPO_PREVISTO_MIN)) {
+    return { ok: false, motivo: `O tempo previsto vai de ${MIN_TEMPO_PREVISTO_MIN} a ${MAX_TEMPO_PREVISTO_MIN} minutos, inteiros.` }
+  }
+  if (dados.onde !== undefined) {
+    if (dados.onde.trim() === '') return { ok: false, motivo: 'Escreva o nome do lugar ou deixe em branco.' }
+    if (dados.onde.length > MAX_ONDE_PARADA) return { ok: false, motivo: `O lugar passa de ${MAX_ONDE_PARADA} caracteres.` }
+  }
+  return { ok: true }
+}
 
 export function validarTextoDaObservacao(texto: string): Resultado {
   if (texto.trim() === '') return { ok: false, motivo: 'Escreva a observação.' }

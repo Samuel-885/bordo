@@ -118,6 +118,7 @@ export type MotivoParada =
   | 'pneu'
   | 'policia'
   | 'banheiro'
+  | 'cafe'
   | 'passageiro_mal'
   | 'acidente'
   | 'transito_parado'
@@ -169,7 +170,15 @@ export type Evento = EventoBase &
         tipo: 'parada_nao_planejada'
         /** A próxima etapa: a parada acontece no trecho que chega nela. */
         etapaId: string
-        dados: { fase: 'inicio' | 'fim'; motivo?: MotivoParada }
+        dados: {
+          /** `previsao` (parada aberta): leva o estado completo de "onde" e tempo previsto; vale o mais recente. */
+          fase: 'inicio' | 'fim' | 'previsao'
+          motivo?: MotivoParada
+          /** Nome do lugar (até 60 caracteres). Nunca vai para as mensagens. */
+          onde?: string
+          /** Tempo previsto da parada, em minutos inteiros (1 a 600). */
+          tempoPrevistoMin?: number
+        }
       }
     | { tipo: 'imprevisto'; dados: { categoria: TipoImprevisto } }
     | { tipo: 'conferencia'; etapaId: string; dados: Conferencia }

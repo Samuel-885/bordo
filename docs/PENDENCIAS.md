@@ -4,3 +4,4 @@
 - **Fase 10:** "Apagar passageiros" ao fim da viagem. A fase 5 não deixa excluir passageiro de viagem concluída nem de quem já passou por conferência; o apagamento em massa precisa manter as contagens no relatório.
 - **Fase 10:** o backup deve incluir a tabela `modelos` (modelos de mensagem da fase 7), ao contrário das consultas ao Google Maps.
 - **Fase 10:** o relatório inclui as observações livres (eventos `observacao`, texto em `dados.texto`) e as atualizações geradas (horário e previsão informada), para mostrar o que foi comunicado e quando.
+- **Fase 10:** o relatório mostra o motivo, o "onde" e o tempo previsto das paradas não planejadas (eventos `parada_nao_planejada`, fases `inicio` e `previsao`; vale o `previsao` mais recente).

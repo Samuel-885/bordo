@@ -37,6 +37,8 @@ interface Recalibracao {
 interface ParadaNaoPlanejada {
   inicio: Instante
   fim: Instante | null
+  /** Só vale com a parada aberta; fechada, vale a duração real. */
+  tempoPrevistoMin?: number
 }
 
 interface Fatos {
@@ -90,7 +92,18 @@ function indexarEventos(eventos: readonly Evento[]): Fatos {
       case 'parada_nao_planejada': {
         const lista = fatos.paradas.get(e.etapaId) ?? []
         const aberta = lista.find((p) => p.fim === null)
-        if (e.dados.fase === 'inicio' && !aberta) lista.push({ inicio: e.horarioFato, fim: null })
+        if (e.dados.fase === 'inicio' && !aberta) {
+          lista.push({
+            inicio: e.horarioFato,
+            fim: null,
+            ...(e.dados.tempoPrevistoMin !== undefined ? { tempoPrevistoMin: e.dados.tempoPrevistoMin } : {}),
+          })
+        }
+        if (e.dados.fase === 'previsao' && aberta) {
+          // O evento leva o estado completo: o que vem ausente fica sem valor.
+          if (e.dados.tempoPrevistoMin !== undefined) aberta.tempoPrevistoMin = e.dados.tempoPrevistoMin
+          else delete aberta.tempoPrevistoMin
+        }
         if (e.dados.fase === 'fim' && aberta) aberta.fim = e.horarioFato
         fatos.paradas.set(e.etapaId, lista)
         break
@@ -121,7 +134,11 @@ function recalibracaoAtiva(fatos: Fatos, etapa: Etapa): Recalibracao | null {
   return r
 }
 
-/** Minutos parados no trecho que chega na etapa; a parada em andamento conta até agora. */
+/**
+ * Minutos parados no trecho que chega na etapa. Parada fechada: a duração real. Parada aberta:
+ * até agora, e com tempo previsto T, o maior entre T e o decorrido (volta prevista = o maior
+ * entre início + T e agora).
+ */
 function tempoParadoMin(
   fatos: Fatos,
   etapaId: string,
@@ -132,7 +149,9 @@ function tempoParadoMin(
   for (const p of fatos.paradas.get(etapaId) ?? []) {
     if (aPartirDe && antes(p.inicio, aPartirDe)) continue
     const fim = p.fim ?? agora
-    if (fim) total += Math.max(0, diferencaMin(fim, p.inicio))
+    if (!fim) continue
+    const decorrido = Math.max(0, diferencaMin(fim, p.inicio))
+    total += p.fim === null && p.tempoPrevistoMin !== undefined ? Math.max(p.tempoPrevistoMin, decorrido) : decorrido
   }
   return total
 }

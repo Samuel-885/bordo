@@ -26,7 +26,7 @@ São oito entidades. O registro de eventos é a fonte da verdade: o estado da vi
 | Etapa | id, viagem, ordem, tipo, local, motivo, categoria, janela início/fim, permanência (min), chegada do roteiro, alternativas, modo de conferência | Tipos: origem, obrigatória, flexível, destino. Na origem, o horário do roteiro é a saída. O local é o preferido (o do roteiro); as alternativas são os outros candidatos. Parada não planejada não é etapa: é um par de eventos. |
 | Local | id, nome, cidade, tipo, coordenadas, abre, fecha, telefone, ônibus para (sim, não, não sei), observações, marcação (favorito, evitar) | Catálogo reutilizado entre viagens e anos. Abre e fecha são "HH:MM", um único horário por local, resolvidos pela data da chegada (única exceção à regra dos horários completos). |
 | Trecho | etapa de origem, local de origem, etapa de destino, local de destino, duração (min), fonte, distância (km), calculado em | Fonte: roteiro, rota, manual, estimado. Um trecho por par de locais candidatos. Só rota e manual são guardados; roteiro e estimado são derivados no cálculo. Na rota, a duração guardada é a de carro, sem o fator ônibus. |
-| Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, pular etapa, parada não planejada (fase início ou fim), imprevisto, conferência, status do passageiro, atualização gerada, observação, fim. Todo horário de evento é arredondado para baixo, para o minuto. |
+| Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, pular etapa, parada não planejada (fase início, fim ou previsão), imprevisto, conferência, status do passageiro, atualização gerada, observação, fim. Todo horário de evento é arredondado para baixo, para o minuto. |
 | Passageiro | id, nome, etapa de embarque, etapa de desembarque, status | Desembarque vazio = destino. Status: ativo, não embarcou, saiu da viagem. |
 | Conferência | etapa, modo, confirmados, pendentes, resultado, motivo | Resultado: completa ou incompleta. |
 | Feedback | local, viagem, etapa, nota (1 a 5), voltaria (sim, não), critérios, observação | Critérios opcionais: comida, banheiro, atendimento, rapidez, estacionamento. |
@@ -580,3 +580,44 @@ Olá! Somos um grupo de {grupo} pessoas ({identificacao}), em ônibus, com chega
 ```
 
 - **Onde ficam:** tabela `modelos` do Dexie (esquema v4, só adiciona a tabela), uma linha por modelo (`atualizacao`, `restaurante`) com o texto e a data. Sem linha gravada, vale o padrão, que mora no código. É a segunda exceção à regra "só plano e eventos" (a primeira é `consultas`): é configuração do app, não fato da viagem nem estado derivado. **Entra no backup da fase 10**, ao contrário das consultas.
+
+## Ajuste do PARAMOS: paradas por escolha
+
+Aprovado em 22/10/2026. Pensado para paradas por escolha ("todo mundo quer parar para um café"), não só por problema. Complementa a seção "Parada não planejada" e as decisões das fases 1, 4 e 5.
+
+**Motivo e lugar**
+
+- Novo motivo "Café / lanche" (`cafe`), entre "Banheiro" e "Outro".
+- Campo opcional "Onde" (`onde`): nome do lugar, texto curto de até 60 caracteres, espaços aparados; vazio = ausente. Dica no campo: "Nome do lugar. Sem nomes de passageiros." Aparece na timeline ("PARAMOS · Café / lanche · Padaria Tal") e no cartão da parada, e fica no evento para o relatório da fase 10. Não entra na mensagem de atualização (que continua sem o motivo e sem o lugar) nem na variável `{situacao}`.
+
+**Tempo previsto**
+
+- Campo opcional "Tempo previsto" (`tempoPrevistoMin`): inteiro de 1 a 600 minutos.
+- Informado no PARAMOS (evento fase `inicio`) ou depois, com a parada aberta, por um evento fase `previsao`. O evento `previsao` leva o **estado completo** da folha ("onde" e tempo previsto): vale o mais recente pela ordem de gravação, e o que vier ausente nele fica sem valor (apagar o tempo volta ao comportamento sem tempo previsto). Só é aceito com a parada aberta; depois do VOLTAMOS é recusado. Vai pelos mesmos botões e travas dos outros registros (não pode ser depois de agora nem antes do PARAMOS); o DESFAZER o retira como qualquer registro.
+- Regra do cálculo. O tempo parado de cada parada do trecho que entra na chegada prevista da próxima etapa é:
+  - parada fechada (com VOLTAMOS): a duração real, `fim − início`, mesmo menor que o tempo previsto;
+  - parada aberta sem tempo previsto: `agora − início` (como antes);
+  - parada aberta com tempo previsto T: `max(T, agora − início)`.
+  Equivale a "volta prevista = max(início + T, agora)": a previsão mostra o impacto ao parar e volta a acompanhar o relógio se a parada estourar. As demais regras (recalibração, que só conta parada iniciada depois dela; regra do relógio; atraso medido contra o original do mesmo evento; plano original congelado) não mudam.
+- Cartão "Parada não planejada": com tempo previsto, mostra "Previsto X min" e "faltam Y min" ou "excedeu em Y min" (minutos inteiros; vindos do núcleo, `situacaoDaViagem`), como o cronômetro das paradas planejadas. Botão para definir ou alterar "Onde" e tempo previsto numa só folha.
+
+**Demonstração**
+
+- Novo cenário "Parada para café": PARAMOS por "Café / lanche", "Onde" preenchido e tempo previsto de 20 min; passos que mostram a previsão ao parar, a parada estourando e o VOLTAMOS.
+
+**Casos de teste** (`parada-tempo-previsto.test.ts`, do caso 3: saída de Monlevade 09:14, almoço 12:34, destino 00:04)
+
+| # | Situação | Resultado esperado |
+| --- | --- | --- |
+| P1 | PARAMOS 10:00 sem tempo previsto, relógio 10:20 | Almoço 12:54, destino 00:24, +54 (igual ao caso 8) |
+| P2 | PARAMOS 10:00 com T=20, relógio 10:00 | Almoço 12:54, destino 00:24, +54 |
+| P3 | T=20, relógio 10:12 | Continua 12:54; cartão "faltam 8 min" |
+| P4 | T=20, relógio 10:20 | 12:54; cartão "faltam 0 min" |
+| P5 | T=20, relógio 10:35, aberta | Almoço 13:09, destino 00:39, +69; "excedeu em 15 min" |
+| P6 | T=20, VOLTAMOS 10:14 | Duração real: almoço 12:48, destino 00:18, +48 |
+| P7 | T=20, VOLTAMOS 10:31 | Almoço 13:05 |
+| P8 | Aos 10:12, T muda de 20 para 40; depois é apagado | 13:14; apagado, 12:46 (volta a acompanhar o relógio) |
+| P9 | Parada fechada de 10 min e outra aberta com T=15 | Soma 25 min: almoço 12:59 |
+| P10 | Recalibração depois do PARAMOS | Parada anterior à recalibração não conta; parada nova com T conta |
+| P11 | `previsao` com parada fechada, T=0, T=601, T não inteiro, "onde" com mais de 60 caracteres | Recusado, com mensagem |
+| P12 | Qualquer caso acima | Plano original idêntico ao do início |
