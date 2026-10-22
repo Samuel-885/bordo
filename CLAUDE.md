@@ -7,7 +7,7 @@ A especificação completa está em `docs/ESPECIFICACAO.md` e é a fonte da verd
 ## Stack
 
 - React + TypeScript (strict) + Vite, versões estáveis atuais
-- Testes: Vitest
+- Testes: Vitest; ponta a ponta: playwright-core + Chromium (`npm run e2e`, pasta `e2e/`)
 - Persistência: IndexedDB via Dexie (a partir da fase 3)
 - PWA: vite-plugin-pwa (fase 4)
 - Mapa: Leaflet + tiles do OpenStreetMap (fase 9)
@@ -40,6 +40,7 @@ A especificação completa está em `docs/ESPECIFICACAO.md` e é a fonte da verd
 - Comece cada fase apresentando um plano e espere aprovação antes de escrever código.
 - Uma fase só termina com `npm test` e `npm run build` passando, sem erros de TypeScript.
 - Nunca faça push sem antes rodar `npm test` e `npm run build` com sucesso, nesta ordem, inclusive em correções pequenas.
+- Antes do push de cada fase, rode também `npm run e2e` (Chromium sem tela, fora do `npm test`; faz o build, sobe o preview sozinho e encerra no fim). Os fluxos ficam em `e2e/fluxos/`: ao terminar uma fase, acrescente o fluxo dela. Precisa do Chromium do Playwright (`npx playwright-core install chromium`).
 - Commits pequenos e frequentes, mensagens em português.
 
 ## Fases
