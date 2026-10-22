@@ -1084,3 +1084,13 @@ dialog.folha .acoes.colunas {
   font-size: 14px;
   text-align: center;
 }
+.consulta-maps {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--azul);
+}
+.consulta-maps.antiga {
+  color: var(--texto-suave);
+  font-weight: 400;
+}

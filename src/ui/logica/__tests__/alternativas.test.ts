@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { linkTelefone, rotuloDaClasse, textoDaMargem, textoDoAvisoDaAlternativa, textoDoImpacto } from '../alternativas'
+import { instante } from '../../../core/tempo'
+import { linkTelefone, textoDaConsulta, textoIdade, rotuloDaClasse, textoDaMargem, textoDoAvisoDaAlternativa, textoDoImpacto } from '../alternativas'
 
 describe('textos das alternativas', () => {
   it('classes em português', () => {
@@ -31,5 +32,19 @@ describe('textos das alternativas', () => {
     expect(linkTelefone('+55 31 99999-0000')).toBe('tel:+5531999990000')
     expect(linkTelefone('  ')).toBeNull()
     expect(linkTelefone(undefined)).toBeNull()
+  })
+
+  it('idade da consulta', () => {
+    expect(textoIdade(0)).toBe('agora')
+    expect(textoIdade(8)).toBe('há 8 min')
+    expect(textoIdade(65)).toBe('há 1h05')
+  })
+
+  it('origem da alternativa consultada', () => {
+    const consultadoEm = instante('2026-11-14T08:30:00-03:00')
+    expect(textoDaConsulta({ consultadoEm, idadeMin: 8, situacao: 'vigente' })).toBe('Google Maps, informado às 08:30 · há 8 min')
+    expect(textoDaConsulta({ consultadoEm, idadeMin: 45, situacao: 'antiga' })).toBe(
+      'Consulta antiga (informado às 08:30 · há 45 min): não está valendo',
+    )
   })
 })

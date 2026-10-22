@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react'
 import { calcularEstado, validarPulo } from '../core/previsao'
+import { modoDaRecalibracao } from '../core/recalibracao'
 import {
   avaliarAlternativas,
   paradasFlexiveisPendentes,
@@ -12,7 +13,7 @@ import {
   type TrechoFaltante,
 } from '../core/viabilidade'
 import type { ConteudoEvento } from '../core/eventos'
-import type { DadosPlano, Evento, Etapa, Instante, Local } from '../core/tipos'
+import type { Consulta, DadosPlano, Evento, Etapa, Instante, Local } from '../core/tipos'
 import type { Repositorio, ResultadoRegistro } from '../data/repositorio'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 import { AvisoDesfazer } from './componentes/AvisoDesfazer'
@@ -26,6 +27,7 @@ import {
   rotuloDaClasse,
   textoDaMargem,
   textoDoAvisoDaAlternativa,
+  textoDaConsulta,
   textoDoImpacto,
 } from './logica/alternativas'
 import { formatarDuracao, minutosDeHorasEMinutos } from './logica/duracao'
@@ -47,8 +49,12 @@ interface Props {
 
 export function Alternativas({ repo, viagemId, onVoltar, aoRegistrar }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
-    const [plano, eventos] = await Promise.all([repo.carregarPlano(viagemId), repo.listarEventos(viagemId)])
-    return { plano, eventos }
+    const [plano, eventos, consultas] = await Promise.all([
+      repo.carregarPlano(viagemId),
+      repo.listarEventos(viagemId),
+      repo.listarConsultas(viagemId),
+    ])
+    return { plano, eventos, consultas }
   }, `alternativas:${repo.espaco}:${viagemId}`)
   useAoMudar(recarregar)
   const agora = useAgora()
@@ -67,6 +73,7 @@ export function Alternativas({ repo, viagemId, onVoltar, aoRegistrar }: Props) {
       repo={repo}
       plano={dados.plano}
       eventos={dados.eventos}
+      consultas={dados.consultas}
       agora={agora}
       recarregar={recarregar}
       onVoltar={onVoltar}
@@ -79,6 +86,7 @@ interface ConteudoProps {
   repo: Repositorio
   plano: DadosPlano
   eventos: Evento[]
+  consultas: Consulta[]
   agora: Instante
   recarregar: () => void
   onVoltar: () => void
@@ -90,9 +98,11 @@ interface TrocaPendente {
   localId: string
   nome: string
   motivos: string[]
+  /** Aplica a consulta ao Google Maps (troca + recalibração) em vez da troca simples. */
+  consulta?: boolean
 }
 
-function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistrar }: ConteudoProps) {
+function Conteudo({ repo, plano, eventos, consultas, agora, recarregar, onVoltar, aoRegistrar }: ConteudoProps) {
   const { viagem, locais } = plano
   const original = viagem.planoOriginal!
   const estado = calcularEstado(plano, original, eventos, agora)
@@ -105,6 +115,8 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
   const [pulando, setPulando] = useState<Etapa | null>(null)
   const [informando, setInformando] = useState<TrechoFaltante | null>(null)
   /** Escolha de alternativa sem o trecho em curso: pede a chegada pelo Google Maps. */
+  /** CONSULTAR NO MAPS: a folha que pede a chegada e guarda a consulta (não altera a previsão). */
+  const [consultando, setConsultando] = useState<{ etapaId: string; localId: string; nome: string } | null>(null)
   const [chegadaMaps, setChegadaMaps] = useState<{ etapaId: string; localId: string; nome: string } | null>(null)
   const [horas, setHoras] = useState('')
   const [minutos, setMinutos] = useState('')
@@ -151,6 +163,7 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
 
   /** Motivos para pedir confirmação: o local chega fechado ou há uma previsão do Google Maps. */
   function motivosDeConfirmacao(etapa: Etapa, a: AvaliacaoAlternativa, nome: string): string[] {
+    const consultada = a.consulta?.situacao === 'vigente'
     const motivos: string[] = []
     if (a.classe === 'inviavel') {
       motivos.push(`${nome} está fechado no horário previsto de chegada${a.chegada ? ` (${formatarHora(a.chegada)})` : ''}.`)
@@ -158,25 +171,49 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
     const chegada = estado.etapas.find((e) => e.etapaId === etapa.id)?.chegada
     if (chegada?.origem === 'recalibracao') {
       motivos.push(
-        `A previsão do Google Maps${chegada.recalibradoEm ? ` informada às ${formatarHora(chegada.recalibradoEm)}` : ''} deixa de valer: a previsão volta a ser calculada pelo trecho.`,
+        `A previsão do Google Maps${chegada.recalibradoEm ? ` informada às ${formatarHora(chegada.recalibradoEm)}` : ''} ${consultada ? 'é substituída pela consulta' : 'deixa de valer: a previsão volta a ser calculada pelo trecho'}.`,
       )
     }
     return motivos
   }
 
-  async function trocar(t: { etapaId: string; localId: string; nome: string }) {
-    const ok = await registrarConteudo(
-      { tipo: 'troca_local', etapaId: t.etapaId, dados: { localId: t.localId } },
-      `Local trocado para ${t.nome}.`,
-    )
+  async function trocar(t: { etapaId: string; localId: string; nome: string; consulta?: boolean }) {
+    const ok = t.consulta
+      ? await registrar(() => repo.aplicarConsulta(viagem.id, t.etapaId, t.localId), `Local trocado para ${t.nome}, com a chegada do Google Maps.`)
+      : await registrarConteudo(
+          { tipo: 'troca_local', etapaId: t.etapaId, dados: { localId: t.localId } },
+          `Local trocado para ${t.nome}.`,
+        )
     if (ok) setTroca(null)
+  }
+
+  async function guardarConsulta(horario: Instante) {
+    if (!consultando) return
+    setOcupado(true)
+    setErro(null)
+    try {
+      const r = await repo.salvarConsulta(viagem.id, consultando.etapaId, consultando.localId, horario)
+      if (!r.ok) return setErro(r.motivo)
+      setConsultando(null)
+      recarregar()
+    } catch (x) {
+      setErro(mensagemDeErroDoBanco(x, 'Não foi possível guardar a consulta.'))
+    } finally {
+      setOcupado(false)
+    }
+  }
+
+  async function descartarConsulta(etapaId: string, localId: string) {
+    await repo.descartarConsulta(viagem.id, etapaId, localId)
+    recarregar()
   }
 
   function escolher(etapa: Etapa, a: AvaliacaoAlternativa) {
     setErro(null)
     const nome = localDe(a.localId)?.nome ?? 'O local'
     const motivos = motivosDeConfirmacao(etapa, a, nome)
-    const t = { etapaId: etapa.id, localId: a.localId, nome }
+    const consulta = a.consulta?.situacao === 'vigente'
+    const t = { etapaId: etapa.id, localId: a.localId, nome, ...(consulta ? { consulta } : {}) }
     if (a.exigeChegadaPeloMaps) return setChegadaMaps(t)
     if (motivos.length > 0) setTroca({ ...t, motivos })
     else void trocar(t)
@@ -224,7 +261,9 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
         {pendentes.length === 0 && <p className="dica">Não há parada flexível pela frente.</p>}
 
         {pendentes.map((etapa) => {
-          const lista = avaliarAlternativas(plano, original, eventos, agora, etapa.id)
+          const lista = avaliarAlternativas(plano, original, eventos, agora, etapa.id, consultas)
+          const podeConsultar =
+            etapa.id === estado.proximaEtapaId && modoDaRecalibracao(plano, original, eventos, etapa.id, agora) !== null
           const nomeEtapa = nomeDaEtapa(etapa, locais)
           return (
             <section className="cartao" key={etapa.id} aria-label={nomeEtapa}>
@@ -271,13 +310,17 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
                             <dd>{textoDaMargem(a.margemMin)}</dd>
                           </>
                         )}
-                        {!a.escolhida && (
+                        {(!a.escolhida || a.consulta?.situacao === 'vigente') && (
                           <>
                             <dt>Chegada ao destino</dt>
                             <dd>{a.impactoDestinoMin === null ? 'sem tempo definido' : textoDoImpacto(a.impactoDestinoMin)}</dd>
                           </>
                         )}
                       </dl>
+
+                      {a.consulta && (
+                        <p className={`consulta-maps ${a.consulta.situacao}`}>{textoDaConsulta(a.consulta)}</p>
+                      )}
 
                       {a.avisos.length > 0 && (
                         <p className="avisos-alternativa">
@@ -310,6 +353,31 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
                             ESCOLHER
                           </button>
                         )}
+                        {a.escolhida && a.consulta?.situacao === 'vigente' && (
+                          <button
+                            type="button"
+                            className="botao principal"
+                            disabled={ocupado}
+                            onClick={() => void registrar(() => repo.aplicarConsulta(viagem.id, etapa.id, a.localId), 'Previsão atualizada pela consulta ao Google Maps.')}
+                          >
+                            ATUALIZAR PREVISÃO
+                          </button>
+                        )}
+                        {podeConsultar && (
+                          <button
+                            type="button"
+                            className="botao"
+                            disabled={ocupado}
+                            onClick={() => { setErro(null); setConsultando({ etapaId: etapa.id, localId: a.localId, nome: local?.nome ?? 'o local' }) }}
+                          >
+                            CONSULTAR NO MAPS
+                          </button>
+                        )}
+                        {a.consulta && (
+                          <button type="button" className="botao" onClick={() => void descartarConsulta(etapa.id, a.localId)}>
+                            DESCARTAR CONSULTA
+                          </button>
+                        )}
                         {mapa && (
                           <a className="botao link-botao" href={mapa} target="_blank" rel="noopener noreferrer">
                             GOOGLE MAPS
@@ -336,7 +404,7 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
           )
         })}
 
-        {erro && !troca && !pulando && !informando && !chegadaMaps && <p className="msg-erro" role="alert">{erro}</p>}
+        {erro && !troca && !pulando && !informando && !chegadaMaps && !consultando && <p className="msg-erro" role="alert">{erro}</p>}
       </main>
 
       {desfazer && <AvisoDesfazer texto={desfazer.texto} onDesfazer={() => void desfazerUltimo()} />}
@@ -369,6 +437,22 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
         <p>{pulando ? nomeDaEtapa(pulando, locais) : 'A parada'} sai do percurso e a previsão é recalculada. Dá para desfazer logo depois.</p>
         {erro && pulando && <p className="msg-erro">{erro}</p>}
       </Confirmar>
+
+      {consultando && (
+        <FolhaRecalibracao
+          aberta
+          ocupado={ocupado}
+          erro={erro}
+          agora={agora}
+          linkMapa={linkGoogleMaps(localDe(consultando.localId))}
+          nomeEtapa={consultando.nome}
+          titulo={`Chegada no ${consultando.nome} pelo Google Maps`}
+          rotuloConfirmar="Calcular"
+          dica={`Abra o Google Maps (a rota sai da sua posição), veja o horário de chegada em ${consultando.nome} e digite aqui. É só uma consulta: a previsão não muda até você escolher.`}
+          onCancelar={() => { setErro(null); setConsultando(null) }}
+          onConfirmar={(h) => void guardarConsulta(h)}
+        />
+      )}
 
       {chegadaMaps && (
         <FolhaRecalibracao

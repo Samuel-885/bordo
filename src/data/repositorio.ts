@@ -118,7 +118,7 @@ export class Repositorio {
   async excluirViagem(id: string): Promise<void> {
     this.#exigirRelogioDoEspaco()
     const { viagens, etapas, trechos, eventos, passageiros, consultas } = this.#db
-    await this.#db.transaction('rw', viagens, etapas, trechos, eventos, passageiros, consultas, async () => {
+    await this.#db.transaction('rw', [viagens, etapas, trechos, eventos, passageiros, consultas], async () => {
       const ids = (await etapas.where('viagemId').equals(id).primaryKeys()) as string[]
       await passageiros.where('viagemId').equals(id).delete()
       await consultas.where('viagemId').equals(id).delete()
@@ -443,7 +443,7 @@ export class Repositorio {
   ): Promise<{ ok: true } | { ok: false; motivo: string }> {
     this.#exigirRelogioDoEspaco()
     const { viagens, etapas, locais, trechos, eventos, consultas } = this.#db
-    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, consultas, async () => {
+    return this.#db.transaction('rw', [viagens, etapas, locais, trechos, eventos, consultas], async () => {
       const dados = await this.carregarPlano(viagemId)
       const original = dados?.viagem.planoOriginal
       if (!dados || !original) return { ok: false as const, motivo: 'A viagem não está em andamento.' }

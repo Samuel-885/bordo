@@ -1,7 +1,9 @@
 // Textos da tela de alternativas. As regras (classe, margem, impacto, validação) vêm do núcleo.
 
+import type { Instante } from '../../core/tipos'
 import type { AvisoAlternativa, ClasseAlternativa } from '../../core/viabilidade'
 import { formatarDuracao } from './duracao'
+import { formatarHora } from './horarios'
 
 const CLASSES: Record<ClasseAlternativa, string> = {
   viavel: 'Viável',
@@ -40,4 +42,16 @@ export function linkTelefone(telefone: string | undefined): string | null {
   const digitos = telefone.replace(/\D/g, '')
   if (digitos.length === 0) return null
   return `tel:${telefone.trim().startsWith('+') ? '+' : ''}${digitos}`
+}
+
+/** "agora", "há 8 min", "há 1h05". */
+export function textoIdade(min: number): string {
+  if (min <= 0) return 'agora'
+  return `há ${formatarDuracao(min)}`
+}
+
+/** Origem da previsão de uma alternativa consultada ao Google Maps. */
+export function textoDaConsulta(c: { consultadoEm: Instante; idadeMin: number; situacao: 'vigente' | 'antiga' }): string {
+  const quando = `informado às ${formatarHora(c.consultadoEm)} · ${textoIdade(c.idadeMin)}`
+  return c.situacao === 'vigente' ? `Google Maps, ${quando}` : `Consulta antiga (${quando}): não está valendo`
 }
