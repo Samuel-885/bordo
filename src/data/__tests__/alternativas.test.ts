@@ -147,13 +147,11 @@ describe('troca com a chegada pelo Google Maps', () => {
     expect((await repo.listarEventos(V)).length).toBe(antes)
   })
 
-  it('fora do caso (o B tem tempo) recusa e não grava nada', async () => {
+  it('local que já tem tempo também é aceito (é o caso da consulta ao Google Maps)', async () => {
     await emTransitoParaOAlmoco()
     await repo.salvarTrechoManualEmViagem(V, parBAteCafe, 180)
-    const antes = (await repo.listarEventos(V)).length
     const r = await repo.registrarTrocaComChegada(V, ETAPA.almoco, LOCAL.restB, horaDemo('14:35'))
-    expect(r).toMatchObject({ ok: false })
-    expect((await repo.listarEventos(V)).length).toBe(antes)
+    expect(r).toMatchObject({ ok: true })
   })
 
   it('sem o tempo do local até a etapa seguinte (o B não tem o trecho até o café) recusa e diz qual', async () => {

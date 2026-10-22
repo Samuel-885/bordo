@@ -7,4 +7,6 @@ export const CONFIG = {
   margemViavelMin: 15,
   /** Multiplica o tempo de carro da rota. Ajustável em cada viagem. */
   fatorOnibusPadrao: 1.15,
+  /** Depois de quantos minutos uma consulta ao Google Maps vira "antiga" e deixa de valer. */
+  consultaValidaMin: 30,
 } as const

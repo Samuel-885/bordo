@@ -203,6 +203,26 @@ export interface EtapaOriginal {
   saida: Instante | null
 }
 
+/**
+ * Consulta ao Google Maps: "chegando em <local> às HH:MM", para avaliar uma alternativa da
+ * próxima parada. Não é fato da viagem (não é evento e não aparece na timeline) nem estado
+ * derivado: fica guardada à parte para não se perder ao navegar, e só vale por pouco tempo
+ * e enquanto a situação não mudar.
+ */
+export interface Consulta {
+  viagemId: string
+  etapaId: string
+  localId: string
+  /** O horário de chegada que o Google Maps informou. */
+  horario: Instante
+  /** Quando a consulta foi feita (minuto cheio). */
+  consultadoEm: Instante
+  /** Consulta feita parado na etapa anterior: informa a duração, não um horário absoluto. */
+  parado: boolean
+  /** Maior sequência de saída, chegada, troca de local e pulo no momento da consulta. */
+  base: number
+}
+
 /** O que o cálculo precisa do planejamento. */
 export interface DadosPlano {
   viagem: Viagem

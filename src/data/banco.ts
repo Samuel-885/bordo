@@ -1,10 +1,11 @@
 // Bancos IndexedDB (Dexie). Dois bancos separados, com o mesmo esquema: um para os
-// dados reais e outro só para a demonstração. Guardam apenas plano e eventos;
-// estado derivado nunca é persistido.
+// dados reais e outro só para a demonstração. Guardam plano e eventos; estado derivado nunca
+// é persistido. Única exceção: as consultas ao Google Maps (fase 6), que não são fato da
+// viagem nem estado derivado, valem por pouco tempo e ficam fora do backup.
 
 import Dexie, { type Table } from 'dexie'
 import { avisarBanco, type AvisoDoBanco } from './avisoBanco'
-import type { Etapa, Evento, Local, Passageiro, Trecho, Viagem } from '../core/tipos'
+import type { Consulta, Etapa, Evento, Local, Passageiro, Trecho, Viagem } from '../core/tipos'
 
 export type Espaco = 'real' | 'demo'
 
@@ -37,6 +38,7 @@ export class BancoBordo extends Dexie {
   trechos!: Table<Trecho, [string, string, string, string]>
   eventos!: Table<Evento, string>
   passageiros!: Table<Passageiro, string>
+  consultas!: Table<Consulta, [string, string, string]>
 
   constructor(nome: string) {
     super(nome)
@@ -51,6 +53,10 @@ export class BancoBordo extends Dexie {
     // reescrita, então os dados que já estão nos celulares continuam como estavam.
     this.version(2).stores({
       passageiros: 'id, viagemId',
+    })
+    // Fase 6: só adiciona a tabela das consultas ao Google Maps (mesma regra da versão 2).
+    this.version(3).stores({
+      consultas: '[viagemId+etapaId+localId], viagemId',
     })
     ligarAvisosDeConexao(this)
   }

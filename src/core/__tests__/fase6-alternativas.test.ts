@@ -261,11 +261,8 @@ describe('fase 6: troca com a chegada pelo Google Maps (trecho em curso sem temp
     expect(com(EM_TRANSITO, 'l-rest-c', '10:57')).toEqual({ ok: true })
   })
 
-  it('só vale nesse caso: local que já tem tempo é recusado', () => {
-    expect(com(EM_TRANSITO, 'l-rest-b', '15:05')).toEqual({
-      ok: false,
-      motivo: 'Este local já tem o tempo do trecho: troque sem informar a chegada.',
-    })
+  it('local que já tem tempo também é aceito (é o caso da consulta ao Google Maps)', () => {
+    expect(com(EM_TRANSITO, 'l-rest-b', '15:05')).toEqual({ ok: true })
   })
 
   it('o trecho do local até a etapa seguinte continua obrigatório', () => {
@@ -277,10 +274,10 @@ describe('fase 6: troca com a chegada pelo Google Maps (trecho em curso sem temp
     ).toEqual({ ok: false, motivo: expect.stringContaining('Restaurante C até Lanchonete do café') })
   })
 
-  it('parado na etapa anterior o trecho ainda é futuro: informa-se o tempo, não a chegada', () => {
+  it('parado na etapa anterior o trecho ainda é futuro: a lista pede o tempo, não a chegada; a troca com chegada vale', () => {
     const lista = avaliarAlternativas(d, original, PARADOS_EM_MONLEVADE, h('08:30'), 'almoco')
     expect(lista.find((a) => a.localId === 'l-rest-c')?.exigeChegadaPeloMaps).toBe(false)
-    expect(com(PARADOS_EM_MONLEVADE, 'l-rest-c', '15:05', h('08:30'))).toMatchObject({ ok: false })
+    expect(com(PARADOS_EM_MONLEVADE, 'l-rest-c', '15:05', h('08:30'))).toEqual({ ok: true })
   })
 
   it('recusa parada já alcançada e local fora dos candidatos', () => {

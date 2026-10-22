@@ -4,9 +4,10 @@
 import { CONFIG } from './config'
 import { calcularEstado } from './previsao'
 import { antes, diferencaMin, minutosDoDia, naHoraDoDia, somarMinutos, truncarMinuto } from './tempo'
+import { chegadaDaConsulta, vigenciaDaConsulta, type SituacaoDaConsulta } from './consulta'
 import { validarRecalibracao } from './recalibracao'
 import { duracaoTrecho, ordenarEtapas, type ParDeTrecho } from './trechos'
-import type { DadosPlano, EstadoViagem, Etapa, Evento, Instante, Local, PlanoOriginal } from './tipos'
+import type { Consulta, DadosPlano, EstadoViagem, Etapa, Evento, Instante, Local, PlanoOriginal } from './tipos'
 
 export type ClasseAlternativa = 'viavel' | 'pouca_margem' | 'sem_horario' | 'inviavel' | 'sem_tempo'
 
@@ -28,6 +29,16 @@ export interface TrechoFaltante extends ParDeTrecho {
 
 export type Resultado = { ok: true } | { ok: false; motivo: string }
 
+/** A consulta ao Google Maps deste local. "Antiga" aparece marcada, mas não entra no cálculo. */
+export interface ConsultaDaAlternativa {
+  horario: Instante
+  consultadoEm: Instante
+  idadeMin: number
+  situacao: Exclude<SituacaoDaConsulta, 'descartada'>
+  /** A chegada que a consulta vale agora (ver `chegadaDaConsulta`). */
+  chegadaEfetiva: Instante
+}
+
 export interface AvaliacaoAlternativa {
   localId: string
   escolhida: boolean
@@ -46,6 +57,8 @@ export interface AvaliacaoAlternativa {
    * curso: só dá para escolhê-la informando a chegada pelo Google Maps.
    */
   exigeChegadaPeloMaps: boolean
+  /** Consulta vigente (entra no cálculo) ou antiga (só marcada). Vazio se não há. */
+  consulta?: ConsultaDaAlternativa
 }
 
 const ORDEM_CLASSES: ClasseAlternativa[] = ['viavel', 'pouca_margem', 'sem_horario', 'inviavel', 'sem_tempo']
@@ -119,6 +132,10 @@ function avisos(etapa: Etapa, local: Local, chegada: Instante | null): AvisoAlte
  * Avalia o local preferido e as alternativas de uma parada flexível ainda não
  * alcançada, já na ordem da lista: viáveis, pouca margem, sem horário, inviáveis
  * e sem tempo; dentro de cada grupo, pela chegada mais cedo.
+ *
+ * Com uma consulta vigente ao Google Maps num local, ele é calculado como se a troca e a
+ * recalibração com a chegada consultada tivessem sido feitas agora (só a recalibração, se já
+ * é o escolhido). A consulta nunca altera a previsão atual nem o plano.
  */
 export function avaliarAlternativas(
   d: DadosPlano,
@@ -126,6 +143,7 @@ export function avaliarAlternativas(
   eventos: readonly Evento[],
   agoraDoRelogio: Instante,
   etapaId: string,
+  consultas: readonly Consulta[] = [],
 ): AvaliacaoAlternativa[] {
   const agora = truncarMinuto(agoraDoRelogio)
   const etapa = d.etapas.find((e) => e.id === etapaId)
@@ -140,11 +158,27 @@ export function avaliarAlternativas(
     const local = d.locais.find((l) => l.id === localId)
     if (!local) continue
     const escolhida = localId === estadoEtapa.localId
-    const simulado = escolhida
-      ? atual
-      : calcularEstado(d, original, [...eventos, trocaSimulada(d, etapaId, localId, agora)], agora)
+    const doLocal = consultas.find((c) => c.etapaId === etapaId && c.localId === localId)
+    const vigencia = doLocal && vigenciaDaConsulta(doLocal, eventos, agora)
+    const consulta: ConsultaDaAlternativa | undefined =
+      doLocal && vigencia && vigencia.situacao !== 'descartada'
+        ? {
+            horario: doLocal.horario,
+            consultadoEm: doLocal.consultadoEm,
+            idadeMin: vigencia.idadeMin,
+            situacao: vigencia.situacao,
+            chegadaEfetiva: chegadaDaConsulta(doLocal, agora),
+          }
+        : undefined
+    const usaConsulta = consulta?.situacao === 'vigente'
+    const simulados: Evento[] = [
+      ...(escolhida ? [] : [trocaSimulada(d, etapaId, localId, agora)]),
+      ...(usaConsulta ? [recalibracaoSimulada(d, etapaId, consulta.chegadaEfetiva, agora)] : []),
+    ]
+    const simulado = simulados.length === 0 ? atual : calcularEstado(d, original, [...eventos, ...simulados], agora)
     const chegada = simulado.etapas.find((e) => e.etapaId === etapaId)?.chegada?.instante ?? null
-    const faltam = trechosFaltantes(d, simulado, etapaId)
+    // Com consulta, a chegada vem do Google Maps: o trecho de chegada sem tempo não impede.
+    const faltam = trechosFaltantes(d, simulado, etapaId).filter((t) => !usaConsulta || t.perna === 'do_local')
     const destinoCom = simulado.chegadaDestino?.instante
     const destinoAtual = atual.chegadaDestino?.instante
     avaliacoes.push({
@@ -155,7 +189,8 @@ export function avaliarAlternativas(
       impactoDestinoMin: destinoCom && destinoAtual ? diferencaMin(destinoCom, destinoAtual) : null,
       avisos: avisos(etapa, local, chegada),
       trechosFaltantes: faltam,
-      exigeChegadaPeloMaps: !escolhida && exigeChegadaInformada(simulado, etapaId, faltam),
+      exigeChegadaPeloMaps: !escolhida && !usaConsulta && exigeChegadaInformada(simulado, etapaId, faltam),
+      ...(consulta ? { consulta } : {}),
     })
   }
 
@@ -164,6 +199,18 @@ export function avaliarAlternativas(
     if (porClasse !== 0 || !a.chegada || !b.chegada) return porClasse
     return diferencaMin(a.chegada, b.chegada)
   })
+}
+
+function recalibracaoSimulada(d: DadosPlano, etapaId: string, horario: Instante, agora: Instante): Evento {
+  return {
+    id: 'simulacao-consulta',
+    viagemId: d.viagem.id,
+    tipo: 'recalibracao',
+    etapaId,
+    dados: { horario },
+    horarioFato: agora,
+    registradoEm: agora,
+  }
 }
 
 function trocaSimulada(d: DadosPlano, etapaId: string, localId: string, agora: Instante): Evento {
@@ -320,9 +367,12 @@ export function validarTroca(
 
 /**
  * Troca de local com a chegada informada pelo Google Maps (troca + recalibração da etapa,
- * gravadas juntas). Só vale quando, em trânsito para a parada, o único trecho sem tempo até
- * o local é o que está em curso. A recalibração feita depois da troca vale para o novo local
- * (decisão da fase 1) e passa pelas mesmas travas da recalibração, avaliadas já com a troca.
+ * gravadas juntas): a chegada que o trecho em curso sem tempo não dá, ou uma consulta ao
+ * Maps. O trecho do local até a etapa seguinte continua obrigatório; o de chegada sem tempo
+ * não impede, porque o horário informado o substitui. A recalibração feita depois da troca
+ * vale para o novo local (decisão da fase 1) e passa pelas mesmas travas da recalibração
+ * (próxima etapa, em trânsito ou parado na anterior, horário não anterior a agora),
+ * avaliadas já com a troca.
  */
 export function validarTrocaComChegada(
   d: DadosPlano,
@@ -336,15 +386,8 @@ export function validarTrocaComChegada(
   const agora = truncarMinuto(agoraDoRelogio)
   const exame = examinarTroca(d, original, eventos, agora, etapaId, localId)
   if (!exame.ok) return exame
-  if (!exigeChegadaInformada(exame.simulado, etapaId, exame.faltam)) {
-    return {
-      ok: false,
-      motivo:
-        exame.faltam.length > 0
-          ? textoDosFaltantes(d, exame.faltam)
-          : 'Este local já tem o tempo do trecho: troque sem informar a chegada.',
-    }
-  }
+  const doLocal = exame.faltam.filter((t) => t.perna === 'do_local')
+  if (doLocal.length > 0) return { ok: false, motivo: textoDosFaltantes(d, doLocal) }
   return validarRecalibracao(d, original, [...eventos, exame.troca], etapaId, horario, agora)
 }
 

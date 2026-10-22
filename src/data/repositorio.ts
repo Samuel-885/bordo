@@ -11,13 +11,14 @@ import {
   trechosQueDeixamDeValer,
 } from '../core/ordem'
 import { calcularEstado, calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from '../core/previsao'
+import { chegadaDaConsulta, validarConsulta, vigenciaDaConsulta } from '../core/consulta'
 import { validarTrechoManualEmViagem, validarTrocaComChegada } from '../core/viabilidade'
 import { paradaAberta, validarCorrecao, validarHorario, validarRegistro } from '../core/registro'
 import { agora, simuladoAtivo } from '../core/relogio'
-import { diferencaMin, naHoraDoDia, somarMinutos } from '../core/tempo'
+import { diferencaMin, naHoraDoDia, somarMinutos, truncarMinuto } from '../core/tempo'
 import { eventosDaConferencia, type ContextoConferencia, type DecisaoDePendente, type EstadoConferencia } from '../core/conferencia'
 import { validarCadastro, validarExclusao, type DadosPassageiro } from '../core/passageiros'
-import type { DadosPlano, Etapa, Evento, Instante, Local, Passageiro, Trecho, Viagem } from '../core/tipos'
+import type { Consulta, DadosPlano, Etapa, Evento, Instante, Local, Passageiro, Trecho, Viagem } from '../core/tipos'
 import type { BancoBordo, Espaco } from './banco'
 
 export type ResultadoInicio =
@@ -116,10 +117,11 @@ export class Repositorio {
   /** Remove a viagem com etapas, trechos, eventos e passageiros. Os locais (catálogo) ficam. */
   async excluirViagem(id: string): Promise<void> {
     this.#exigirRelogioDoEspaco()
-    const { viagens, etapas, trechos, eventos, passageiros } = this.#db
-    await this.#db.transaction('rw', viagens, etapas, trechos, eventos, passageiros, async () => {
+    const { viagens, etapas, trechos, eventos, passageiros, consultas } = this.#db
+    await this.#db.transaction('rw', viagens, etapas, trechos, eventos, passageiros, consultas, async () => {
       const ids = (await etapas.where('viagemId').equals(id).primaryKeys()) as string[]
       await passageiros.where('viagemId').equals(id).delete()
+      await consultas.where('viagemId').equals(id).delete()
       await trechos.where('etapaOrigemId').anyOf(ids).delete()
       await trechos.where('etapaDestinoId').anyOf(ids).delete()
       await etapas.where('viagemId').equals(id).delete()
@@ -421,6 +423,90 @@ export class Repositorio {
     })
   }
 
+  // ---------- Consultas ao Google Maps ----------
+
+  /** Todas as consultas guardadas da viagem (a vigência é calculada pelo núcleo). */
+  async listarConsultas(viagemId: string): Promise<Consulta[]> {
+    this.#exigirRelogioDoEspaco()
+    return this.#db.consultas.where('viagemId').equals(viagemId).toArray()
+  }
+
+  /**
+   * Guarda a consulta "chegando em <local> às HH:MM" (substitui a do mesmo local). Não é evento:
+   * não altera a previsão nem aparece na timeline. Valida pelo núcleo e apaga as já descartadas.
+   */
+  async salvarConsulta(
+    viagemId: string,
+    etapaId: string,
+    localId: string,
+    horario: Instante,
+  ): Promise<{ ok: true } | { ok: false; motivo: string }> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, etapas, locais, trechos, eventos, consultas } = this.#db
+    return this.#db.transaction('rw', viagens, etapas, locais, trechos, eventos, consultas, async () => {
+      const dados = await this.carregarPlano(viagemId)
+      const original = dados?.viagem.planoOriginal
+      if (!dados || !original) return { ok: false as const, motivo: 'A viagem não está em andamento.' }
+      const lista = await this.listarEventos(viagemId)
+      const momento = agora()
+      const r = validarConsulta(dados, original, lista, momento, etapaId, localId, horario)
+      if (!r.ok) return r
+      await this.#apagarConsultasDescartadas(viagemId, lista, momento)
+      await consultas.put({
+        viagemId,
+        etapaId,
+        localId,
+        horario: truncarMinuto(horario),
+        consultadoEm: truncarMinuto(momento),
+        parado: r.parado,
+        base: r.base,
+      })
+      return { ok: true as const }
+    })
+  }
+
+  async descartarConsulta(viagemId: string, etapaId: string, localId: string): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    await this.#db.consultas.delete([viagemId, etapaId, localId])
+  }
+
+  /**
+   * ESCOLHER uma alternativa consultada: troca de local e recalibração com a chegada da consulta
+   * (`chegadaDaConsulta`, calculada no momento do registro), numa só transação. Para o local já
+   * escolhido, só a recalibração (ATUALIZAR PREVISÃO). A consulta precisa estar vigente.
+   */
+  async aplicarConsulta(viagemId: string, etapaId: string, localId: string): Promise<ResultadoRegistro> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, etapas, locais, trechos, eventos, passageiros, consultas } = this.#db
+    return this.#db.transaction('rw', [viagens, etapas, locais, trechos, eventos, passageiros, consultas], async (): Promise<ResultadoRegistro> => {
+      const consulta = await consultas.get([viagemId, etapaId, localId])
+      if (!consulta) return { ok: false, motivo: 'Não há consulta ao Google Maps para este local.' }
+      const lista = await this.listarEventos(viagemId)
+      const momento = agora()
+      const { situacao } = vigenciaDaConsulta(consulta, lista, momento)
+      if (situacao !== 'vigente') {
+        return { ok: false, motivo: 'A consulta ao Google Maps não vale mais: consulte de novo.' }
+      }
+      const chegada = chegadaDaConsulta(consulta, momento)
+      const dados = await this.carregarPlano(viagemId)
+      const original = dados?.viagem.planoOriginal
+      if (!dados || !original) return { ok: false, motivo: 'A viagem não está em andamento.' }
+      const estado = calcularEstado(dados, original, lista, momento)
+      const escolhido = estado.etapas.find((e) => e.etapaId === etapaId)?.localId === localId
+      const r = escolhido
+        ? await this.#registrar(viagemId, [{ conteudo: { tipo: 'recalibracao', etapaId, dados: { horario: chegada } } }])
+        : await this.registrarTrocaComChegada(viagemId, etapaId, localId, chegada)
+      if (r.ok) await consultas.delete([viagemId, etapaId, localId])
+      return r
+    })
+  }
+
+  async #apagarConsultasDescartadas(viagemId: string, eventos: readonly Evento[], momento: Instante): Promise<void> {
+    const todas = await this.#db.consultas.where('viagemId').equals(viagemId).toArray()
+    const velhas = todas.filter((c) => vigenciaDaConsulta(c, eventos, momento).situacao === 'descartada')
+    await this.#db.consultas.bulkDelete(velhas.map((c) => [c.viagemId, c.etapaId, c.localId] as [string, string, string]))
+  }
+
   /**
    * ESCOLHER uma alternativa cujo trecho em curso não tem tempo: grava, numa só transação, a
    * troca de local e a recalibração da etapa com a chegada informada pelo Google Maps. O
@@ -624,9 +710,9 @@ export class Repositorio {
   /** Esvazia o banco deste espaço (usado ao reiniciar a demonstração). */
   async limparTudo(): Promise<void> {
     this.#exigirRelogioDoEspaco()
-    const { viagens, etapas, locais, trechos, eventos, passageiros } = this.#db
-    await this.#db.transaction('rw', [viagens, etapas, locais, trechos, eventos, passageiros], async () => {
-      await Promise.all([viagens.clear(), etapas.clear(), locais.clear(), trechos.clear(), eventos.clear(), passageiros.clear()])
+    const { viagens, etapas, locais, trechos, eventos, passageiros, consultas } = this.#db
+    await this.#db.transaction('rw', [viagens, etapas, locais, trechos, eventos, passageiros, consultas], async () => {
+      await Promise.all([viagens.clear(), etapas.clear(), locais.clear(), trechos.clear(), eventos.clear(), passageiros.clear(), consultas.clear()])
     })
   }
 

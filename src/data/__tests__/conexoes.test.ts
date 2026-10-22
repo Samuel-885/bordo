@@ -24,7 +24,7 @@ async function conexaoAntiga(nome: string): Promise<Dexie> {
 }
 
 describe('app aberto em mais de um lugar', () => {
-  it('a conexão antiga (v1) se fecha sozinha, avisa "atualizado" e a v2 abre sem perder dados', async () => {
+  it('a conexão antiga (v1) se fecha sozinha, avisa "atualizado" e a versão nova abre sem perder dados', async () => {
     const nome = nomeUnico()
     const antiga = await conexaoAntiga(nome)
     const avisos = vi.fn()
@@ -35,7 +35,7 @@ describe('app aberto em mais de um lugar', () => {
 
     expect(antiga.isOpen()).toBe(false)
     expect(avisos).toHaveBeenCalledWith('atualizado')
-    expect(nova.verno).toBe(2)
+    expect(nova.verno).toBe(3)
     expect((await nova.viagens.get('v1'))?.status).toBe('em_andamento')
     expect(await nova.passageiros.count()).toBe(0)
     nova.close()
@@ -71,7 +71,7 @@ describe('app aberto em mais de um lugar', () => {
     await antigo.open()
     // Uma versão futura do app sobe o esquema da mesma base.
     const futura = new Dexie(nome)
-    futura.version(3).stores({ passageiros: 'id, viagemId', extra: 'id' })
+    futura.version(4).stores({ passageiros: 'id, viagemId', consultas: '[viagemId+etapaId+localId], viagemId', extra: 'id' })
     await futura.open()
     expect(antigo.isOpen()).toBe(false)
     expect(visto).toContain('atualizado')
