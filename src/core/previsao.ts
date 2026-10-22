@@ -29,6 +29,8 @@ import type {
 interface Recalibracao {
   horario: Instante
   informadoEm: Instante
+  /** Ordem de gravação (desempata o mesmo minuto). */
+  ordem: number
 }
 
 interface ParadaNaoPlanejada {
@@ -40,12 +42,19 @@ interface Fatos {
   chegada: Map<string, Instante>
   saida: Map<string, Instante>
   puladas: Set<string>
-  troca: Map<string, { localId: string; em: Instante }>
+  troca: Map<string, { localId: string; em: Instante; ordem: number }>
   recalibracao: Map<string, Recalibracao>
   paradas: Map<string, ParadaNaoPlanejada[]>
 }
 
+/**
+ * Ordem de gravação de um evento: a sequência, quando existe; senão a posição na lista (um
+ * evento acrescentado no fim, como o simulado da avaliação das alternativas, vale por último).
+ */
+const ordemDeGravacao = (e: Evento, posicao: number): number => e.sequencia ?? 1e9 + posicao
+
 function indexarEventos(eventos: readonly Evento[]): Fatos {
+  const posicao = new Map(eventos.map((e, i) => [e, i]))
   const fatos: Fatos = {
     chegada: new Map(),
     saida: new Map(),
@@ -66,11 +75,15 @@ function indexarEventos(eventos: readonly Evento[]): Fatos {
         fatos.puladas.add(e.etapaId)
         break
       case 'troca_local':
-        fatos.troca.set(e.etapaId, { localId: e.dados.localId, em: e.horarioFato })
+        fatos.troca.set(e.etapaId, { localId: e.dados.localId, em: e.horarioFato, ordem: ordemDeGravacao(e, posicao.get(e)!) })
         break
       case 'recalibracao':
         // Uma nova recalibração no mesmo trecho substitui a anterior.
-        fatos.recalibracao.set(e.etapaId, { horario: e.dados.horario, informadoEm: e.horarioFato })
+        fatos.recalibracao.set(e.etapaId, {
+          horario: e.dados.horario,
+          informadoEm: e.horarioFato,
+          ordem: ordemDeGravacao(e, posicao.get(e)!),
+        })
         break
       case 'parada_nao_planejada': {
         const lista = fatos.paradas.get(e.etapaId) ?? []
@@ -101,7 +114,8 @@ function recalibracaoAtiva(fatos: Fatos, etapa: Etapa): Recalibracao | null {
   const r = fatos.recalibracao.get(etapa.id)
   if (!r || fatos.chegada.has(etapa.id)) return null
   const troca = fatos.troca.get(etapa.id)
-  if (troca && antes(r.informadoEm, troca.em)) return null
+  // A troca cancela a recalibração feita antes dela; no mesmo minuto, vale a ordem de gravação.
+  if (troca && (antes(r.informadoEm, troca.em) || (!antes(troca.em, r.informadoEm) && troca.ordem > r.ordem))) return null
   return r
 }
 

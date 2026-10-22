@@ -10,8 +10,9 @@ import {
   temAlternativasPendentes,
   validarTrechoManualEmViagem,
   validarTroca,
+  validarTrocaComChegada,
 } from '../viabilidade'
-import { congelar, ev, h, PLANO, TRECHOS_DAS_ALTERNATIVAS } from './fixtures'
+import { congelar, esperarHorario, ev, h, PLANO, TRECHOS_DAS_ALTERNATIVAS } from './fixtures'
 
 const LOCAIS_COM_HORARIO = PLANO.locais.map((l) => {
   if (l.id === 'l-rest-a') return { ...l, abre: '11:00', fecha: '14:00' }
@@ -137,7 +138,7 @@ describe('fase 6: validarTroca', () => {
     expect(c.classe).toBe('viavel')
     expect(c.impactoDestinoMin).toBeNull()
     expect(c.trechosFaltantes).toEqual([
-      { etapaOrigemId: 'almoco', localOrigemId: 'l-rest-c', etapaDestinoId: 'cafe', localDestinoId: 'l-cafe', podeInformar: true },
+      { etapaOrigemId: 'almoco', localOrigemId: 'l-rest-c', etapaDestinoId: 'cafe', localDestinoId: 'l-cafe', podeInformar: true, perna: 'do_local' },
     ])
     const b = emTransito.find((a) => a.localId === 'l-rest-b')!
     expect(b.classe).toBe('sem_tempo')
@@ -234,3 +235,89 @@ describe('fase 6: paradas pendentes e botão VER ALTERNATIVAS', () => {
     expect(temAlternativasPendentes(plano(), estado(pulou))).toBe(false)
   })
 })
+
+describe('fase 6: troca com a chegada pelo Google Maps (trecho em curso sem tempo)', () => {
+  // Em trânsito para o almoço, o C não tem o trecho de Monlevade.
+  const d = plano(semTrecho(['l-monlevade', 'l-rest-c']))
+  const original = congelar(d)
+  const com = (eventos: typeof EM_TRANSITO, localId: string, horario: Parameters<typeof h>[0], agora = h('10:57')) =>
+    validarTrocaComChegada(d, original, eventos, agora, 'almoco', localId, h(horario))
+
+  it('a lista mostra o C como "Sem tempo", exigindo a chegada pelo Google Maps; A e B não', () => {
+    const lista = avaliarAlternativas(d, original, EM_TRANSITO, h('10:57'), 'almoco')
+    const por = (id: string) => lista.find((a) => a.localId === id)!
+    expect(por('l-rest-a')).toMatchObject({ classe: 'inviavel', escolhida: true, exigeChegadaPeloMaps: false })
+    expect(por('l-rest-b')).toMatchObject({ classe: 'pouca_margem', exigeChegadaPeloMaps: false })
+    expect(por('l-rest-c')).toMatchObject({ classe: 'sem_tempo', exigeChegadaPeloMaps: true })
+  })
+
+  it('a troca simples continua recusada; a com chegada é aceita', () => {
+    expect(validarTroca(d, original, EM_TRANSITO, h('10:57'), 'almoco', 'l-rest-c')).toMatchObject({ ok: false })
+    expect(com(EM_TRANSITO, 'l-rest-c', '15:05')).toEqual({ ok: true })
+  })
+
+  it('recusa horário no passado e horário igual ao atual é aceito (mesma trava da recalibração)', () => {
+    expect(com(EM_TRANSITO, 'l-rest-c', '10:50')).toEqual({ ok: false, motivo: 'O horário informado é anterior ao horário atual.' })
+    expect(com(EM_TRANSITO, 'l-rest-c', '10:57')).toEqual({ ok: true })
+  })
+
+  it('só vale nesse caso: local que já tem tempo é recusado', () => {
+    expect(com(EM_TRANSITO, 'l-rest-b', '15:05')).toEqual({
+      ok: false,
+      motivo: 'Este local já tem o tempo do trecho: troque sem informar a chegada.',
+    })
+  })
+
+  it('o trecho do local até a etapa seguinte continua obrigatório', () => {
+    const faltaDois = plano(semTrecho(['l-monlevade', 'l-rest-c'], ['l-rest-c', 'l-cafe']))
+    const lista = avaliarAlternativas(faltaDois, congelar(faltaDois), EM_TRANSITO, h('10:57'), 'almoco')
+    expect(lista.find((a) => a.localId === 'l-rest-c')?.exigeChegadaPeloMaps).toBe(false)
+    expect(
+      validarTrocaComChegada(faltaDois, congelar(faltaDois), EM_TRANSITO, h('10:57'), 'almoco', 'l-rest-c', h('15:05')),
+    ).toEqual({ ok: false, motivo: expect.stringContaining('Restaurante C até Lanchonete do café') })
+  })
+
+  it('parado na etapa anterior o trecho ainda é futuro: informa-se o tempo, não a chegada', () => {
+    const lista = avaliarAlternativas(d, original, PARADOS_EM_MONLEVADE, h('08:30'), 'almoco')
+    expect(lista.find((a) => a.localId === 'l-rest-c')?.exigeChegadaPeloMaps).toBe(false)
+    expect(com(PARADOS_EM_MONLEVADE, 'l-rest-c', '15:05', h('08:30'))).toMatchObject({ ok: false })
+  })
+
+  it('recusa parada já alcançada e local fora dos candidatos', () => {
+    const chegou = [...EM_TRANSITO, ev.chegada('almoco', h('14:15'))]
+    expect(com(chegou, 'l-rest-c', '15:05', h('14:20'))).toMatchObject({ ok: false })
+    expect(com(EM_TRANSITO, 'l-cafe', '15:05')).toMatchObject({ ok: false })
+  })
+
+  it('cenário "restaurante inviável e troca": escolher o C informando 15:05 dá o resultado do cenário', () => {
+    const eventos = [...EM_TRANSITO, ev.troca('almoco', 'l-rest-c', h('10:57')), ev.recalibracao('almoco', h('15:05'), h('10:57'))]
+    const e = calcularEstado(d, original, eventos, h('10:57'))
+    const almoco = e.etapas.find((x) => x.etapaId === 'almoco')!
+    expect(almoco.localId).toBe('l-rest-c')
+    expect(almoco.chegada?.origem).toBe('recalibracao')
+    esperarHorario(almoco.chegada?.instante, h('15:05'))
+    esperarHorario(almoco.saida?.instante, h('16:05'))
+    esperarHorario(e.etapas.find((x) => x.etapaId === 'cafe')?.chegada?.instante, h('19:05'))
+    esperarHorario(e.chegadaDestino?.instante, h('02:35', 1))
+    expect(e.atrasoDestinoMin).toBe(185)
+  })
+
+  it('no mesmo minuto vale a ordem de gravação: a recalibração depois da troca vale; a troca depois dela a cancela', () => {
+    const depois = [...EM_TRANSITO, ev.troca('almoco', 'l-rest-c', h('10:57')), ev.recalibracao('almoco', h('15:05'), h('10:57'))]
+    esperarHorario(calcularEstado(d, original, depois, h('10:57')).etapas.find((x) => x.etapaId === 'almoco')?.chegada?.instante, h('15:05'))
+    const antes = [...EM_TRANSITO, ev.recalibracao('almoco', h('15:05'), h('10:57')), ev.troca('almoco', 'l-rest-b', h('10:57'))]
+    const e = calcularEstado(d, original, antes, h('10:57'))
+    expect(e.etapas.find((x) => x.etapaId === 'almoco')?.chegada?.origem).toBe('calculado')
+  })
+
+  it('depois de escolher o C pelo Maps, as outras alternativas são avaliadas sem a chegada informada', () => {
+    const eventos = [...EM_TRANSITO, ev.troca('almoco', 'l-rest-c', h('10:57')), ev.recalibracao('almoco', h('15:05'), h('10:57'))]
+    const lista = avaliarAlternativas(d, original, eventos, h('10:57'), 'almoco')
+    const por = (id: string) => lista.find((a) => a.localId === id)!
+    esperarHorario(por('l-rest-a').chegada, h('14:15'))
+    esperarHorario(por('l-rest-b').chegada, h('14:35'))
+    expect(por('l-rest-c')).toMatchObject({ escolhida: true, classe: 'viavel', margemMin: 25 })
+    expect(por('l-rest-b').classe).toBe('pouca_margem')
+  })
+})
+

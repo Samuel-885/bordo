@@ -11,7 +11,7 @@ import {
   trechosQueDeixamDeValer,
 } from '../core/ordem'
 import { calcularEstado, calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from '../core/previsao'
-import { validarTrechoManualEmViagem } from '../core/viabilidade'
+import { validarTrechoManualEmViagem, validarTrocaComChegada } from '../core/viabilidade'
 import { paradaAberta, validarCorrecao, validarHorario, validarRegistro } from '../core/registro'
 import { agora, simuladoAtivo } from '../core/relogio'
 import { diferencaMin, naHoraDoDia, somarMinutos } from '../core/tempo'
@@ -422,6 +422,26 @@ export class Repositorio {
   }
 
   /**
+   * ESCOLHER uma alternativa cujo trecho em curso não tem tempo: grava, numa só transação, a
+   * troca de local e a recalibração da etapa com a chegada informada pelo Google Maps. O
+   * núcleo só aceita nesse caso (`validarTrocaComChegada`). Desfazer retira os dois.
+   */
+  async registrarTrocaComChegada(
+    viagemId: string,
+    etapaId: string,
+    localId: string,
+    chegada: Instante,
+  ): Promise<ResultadoRegistro> {
+    return this.#registrar(viagemId, [
+      {
+        conteudo: { tipo: 'troca_local', etapaId, dados: { localId } },
+        validar: (d, original, lista, momento) => validarTrocaComChegada(d, original, lista, momento, etapaId, localId, chegada),
+      },
+      { conteudo: { tipo: 'recalibracao', etapaId, dados: { horario: chegada } } },
+    ])
+  }
+
+  /**
    * SAÍMOS com conferência: grava, na mesma transação, a conferência, um status para cada
    * pendente e a saída. O DESFAZER desfaz tudo junto. O resultado da conferência vem do núcleo.
    */
@@ -533,7 +553,13 @@ export class Repositorio {
 
   async #registrar(
     viagemId: string,
-    passos: Array<{ conteudo: ConteudoEvento; horarioFato?: Instante; observacao?: string }>,
+    passos: Array<{
+      conteudo: ConteudoEvento
+      horarioFato?: Instante
+      observacao?: string
+      /** Troca a validação padrão (usada pela troca com chegada informada). */
+      validar?: (d: DadosPlano, original: NonNullable<Viagem['planoOriginal']>, lista: readonly Evento[], momento: Instante) => ReturnType<typeof validarRegistro>
+    }>,
   ): Promise<ResultadoRegistro> {
     this.#exigirRelogioDoEspaco()
     const { viagens, etapas, locais, trechos, eventos, passageiros } = this.#db
@@ -549,7 +575,9 @@ export class Repositorio {
       let viagem = dados.viagem
       for (const passo of passos) {
         const horario = passo.horarioFato ?? momento
-        const r = validarRegistro({ ...dados, viagem }, original, lista, passo.conteudo, horario, momento, todosPassageiros)
+        const r = passo.validar
+          ? passo.validar({ ...dados, viagem }, original, lista, momento)
+          : validarRegistro({ ...dados, viagem }, original, lista, passo.conteudo, horario, momento, todosPassageiros)
         if (!r.ok) return r
         const evento = await this.#gravar(viagemId, lista, passo.conteudo, horario, momento, { observacao: passo.observacao })
         criados.push(evento)

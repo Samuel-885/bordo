@@ -4,6 +4,7 @@
 import { CONFIG } from './config'
 import { calcularEstado } from './previsao'
 import { antes, diferencaMin, minutosDoDia, naHoraDoDia, somarMinutos, truncarMinuto } from './tempo'
+import { validarRecalibracao } from './recalibracao'
 import { duracaoTrecho, ordenarEtapas, type ParDeTrecho } from './trechos'
 import type { DadosPlano, EstadoViagem, Etapa, Evento, Instante, Local, PlanoOriginal } from './tipos'
 
@@ -21,6 +22,8 @@ export type AvisoAlternativa =
 export interface TrechoFaltante extends ParDeTrecho {
   /** Ainda não percorrido: dá para informar a duração durante a viagem. */
   podeInformar: boolean
+  /** Até o local da etapa (chegada) ou do local até a etapa ativa seguinte. */
+  perna: 'ate_o_local' | 'do_local'
 }
 
 export type Resultado = { ok: true } | { ok: false; motivo: string }
@@ -38,6 +41,11 @@ export interface AvaliacaoAlternativa {
   avisos: AvisoAlternativa[]
   /** Trechos sem tempo (até a alternativa e dela até a etapa seguinte). Vazio se nenhum falta. */
   trechosFaltantes: TrechoFaltante[]
+  /**
+   * Em trânsito para a parada, o único trecho sem tempo até esta alternativa é o que está em
+   * curso: só dá para escolhê-la informando a chegada pelo Google Maps.
+   */
+  exigeChegadaPeloMaps: boolean
 }
 
 const ORDEM_CLASSES: ClasseAlternativa[] = ['viavel', 'pouca_margem', 'sem_horario', 'inviavel', 'sem_tempo']
@@ -136,6 +144,7 @@ export function avaliarAlternativas(
       ? atual
       : calcularEstado(d, original, [...eventos, trocaSimulada(d, etapaId, localId, agora)], agora)
     const chegada = simulado.etapas.find((e) => e.etapaId === etapaId)?.chegada?.instante ?? null
+    const faltam = trechosFaltantes(d, simulado, etapaId)
     const destinoCom = simulado.chegadaDestino?.instante
     const destinoAtual = atual.chegadaDestino?.instante
     avaliacoes.push({
@@ -145,7 +154,8 @@ export function avaliarAlternativas(
       chegada,
       impactoDestinoMin: destinoCom && destinoAtual ? diferencaMin(destinoCom, destinoAtual) : null,
       avisos: avisos(etapa, local, chegada),
-      trechosFaltantes: trechosFaltantes(d, simulado, etapaId),
+      trechosFaltantes: faltam,
+      exigeChegadaPeloMaps: !escolhida && exigeChegadaInformada(simulado, etapaId, faltam),
     })
   }
 
@@ -187,7 +197,13 @@ export function trechoAindaNaoPercorrido(estado: EstadoViagem, par: ParDeTrecho)
  * Trecho sem tempo que liga duas etapas ativas (com as puladas entre elas): se a duração
  * da ponta a ponta está definida, nada falta; senão, são as partes sem tempo.
  */
-function partesSemTempo(d: DadosPlano, estado: EstadoViagem, de: number, ate: number): TrechoFaltante[] {
+function partesSemTempo(
+  d: DadosPlano,
+  estado: EstadoViagem,
+  de: number,
+  ate: number,
+  perna: TrechoFaltante['perna'],
+): TrechoFaltante[] {
   const ordenadas = ordenarEtapas(d.etapas)
   const ponta = estado.etapas.find((e) => e.etapaId === ordenadas[ate]?.id)
   if (!ponta?.trechoChegada || ponta.trechoChegada.minutos !== null) return []
@@ -200,7 +216,7 @@ function partesSemTempo(d: DadosPlano, estado: EstadoViagem, de: number, ate: nu
     if (localA === null || localB === null) continue
     if (duracaoTrecho(d, a, localA, b, localB).minutos !== null) continue
     const par = { etapaOrigemId: a.id, localOrigemId: localA, etapaDestinoId: b.id, localDestinoId: localB }
-    faltam.push({ ...par, podeInformar: trechoAindaNaoPercorrido(estado, par) })
+    faltam.push({ ...par, podeInformar: trechoAindaNaoPercorrido(estado, par), perna })
   }
   return faltam
 }
@@ -221,8 +237,8 @@ export function trechosFaltantes(d: DadosPlano, estado: EstadoViagem, etapaId: s
   while (depoisDe < ordenadas.length && puladaEm(depoisDe)) depoisDe++
 
   return [
-    ...(antesDe >= 0 ? partesSemTempo(d, estado, antesDe, i) : []),
-    ...(depoisDe < ordenadas.length ? partesSemTempo(d, estado, i, depoisDe) : []),
+    ...(antesDe >= 0 ? partesSemTempo(d, estado, antesDe, i, 'ate_o_local') : []),
+    ...(depoisDe < ordenadas.length ? partesSemTempo(d, estado, i, depoisDe, 'do_local') : []),
   ]
 }
 
@@ -233,6 +249,51 @@ function nomeDoLocal(d: DadosPlano, id: string): string {
 export function textoDoTrechoFaltante(d: DadosPlano, t: ParDeTrecho): string {
   return `${nomeDoLocal(d, t.localOrigemId)} até ${nomeDoLocal(d, t.localDestinoId)}`
 }
+
+/**
+ * Em trânsito para a parada, o único trecho sem tempo até a alternativa é o que está em
+ * curso (não dá mais para informar a duração). O trecho dela até a etapa seguinte continua
+ * obrigatório: se faltar, não vale.
+ */
+function exigeChegadaInformada(simulado: EstadoViagem, etapaId: string, faltam: readonly TrechoFaltante[]): boolean {
+  return (
+    simulado.emTransito &&
+    simulado.proximaEtapaId === etapaId &&
+    faltam.length > 0 &&
+    faltam.every((t) => t.perna === 'ate_o_local' && !t.podeInformar)
+  )
+}
+
+type ExameDaTroca =
+  | { ok: false; motivo: string }
+  | { ok: true; simulado: EstadoViagem; faltam: TrechoFaltante[]; troca: Evento }
+
+/** As regras de estrutura da troca (etapa, local, estado), sem olhar os tempos dos trechos. */
+function examinarTroca(
+  d: DadosPlano,
+  original: PlanoOriginal,
+  eventos: readonly Evento[],
+  agora: Instante,
+  etapaId: string,
+  localId: string,
+): ExameDaTroca {
+  const etapa = d.etapas.find((e) => e.id === etapaId)
+  if (!etapa) return { ok: false, motivo: 'Etapa não encontrada.' }
+  if (etapa.tipo !== 'flexivel') return { ok: false, motivo: 'Só paradas flexíveis têm alternativas.' }
+  const atual = calcularEstado(d, original, eventos, agora)
+  const estadoEtapa = atual.etapas.find((e) => e.etapaId === etapaId)
+  if (estadoEtapa?.estado !== 'pendente') return { ok: false, motivo: 'Esta parada já foi alcançada ou pulada.' }
+  const candidatos = [etapa.localId, ...etapa.alternativas]
+  if (!candidatos.includes(localId)) return { ok: false, motivo: 'Este local não é uma das alternativas desta parada.' }
+  if (localId === estadoEtapa.localId) return { ok: false, motivo: 'Este já é o local escolhido.' }
+
+  const troca = trocaSimulada(d, etapaId, localId, agora)
+  const simulado = calcularEstado(d, original, [...eventos, troca], agora)
+  return { ok: true, simulado, faltam: trechosFaltantes(d, simulado, etapaId), troca }
+}
+
+const textoDosFaltantes = (d: DadosPlano, faltam: readonly TrechoFaltante[]) =>
+  `Falta o tempo de ${faltam.map((t) => textoDoTrechoFaltante(d, t)).join('; ')}.`
 
 /**
  * Trocar o local de uma parada flexível ainda pendente: o local precisa ser candidato da
@@ -248,25 +309,43 @@ export function validarTroca(
   localId: string,
 ): Resultado {
   const agora = truncarMinuto(agoraDoRelogio)
-  const etapa = d.etapas.find((e) => e.id === etapaId)
-  if (!etapa) return { ok: false, motivo: 'Etapa não encontrada.' }
-  if (etapa.tipo !== 'flexivel') return { ok: false, motivo: 'Só paradas flexíveis têm alternativas.' }
-  const atual = calcularEstado(d, original, eventos, agora)
-  const estadoEtapa = atual.etapas.find((e) => e.etapaId === etapaId)
-  if (estadoEtapa?.estado !== 'pendente') return { ok: false, motivo: 'Esta parada já foi alcançada ou pulada.' }
-  const candidatos = [etapa.localId, ...etapa.alternativas]
-  if (!candidatos.includes(localId)) return { ok: false, motivo: 'Este local não é uma das alternativas desta parada.' }
-  if (localId === estadoEtapa.localId) return { ok: false, motivo: 'Este já é o local escolhido.' }
-
-  const simulado = calcularEstado(d, original, [...eventos, trocaSimulada(d, etapaId, localId, agora)], agora)
-  const faltam = trechosFaltantes(d, simulado, etapaId)
-  if (faltam.length > 0) {
-    return { ok: false, motivo: `Falta o tempo de ${faltam.map((t) => textoDoTrechoFaltante(d, t)).join('; ')}.` }
-  }
-  if (!simulado.etapas.find((e) => e.etapaId === etapaId)?.chegada) {
+  const exame = examinarTroca(d, original, eventos, agora, etapaId, localId)
+  if (!exame.ok) return exame
+  if (exame.faltam.length > 0) return { ok: false, motivo: textoDosFaltantes(d, exame.faltam) }
+  if (!exame.simulado.etapas.find((e) => e.etapaId === etapaId)?.chegada) {
     return { ok: false, motivo: 'Sem tempo definido para chegar a este local.' }
   }
   return { ok: true }
+}
+
+/**
+ * Troca de local com a chegada informada pelo Google Maps (troca + recalibração da etapa,
+ * gravadas juntas). Só vale quando, em trânsito para a parada, o único trecho sem tempo até
+ * o local é o que está em curso. A recalibração feita depois da troca vale para o novo local
+ * (decisão da fase 1) e passa pelas mesmas travas da recalibração, avaliadas já com a troca.
+ */
+export function validarTrocaComChegada(
+  d: DadosPlano,
+  original: PlanoOriginal,
+  eventos: readonly Evento[],
+  agoraDoRelogio: Instante,
+  etapaId: string,
+  localId: string,
+  horario: Instante,
+): Resultado {
+  const agora = truncarMinuto(agoraDoRelogio)
+  const exame = examinarTroca(d, original, eventos, agora, etapaId, localId)
+  if (!exame.ok) return exame
+  if (!exigeChegadaInformada(exame.simulado, etapaId, exame.faltam)) {
+    return {
+      ok: false,
+      motivo:
+        exame.faltam.length > 0
+          ? textoDosFaltantes(d, exame.faltam)
+          : 'Este local já tem o tempo do trecho: troque sem informar a chegada.',
+    }
+  }
+  return validarRecalibracao(d, original, [...eventos, exame.troca], etapaId, horario, agora)
 }
 
 /**

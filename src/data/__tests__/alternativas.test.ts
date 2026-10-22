@@ -105,3 +105,60 @@ describe('trecho manual com a viagem em andamento', () => {
     expect(await outro.salvarTrechoManualEmViagem(V, parBAteCafe, 180)).toMatchObject({ ok: false })
   })
 })
+
+describe('troca com a chegada pelo Google Maps', () => {
+  async function emTransitoParaOAlmoco() {
+    await sair(ETAPA.origem, '06:30')
+    await chegar(ETAPA.monlevade, '08:25')
+    await sair(ETAPA.monlevade, '10:55')
+    relogio('10:57')
+  }
+
+  it('grava troca e recalibração juntas; o resultado é o do cenário; desfazer retira os dois', async () => {
+    await emTransitoParaOAlmoco()
+    expect(await repo.registrarEvento(V, troca(LOCAL.restC))).toMatchObject({ ok: false })
+    const antes = (await repo.listarEventos(V)).length
+
+    const r = await repo.registrarTrocaComChegada(V, ETAPA.almoco, LOCAL.restC, horaDemo('15:05'))
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.eventos.map((e) => e.tipo)).toEqual(['troca_local', 'recalibracao'])
+    expect((await repo.listarEventos(V)).length).toBe(antes + 2)
+
+    const plano = (await repo.carregarPlano(V))!
+    const original = plano.viagem.planoOriginal!
+    let estado = calcularEstado(plano, original, await repo.listarEventos(V), horaDemo('10:57'))
+    const almoco = estado.etapas.find((e) => e.etapaId === ETAPA.almoco)!
+    expect(almoco).toMatchObject({ localId: LOCAL.restC })
+    expect(almoco.chegada?.origem).toBe('recalibracao')
+    expect(estado.atrasoDestinoMin).toBe(185)
+
+    expect((await repo.desfazerRegistro(V, r.eventos.map((e) => e.id))).ok).toBe(true)
+    expect((await repo.listarEventos(V)).length).toBe(antes)
+    estado = calcularEstado(plano, original, await repo.listarEventos(V), horaDemo('10:57'))
+    expect(estado.etapas.find((e) => e.etapaId === ETAPA.almoco)?.localId).toBe(LOCAL.restA)
+  })
+
+  it('horário no passado: recusa e não grava nada', async () => {
+    await emTransitoParaOAlmoco()
+    const antes = (await repo.listarEventos(V)).length
+    const r = await repo.registrarTrocaComChegada(V, ETAPA.almoco, LOCAL.restC, horaDemo('10:50'))
+    expect(r).toMatchObject({ ok: false, motivo: expect.stringContaining('anterior ao horário atual') })
+    expect((await repo.listarEventos(V)).length).toBe(antes)
+  })
+
+  it('fora do caso (o B tem tempo) recusa e não grava nada', async () => {
+    await emTransitoParaOAlmoco()
+    await repo.salvarTrechoManualEmViagem(V, parBAteCafe, 180)
+    const antes = (await repo.listarEventos(V)).length
+    const r = await repo.registrarTrocaComChegada(V, ETAPA.almoco, LOCAL.restB, horaDemo('14:35'))
+    expect(r).toMatchObject({ ok: false })
+    expect((await repo.listarEventos(V)).length).toBe(antes)
+  })
+
+  it('sem o tempo do local até a etapa seguinte (o B não tem o trecho até o café) recusa e diz qual', async () => {
+    await emTransitoParaOAlmoco()
+    const r = await repo.registrarTrocaComChegada(V, ETAPA.almoco, LOCAL.restB, horaDemo('14:35'))
+    expect(r).toMatchObject({ ok: false, motivo: 'Falta o tempo de Restaurante B até Lanchonete do café.' })
+  })
+})

@@ -511,7 +511,14 @@ Aprovadas em 22/10/2026, na construção das alternativas e da viabilidade na vi
 
 - Dá para gravar a duração manual de um trecho com a viagem em andamento, só quando o trecho ainda não foi percorrido (a etapa de destino não foi alcançada e a de origem não foi deixada, ou está pulada), liga etapas vizinhas e locais candidatos, e o par ainda não tem tempo definido. Nada que já entra na previsão é alterado em silêncio.
 - Não é evento e não aparece na timeline. O plano original guarda horários, não durações, e não muda.
-- Consequência: em trânsito, o trecho que já está em curso (da etapa que acabamos de deixar até a próxima) não aceita duração. Uma alternativa da parada seguinte que não tinha esse tempo no planejamento só pode ser escolhida se o tempo for informado antes da saída (parado na etapa anterior). O aviso do início da viagem existe para isso.
+- Em trânsito, o trecho em curso (da etapa que acabamos de deixar até a próxima) não aceita duração. O caso é tratado pela chegada informada, abaixo.
+
+**Escolher uma alternativa sem o trecho em curso (chegada pelo Google Maps)**
+
+- Quando, em trânsito para a parada, o único trecho sem tempo até a alternativa é o que está em curso, o ESCOLHER pede "Chegada no <local> pelo Google Maps" (HH:MM, com o link do Maps para o local) e grava, numa só transação, a troca de local e a recalibração da etapa com esse horário. Pelas decisões da fase 1, a recalibração feita depois da troca vale para o novo local: nenhuma regra de cálculo muda.
+- O trecho da alternativa até a etapa seguinte continua obrigatório (se faltar, informa-se com "Informar tempo", porque é futuro). Antes do horário informado, a lista mostra a classe "Sem tempo" e a dica "Informe a chegada pelo Google Maps para escolher".
+- O núcleo valida (`validarTrocaComChegada`): só vale nesse caso; o horário passa pelas mesmas travas da recalibração (não anterior a agora, em trânsito para a etapa), avaliadas já com a troca. A troca simples continua recusada nesse caso. O DESFAZER retira os dois eventos juntos.
+- Desempate no mesmo minuto: a troca cancela a recalibração feita antes dela e, quando os dois eventos têm o mesmo horário (minuto), vale a ordem de gravação (a sequência; um evento simulado acrescentado no fim vale por último). Isso aplica a decisão da fase 1 sem mudar o resultado quando os horários diferem. Sem o desempate, a avaliação das outras alternativas, logo depois de escolher uma pelo Maps, herdaria a chegada informada para o novo local.
 
 **Tela de alternativas**
 

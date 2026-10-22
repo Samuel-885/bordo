@@ -90,22 +90,30 @@ export function FolhaImprevisto({
 }
 
 export function FolhaRecalibracao({
-  aberta, ocupado, erro, agora, linkMapa, nomeEtapa, onConfirmar, onCancelar,
-}: Comum & { linkMapa: string | null; nomeEtapa: string; onConfirmar: (horario: Instante) => void }) {
+  aberta, ocupado, erro, agora, linkMapa, nomeEtapa, titulo = 'Atualizar previsão', rotuloConfirmar = 'Atualizar', dica, onConfirmar, onCancelar,
+}: Comum & {
+  linkMapa: string | null
+  nomeEtapa: string
+  /** Troca de local com a chegada informada: título, botão e dica próprios. */
+  titulo?: string
+  rotuloConfirmar?: string
+  dica?: string
+  onConfirmar: (horario: Instante) => void
+}) {
   const [hora, setHora] = useState('')
   const resolvido = resolverHorarioProximo(hora, agora)
   return (
     <Folha
       aberta={aberta}
-      titulo="Atualizar previsão"
-      rotuloConfirmar="Atualizar"
+      titulo={titulo}
+      rotuloConfirmar={rotuloConfirmar}
       ocupado={ocupado}
       erro={erro}
       podeConfirmar={resolvido !== null}
       onCancelar={onCancelar}
       onConfirmar={() => resolvido && onConfirmar(resolvido)}
     >
-      <p className="dica">Abra o Google Maps, veja o horário de chegada em {nomeEtapa} e digite aqui.</p>
+      <p className="dica">{dica ?? `Abra o Google Maps, veja o horário de chegada em ${nomeEtapa} e digite aqui.`}</p>
       {linkMapa && (
         <a className="botao largo link-botao" href={linkMapa} target="_blank" rel="noopener noreferrer">
           ABRIR NO GOOGLE MAPS

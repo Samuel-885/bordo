@@ -18,6 +18,7 @@ import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 import { AvisoDesfazer } from './componentes/AvisoDesfazer'
 import { Confirmar } from './componentes/Confirmar'
 import { Folha } from './componentes/Folha'
+import { FolhaRecalibracao } from './Folhas'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
 import {
@@ -103,6 +104,8 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
   const [troca, setTroca] = useState<TrocaPendente | null>(null)
   const [pulando, setPulando] = useState<Etapa | null>(null)
   const [informando, setInformando] = useState<TrechoFaltante | null>(null)
+  /** Escolha de alternativa sem o trecho em curso: pede a chegada pelo Google Maps. */
+  const [chegadaMaps, setChegadaMaps] = useState<{ etapaId: string; localId: string; nome: string } | null>(null)
   const [horas, setHoras] = useState('')
   const [minutos, setMinutos] = useState('')
 
@@ -174,8 +177,19 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
     const nome = localDe(a.localId)?.nome ?? 'O local'
     const motivos = motivosDeConfirmacao(etapa, a, nome)
     const t = { etapaId: etapa.id, localId: a.localId, nome }
+    if (a.exigeChegadaPeloMaps) return setChegadaMaps(t)
     if (motivos.length > 0) setTroca({ ...t, motivos })
     else void trocar(t)
+  }
+
+  async function trocarComChegada(horario: Instante) {
+    if (!chegadaMaps) return
+    const { etapaId, localId, nome } = chegadaMaps
+    const ok = await registrar(
+      () => repo.registrarTrocaComChegada(viagem.id, etapaId, localId, horario),
+      `Local trocado para ${nome}, chegada às ${formatarHora(horario)}.`,
+    )
+    if (ok) setChegadaMaps(null)
   }
 
   function abrirInformar(t: TrechoFaltante) {
@@ -227,7 +241,7 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
                   const local = localDe(a.localId)
                   const mapa = linkGoogleMaps(local)
                   const telefone = linkTelefone(local?.telefone)
-                  const bloqueada = !a.escolhida && (a.classe === 'sem_tempo' || a.trechosFaltantes.length > 0)
+                  const bloqueada = !a.escolhida && !a.exigeChegadaPeloMaps && (a.classe === 'sem_tempo' || a.trechosFaltantes.length > 0)
                   return (
                     <li key={a.localId} className={`alternativa ${a.escolhida ? 'escolhida' : ''}`}>
                       <div className="alternativa-topo">
@@ -273,7 +287,10 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
                         </p>
                       )}
 
-                      {!a.escolhida && a.trechosFaltantes.map((t) => (
+                      {a.exigeChegadaPeloMaps && (
+                        <p className="dica">Informe a chegada pelo Google Maps para escolher.</p>
+                      )}
+                      {!a.escolhida && !a.exigeChegadaPeloMaps && a.trechosFaltantes.map((t) => (
                         <div className="falta-trecho" key={`${t.localOrigemId}>${t.localDestinoId}`}>
                           <span>Falta o tempo de {textoDoTrechoFaltante(plano, t)}.</span>
                           {t.podeInformar && (
@@ -283,7 +300,7 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
                           )}
                         </div>
                       ))}
-                      {bloqueada && a.trechosFaltantes.length === 0 && (
+                      {bloqueada && a.trechosFaltantes.length === 0 && !a.exigeChegadaPeloMaps && (
                         <p className="dica">Sem tempo definido para chegar a este local: não dá para escolhê-lo.</p>
                       )}
 
@@ -319,7 +336,7 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
           )
         })}
 
-        {erro && !troca && !pulando && !informando && <p className="msg-erro" role="alert">{erro}</p>}
+        {erro && !troca && !pulando && !informando && !chegadaMaps && <p className="msg-erro" role="alert">{erro}</p>}
       </main>
 
       {desfazer && <AvisoDesfazer texto={desfazer.texto} onDesfazer={() => void desfazerUltimo()} />}
@@ -352,6 +369,22 @@ function Conteudo({ repo, plano, eventos, agora, recarregar, onVoltar, aoRegistr
         <p>{pulando ? nomeDaEtapa(pulando, locais) : 'A parada'} sai do percurso e a previsão é recalculada. Dá para desfazer logo depois.</p>
         {erro && pulando && <p className="msg-erro">{erro}</p>}
       </Confirmar>
+
+      {chegadaMaps && (
+        <FolhaRecalibracao
+          aberta
+          ocupado={ocupado}
+          erro={erro}
+          agora={agora}
+          linkMapa={linkGoogleMaps(localDe(chegadaMaps.localId))}
+          nomeEtapa={chegadaMaps.nome}
+          titulo={`Chegada no ${chegadaMaps.nome} pelo Google Maps`}
+          rotuloConfirmar="Trocar"
+          dica={`Abra o Google Maps, veja o horário de chegada em ${chegadaMaps.nome} e digite aqui. A troca e a previsão são gravadas juntas.`}
+          onCancelar={() => { setErro(null); setChegadaMaps(null) }}
+          onConfirmar={(h) => void trocarComChegada(h)}
+        />
+      )}
 
       <Folha
         aberta={informando !== null}
