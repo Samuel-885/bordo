@@ -1187,3 +1187,53 @@ dialog.folha-mensagem textarea {
   color: var(--texto-suave);
   text-align: right;
 }
+
+/* ---------- Backup (fase 10a) ---------- */
+
+.acoes-backup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.acoes-backup .aviso {
+  margin: 0;
+  font-size: 14px;
+}
+.resumo-backup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.resumo-backup p {
+  margin: 0;
+}
+.avancado summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cartao-backup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.linha-backup {
+  font-size: 13px;
+  color: var(--texto-suave);
+  margin: 0;
+}
+.linha-backup.atencao {
+  color: var(--texto);
+  font-weight: 600;
+}
+.botao-texto {
+  min-height: 44px;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}

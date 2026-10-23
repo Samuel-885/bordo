@@ -15,6 +15,7 @@ interface Props {
   onAbrir: (viagem: Viagem) => void
   onEntrarNaDemonstracao: () => void
   onModelos: () => void
+  onBackup: () => void
 }
 
 const STATUS = { planejando: 'Planejando', em_andamento: 'Em andamento', concluida: 'Concluída' } as const
@@ -24,7 +25,7 @@ function dataBr(i: Viagem['dataSaida']): string {
   return `${d}/${m}/${a}`
 }
 
-export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao, onModelos }: Props) {
+export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao, onModelos, onBackup }: Props) {
   const { dados: viagens, erro } = useDados(() => repo.listarViagens(), repo.espaco)
   const [falha, setFalha] = useState<string | null>(null)
 
@@ -69,6 +70,11 @@ export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao, onMo
         <button type="button" className="botao largo" onClick={onModelos}>
           MODELOS DE MENSAGEM
         </button>
+        {!demo && (
+          <button type="button" className="botao largo" onClick={onBackup}>
+            BACKUP
+          </button>
+        )}
         {!demo && (
           <button type="button" className="botao largo" onClick={onEntrarNaDemonstracao}>
             Abrir a demonstração

@@ -4,6 +4,8 @@
 
 import { useEffect, useState } from 'react'
 import { classificarAtraso } from '../core/atraso'
+import { deveSugerirBackup, estadoDoBackup, momentoDeSugerirBackup } from '../core/backup'
+import { CONFIG } from '../core/config'
 import {
   contextoDeDescidaNaEtapa,
   contextoDeDescidaNaoPlanejada,
@@ -21,6 +23,7 @@ import { pendenciasDeRegistro, validarPulo } from '../core/previsao'
 import { temAlternativasPendentes } from '../core/viabilidade'
 import { validarRecalibracao } from '../core/recalibracao'
 import { situacaoDaViagem } from '../core/registro'
+import { somarMinutos } from '../core/tempo'
 import { ordenarEtapas } from '../core/trechos'
 import type { ConteudoEvento } from '../core/eventos'
 import type { IdModelo } from '../core/modelos'
@@ -36,6 +39,7 @@ import { FolhaMensagem } from './componentes/FolhaMensagem'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
 import { FolhaAjusteDaParada, FolhaHorario, FolhaImprevisto, FolhaObservacao, FolhaParada, FolhaRecalibracao, type DadosDaParada } from './Folhas'
+import { dataHoraCurta, linhaDoUltimoBackup } from './logica/backup'
 import { resolverHorarioPassado } from './logica/horarioDigitado'
 import { formatarHora } from './logica/horarios'
 import { linkGoogleMaps } from './logica/linkMaps'
@@ -66,21 +70,24 @@ interface Props {
   onPassageiros: () => void
   onAlternativas: () => void
   onModelos: () => void
+  onBackup: () => void
   /** A demonstração usa para sair do cenário e entrar no modo livre. */
   aoRegistrar?: () => void
 }
 
 type Acao = 'parada' | 'ajuste_parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | 'observacao' | null
 
-export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, aoRegistrar }: Props) {
+export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, onBackup, aoRegistrar }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
-    const [plano, eventos, passageiros, modelos] = await Promise.all([
+    const [plano, eventos, passageiros, modelos, backup] = await Promise.all([
       repo.carregarPlano(viagemId),
       repo.listarEventos(viagemId),
       repo.listarPassageiros(viagemId),
       repo.obterModelos(),
+      // Backup só existe no espaço real; a demonstração não tem.
+      repo.espaco === 'real' ? carregarMarcasDoBackup(repo) : Promise.resolve(null),
     ])
-    return { plano, eventos, passageiros, modelos }
+    return { plano, eventos, passageiros, modelos, backup }
   }, `${repo.espaco}:${viagemId}`)
   useAoMudar(recarregar)
   const agora = useAgora()
@@ -109,6 +116,7 @@ export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros
       eventos={dados.eventos}
       passageiros={dados.passageiros}
       modelos={dados.modelos}
+      backup={dados.backup}
       agora={agora}
       recarregar={recarregar}
       onVoltar={onVoltar}
@@ -116,9 +124,20 @@ export function TelaViagem({ repo, viagemId, onVoltar, onTimeline, onPassageiros
       onPassageiros={onPassageiros}
       onAlternativas={onAlternativas}
       onModelos={onModelos}
+      onBackup={onBackup}
       aoRegistrar={aoRegistrar}
     />
   )
+}
+
+async function carregarMarcasDoBackup(repo: Repositorio) {
+  const [ultimo, total, silencio, restauradoDe] = await Promise.all([
+    repo.obterUltimoBackup(),
+    repo.contarEventos(),
+    repo.obterSilencioDoBackup(),
+    repo.obterRestauradoDe(),
+  ])
+  return { ultimo, total, silencio, restauradoDe }
 }
 
 interface ConteudoProps {
@@ -127,6 +146,8 @@ interface ConteudoProps {
   eventos: Evento[]
   passageiros: Passageiro[]
   modelos: Record<IdModelo, string | null>
+  /** Marcas do backup (fase 10a); vazio na demonstração. */
+  backup: Awaited<ReturnType<typeof carregarMarcasDoBackup>> | null
   agora: Instante
   recarregar: () => void
   onVoltar: () => void
@@ -134,10 +155,11 @@ interface ConteudoProps {
   onPassageiros: () => void
   onAlternativas: () => void
   onModelos: () => void
+  onBackup: () => void
   aoRegistrar?: () => void
 }
 
-function Conteudo({ repo, plano, eventos, passageiros, modelos, agora, recarregar, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, aoRegistrar }: ConteudoProps) {
+function Conteudo({ repo, plano, eventos, passageiros, modelos, backup, agora, recarregar, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, onBackup, aoRegistrar }: ConteudoProps) {
   const { viagem, etapas, locais } = plano
   const original = viagem.planoOriginal!
   const s = situacaoDaViagem(plano, original, eventos, agora)
@@ -318,6 +340,11 @@ function Conteudo({ repo, plano, eventos, passageiros, modelos, agora, recarrega
   const podePular = proxima !== null && proximaEtapa?.tipo === 'flexivel' && validarPulo(plano, s.estado, proxima).ok
   const pendencia = pendenciasDeRegistro(plano, eventos)[0] ?? null
   const concluida = s.situacao === 'chegamos'
+  const estadoBackup = backup ? estadoDoBackup(backup.ultimo, backup.total, agora) : null
+  // Sugestão discreta (cartão, nunca janela), só parado numa etapa ou logo depois de um SAÍMOS.
+  const sugerirBackup =
+    backup !== null && estadoBackup !== null && !concluida && momentoDeSugerirBackup(s.situacao, eventos) && deveSugerirBackup(estadoBackup, backup.silencio, agora)
+  const restaurada = backup?.restauradoDe && !backup.restauradoDe.dispensado && backup.restauradoDe.viagemIds.includes(viagem.id) ? backup.restauradoDe : null
 
   const primeira = ordenadas[0]
   const ultima = ordenadas.at(-1)
@@ -393,6 +420,21 @@ function Conteudo({ repo, plano, eventos, passageiros, modelos, agora, recarrega
           </p>
           <p className="estado-viagem">{textoDaSituacao(s.situacao, nomeLocalParado)}</p>
         </section>
+
+        {restaurada && (
+          <section className="cartao atencao cartao-backup" aria-label="Viagem restaurada" data-teste="aviso-restaurada">
+            <h2>Restaurada de um backup</h2>
+            <p>Restaurada do backup de {dataHoraCurta(restaurada.geradoEm)}. O que aconteceu depois não está aqui: registre pela timeline.</p>
+            <div className="duas-colunas">
+              <button type="button" className="botao pequeno" onClick={onTimeline}>
+                Timeline
+              </button>
+              <button type="button" className="botao pequeno" onClick={() => void repo.dispensarAvisoDeRestauracao().then(recarregar)}>
+                Entendi
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className={`cartao previsao ${classe?.situacao === 'atrasado' ? 'atencao' : ''}`} aria-label="Previsão no destino">
           <div className="duas-colunas">
@@ -492,6 +534,25 @@ function Conteudo({ repo, plano, eventos, passageiros, modelos, agora, recarrega
           </button>
         )}
 
+        {sugerirBackup && estadoBackup && (
+          <section className="cartao cartao-backup" aria-label="Sugestão de backup" data-teste="sugestao-backup">
+            <h2>Backup</h2>
+            <p>{linhaDoUltimoBackup(estadoBackup, agora)}. Vale guardar um backup agora.</p>
+            <div className="duas-colunas">
+              <button type="button" className="botao pequeno principal" onClick={onBackup}>
+                FAZER BACKUP
+              </button>
+              <button
+                type="button"
+                className="botao pequeno"
+                onClick={() => void repo.silenciarSugestaoDeBackup(somarMinutos(agora, CONFIG.backupSilencioHoras * 60)).then(recarregar)}
+              >
+                AGORA NÃO
+              </button>
+            </div>
+          </section>
+        )}
+
         {erro && acao === null && <p className="msg-erro" role="alert">{erro}</p>}
 
         {pendencia && !concluida ? (
@@ -587,6 +648,11 @@ function Conteudo({ repo, plano, eventos, passageiros, modelos, agora, recarrega
               </div>
             </>
           )
+        )}
+        {estadoBackup && (
+          <button type="button" className={`botao-texto linha-backup${estadoBackup.defasado ? ' atencao' : ''}`} onClick={onBackup} data-teste="linha-backup">
+            {linhaDoUltimoBackup(estadoBackup, agora)}
+          </button>
         )}
       </main>
 

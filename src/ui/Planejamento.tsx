@@ -9,6 +9,7 @@ import type { BloqueioInicio } from '../core/previsao'
 import type { ParDeAlternativas, ParDeTrecho } from '../core/trechos'
 import type { DadosPlano, DuracaoTrecho, Etapa, EstadoEtapa, Passageiro, TipoViagem } from '../core/tipos'
 import type { Repositorio } from '../data/repositorio'
+import { AcoesDeBackup } from './componentes/AcoesDeBackup'
 import { Confirmar } from './componentes/Confirmar'
 import { Topo } from './componentes/Topo'
 import { formatarDuracao, horasEMinutosDe, minutosDeHorasEMinutos } from './logica/duracao'
@@ -106,6 +107,8 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
   const bloqueado = !calculo.ok || foraDeOrdem.length > 0 || !viagem.nome.trim()
 
   const [confirmarInicio, setConfirmarInicio] = useState(false)
+  /** Um backup foi entregue enquanto a folha "Fazer backup antes de iniciar?" estava aberta. */
+  const [backupFeito, setBackupFeito] = useState(false)
   const [confirmarExclusao, setConfirmarExclusao] = useState(false)
   const [bloqueiosDoInicio, setBloqueiosDoInicio] = useState<BloqueioInicio[]>([])
   const [moverPendente, setMoverPendente] = useState<{ etapaId: string; sentido: 'subir' | 'descer'; apagados: number } | null>(null)
@@ -125,6 +128,7 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
 
   async function iniciar() {
     setConfirmarInicio(false)
+    setBackupFeito(false)
     await agir(async () => {
       const r = await repo.iniciarViagem(viagem.id)
       setBloqueiosDoInicio(r.ok === false && r.motivo === 'bloqueios' ? r.bloqueios : [])
@@ -280,12 +284,18 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
 
       <Confirmar
         aberto={confirmarInicio}
-        titulo="Iniciar a viagem?"
-        rotuloConfirmar="Iniciar viagem"
+        titulo="Fazer backup antes de iniciar?"
+        rotuloConfirmar={backupFeito ? 'Iniciar viagem' : 'INICIAR SEM BACKUP'}
         onCancelar={() => setConfirmarInicio(false)}
         onConfirmar={iniciar}
       >
         <p>O planejamento fica congelado como a expectativa original e não poderá mais ser editado.</p>
+        {repo.espaco === 'real' && (
+          <>
+            <p className="dica">Faça o backup agora, se quiser: iniciar sem ele também é possível.</p>
+            <AcoesDeBackup repo={repo} aoEntregar={() => setBackupFeito(true)} />
+          </>
+        )}
       </Confirmar>
 
       <Confirmar

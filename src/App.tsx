@@ -16,6 +16,7 @@ import { FaixaDemo } from './ui/componentes/FaixaDemo'
 import { EditorEtapa } from './ui/EditorEtapa'
 import { ListaViagens } from './ui/ListaViagens'
 import { Alternativas } from './ui/Alternativas'
+import { Backup } from './ui/Backup'
 import { Modelos } from './ui/Modelos'
 import { Passageiros } from './ui/Passageiros'
 import { Planejamento } from './ui/Planejamento'
@@ -33,6 +34,7 @@ type Tela =
   | { nome: 'timeline'; viagemId: string }
   | { nome: 'passageiros'; viagemId: string }
   | { nome: 'alternativas'; viagemId: string }
+  | { nome: 'backup' }
   /** `viagemId` é a viagem da prévia ao vivo; vazio = a em andamento mais recente. */
   | { nome: 'modelos'; viagemId: string | null }
 
@@ -159,6 +161,7 @@ function App() {
           onAbrir={abrirViagem}
           onEntrarNaDemonstracao={abrirDemonstracao}
           onModelos={() => irPara({ nome: 'modelos', viagemId: null })}
+          onBackup={() => irPara({ nome: 'backup' })}
         />
       )}
       {tela.nome === 'planejamento' && (
@@ -192,6 +195,7 @@ function App() {
           onPassageiros={() => irPara({ nome: 'passageiros', viagemId: tela.viagemId })}
           onAlternativas={() => irPara({ nome: 'alternativas', viagemId: tela.viagemId })}
           onModelos={() => irPara({ nome: 'modelos', viagemId: tela.viagemId })}
+          onBackup={() => irPara({ nome: 'backup' })}
           aoRegistrar={
             executor
               ? () => {
@@ -234,6 +238,9 @@ function App() {
           viagemId={tela.viagemId}
           onVoltar={() => voltar(LISTA)}
         />
+      )}
+      {tela.nome === 'backup' && !demo && (
+        <Backup key={`backup-${versao}`} repo={repo} onVoltar={() => voltar(LISTA)} onAbrirViagem={abrirViagem} />
       )}
       {tela.nome === 'timeline' && (
         <Timeline
