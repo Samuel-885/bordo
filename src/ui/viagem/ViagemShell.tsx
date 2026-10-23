@@ -5,21 +5,26 @@
 import { descidaParaConferencia, contextoDeSaida, contextoDeVolta } from '../../core/conferencia'
 import type { Repositorio } from '../../data/repositorio'
 import { Conferencia } from '../Conferencia'
+import { BarraDeAbas, type Aba } from '../componentes/BarraDeAbas'
+import { BarraDeAcao } from '../componentes/BarraDeAcao'
+import { Cabecalho } from '../componentes/Cabecalho'
 import { Topo } from '../componentes/Topo'
 import { useAgora, useAoMudar } from '../useAgora'
 import { useDados } from '../useDados'
+import { acoesDoRodape } from './acoes'
 import { AbaViagem } from './AbaViagem'
 import { carregarDadosDaViagem, type ContextoDaViagem } from './dados'
 import { derivarViagem } from './derivados'
 import { FolhasDaViagem } from './FolhasDaViagem'
+import { useAlturaDoRodape } from './useAlturaDoRodape'
 import { useRegistros } from './useRegistros'
 
 interface Props {
   repo: Repositorio
   viagemId: string
   onVoltar: () => void
-  onTimeline: () => void
-  onPassageiros: () => void
+  aba: Aba
+  onAba: (aba: Aba) => void
   onAlternativas: () => void
   onModelos: () => void
   onBackup: () => void
@@ -53,9 +58,10 @@ export function ViagemShell({ repo, viagemId, onVoltar, ...resto }: Props) {
   return <ViagemAberta c={c} onVoltar={onVoltar} {...resto} />
 }
 
-function ViagemAberta({ c, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, onBackup, aoRegistrar }: { c: ContextoDaViagem } & Omit<Props, 'repo' | 'viagemId'>) {
+function ViagemAberta({ c, aba, onAba, onModelos, onBackup, aoRegistrar }: { c: ContextoDaViagem } & Omit<Props, 'repo' | 'viagemId'>) {
   const d = derivarViagem(c)
   const r = useRegistros(c, d, aoRegistrar)
+  const rodape = useAlturaDoRodape()
 
   if (r.conferindo) {
     const { conferindo } = r
@@ -80,18 +86,25 @@ function ViagemAberta({ c, onVoltar, onTimeline, onPassageiros, onAlternativas, 
     )
   }
 
+  const { viagem } = c.plano
+  const acoes = acoesDoRodape(c, d, r)
+  const folhaAberta = r.acao !== null || r.descida !== null || r.previa || r.dadosAbertos
   return (
     <>
-      <AbaViagem
-        c={c}
-        d={d}
-        r={r}
-        onVoltar={onVoltar}
-        onTimeline={onTimeline}
-        onPassageiros={onPassageiros}
-        onAlternativas={onAlternativas}
-        onBackup={onBackup}
-      />
+      <Cabecalho subtitulo={`${viagem.nome || 'Viagem'} · ${viagem.tipo === 'ida' ? 'Ida' : 'Volta'}`} />
+      {aba === 'viagem' ? (
+        <AbaViagem c={c} d={d} r={r} onAba={onAba} onBackup={onBackup} />
+      ) : (
+        <main className="conteudo viagem">
+          <p className="dica">Em construção.</p>
+        </main>
+      )}
+      <div className="rodape-fixo" ref={rodape}>
+        {aba === 'viagem' && !d.concluida && (
+          <BarraDeAcao principal={acoes.principal} rapidas={acoes.rapidas} ocupado={r.ocupado} erro={folhaAberta ? null : r.erro} />
+        )}
+        <BarraDeAbas atual={aba} onMudar={onAba} />
+      </div>
       <FolhasDaViagem c={c} d={d} r={r} onModelos={onModelos} />
     </>
   )

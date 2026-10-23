@@ -53,6 +53,13 @@ export function textoDoTempoRestante(previsao: Instante, agora: Instante): strin
 export const textoDoCronometro = (c: { faltaMin: number; excedeuMin: number }): string =>
   c.excedeuMin > 0 ? `excedeu em ${formatarDuracaoCurta(c.excedeuMin)}` : `faltam ${formatarDuracaoCurta(c.faltaMin)}`
 
+/** Cronômetro de uma parada planejada: "7 min para sair" ou "excedeu em 15 min". */
+export const textoDoCronometroDeSaida = (c: { faltaMin: number; excedeuMin: number }): string =>
+  c.excedeuMin > 0 ? `excedeu em ${formatarDuracaoCurta(c.excedeuMin)}` : `${formatarDuracaoCurta(c.faltaMin)} para sair`
+
+/** "N alternativas · ver no Roteiro" (ou "1 alternativa"). */
+export const textoDoAtalhoDeAlternativas = (n: number): string => `${n} ${n === 1 ? 'alternativa' : 'alternativas'} · ver no Roteiro`
+
 /** "38/38 a bordo · conferido às 06:30", "38/38 a bordo · sem conferência" ou "35 esperados na saída". */
 export function textoABordo(a: ABordo): string {
   if (a.tipo === 'esperados') return `${a.total} esperados na saída`

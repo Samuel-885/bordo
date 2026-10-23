@@ -10,6 +10,7 @@ import type { Viagem } from './core/tipos'
 import type { Cenario } from './demo/cenarios'
 import { VIAGEM_DEMO_ID } from './demo/dados'
 import { ExecutorNoBanco } from './demo/executorNoBanco'
+import type { Aba } from './ui/componentes/BarraDeAbas'
 import { AvisoAtualizacao } from './ui/componentes/AvisoAtualizacao'
 import { AvisoBanco } from './ui/componentes/AvisoBanco'
 import { FaixaDemo } from './ui/componentes/FaixaDemo'
@@ -31,7 +32,7 @@ type Tela =
   | { nome: 'lista' }
   | { nome: 'planejamento'; viagemId: string }
   | { nome: 'etapa'; viagemId: string; etapaId: string | null }
-  | { nome: 'viagem'; viagemId: string }
+  | { nome: 'viagem'; viagemId: string; aba?: Aba; visao?: 'paradas' | 'timeline' }
   | { nome: 'timeline'; viagemId: string }
   | { nome: 'passageiros'; viagemId: string }
   | { nome: 'alternativas'; viagemId: string }
@@ -193,8 +194,8 @@ function App() {
           repo={repo}
           viagemId={tela.viagemId}
           onVoltar={() => voltar(LISTA)}
-          onTimeline={() => irPara({ nome: 'timeline', viagemId: tela.viagemId })}
-          onPassageiros={() => irPara({ nome: 'passageiros', viagemId: tela.viagemId })}
+          aba={tela.aba ?? 'viagem'}
+          onAba={(aba) => irPara({ nome: 'viagem', viagemId: tela.viagemId, aba })}
           onAlternativas={() => irPara({ nome: 'alternativas', viagemId: tela.viagemId })}
           onModelos={() => irPara({ nome: 'modelos', viagemId: tela.viagemId })}
           onBackup={() => irPara({ nome: 'backup' })}
