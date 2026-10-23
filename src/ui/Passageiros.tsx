@@ -8,6 +8,7 @@ import { ordenarPor } from '../core/tempo'
 import type { Etapa, Evento, Local, Passageiro, StatusPassageiro } from '../core/tipos'
 import type { Repositorio } from '../data/repositorio'
 import { Confirmar } from './componentes/Confirmar'
+import { Envoltorio } from './componentes/Envoltorio'
 import { Folha } from './componentes/Folha'
 import { Topo } from './componentes/Topo'
 import { agruparPorEmbarque, DICA_DO_NOME, NOTA_DE_PRIVACIDADE, textoTotalDePassageiros } from './logica/passageiros'
@@ -19,10 +20,12 @@ import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 interface Props {
   repo: Repositorio
   viagemId: string
-  onVoltar: () => void
+  onVoltar?: () => void
+  /** Dentro da aba Pessoas: sem cabeçalho nem margens próprias. */
+  incorporada?: boolean
 }
 
-export function Passageiros({ repo, viagemId, onVoltar }: Props) {
+export function Passageiros({ repo, viagemId, onVoltar, incorporada }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
     const [plano, passageiros, eventos] = await Promise.all([
       repo.carregarPlano(viagemId),
@@ -35,12 +38,12 @@ export function Passageiros({ repo, viagemId, onVoltar }: Props) {
   if (erro || (dados && !dados.plano)) {
     return (
       <>
-        <Topo titulo="Passageiros" onVoltar={onVoltar} />
-        <main className="conteudo"><p className="msg-erro">{erro ?? 'Viagem não encontrada.'}</p></main>
+        {!incorporada && <Topo titulo="Passageiros" onVoltar={onVoltar} />}
+        <Envoltorio incorporada={incorporada}><p className="msg-erro">{erro ?? 'Viagem não encontrada.'}</p></Envoltorio>
       </>
     )
   }
-  if (!dados?.plano) return <Topo titulo="Passageiros" onVoltar={onVoltar} />
+  if (!dados?.plano) return incorporada ? null : <Topo titulo="Passageiros" onVoltar={onVoltar} />
   return (
     <Conteudo
       repo={repo}
@@ -51,6 +54,7 @@ export function Passageiros({ repo, viagemId, onVoltar }: Props) {
       eventos={dados.eventos}
       recarregar={recarregar}
       onVoltar={onVoltar}
+      incorporada={incorporada}
     />
   )
 }
@@ -63,7 +67,8 @@ interface ConteudoProps {
   passageiros: Passageiro[]
   eventos: Evento[]
   recarregar: () => void
-  onVoltar: () => void
+  onVoltar?: () => void
+  incorporada?: boolean
 }
 
 /** Status atual de cada passageiro, lido dos eventos (nunca guardado no cadastro). */
@@ -75,7 +80,7 @@ function statusAtual(passageiroId: string, eventos: readonly Evento[]): StatusPa
   return ultimo?.tipo === 'status_passageiro' ? ultimo.dados.status : 'ativo'
 }
 
-function Conteudo({ repo, etapas, locais, statusViagem, passageiros, eventos, recarregar, onVoltar }: ConteudoProps) {
+function Conteudo({ repo, etapas, locais, statusViagem, passageiros, eventos, recarregar, onVoltar, incorporada }: ConteudoProps) {
   const [editando, setEditando] = useState<{ passageiro: Passageiro | null } | null>(null)
   const [excluindo, setExcluindo] = useState<Passageiro | null>(null)
   const [falha, setFalha] = useState<string | null>(null)
@@ -114,8 +119,8 @@ function Conteudo({ repo, etapas, locais, statusViagem, passageiros, eventos, re
 
   return (
     <>
-      <Topo titulo="Passageiros" onVoltar={onVoltar} />
-      <main className="conteudo">
+      {!incorporada && <Topo titulo="Passageiros" onVoltar={onVoltar} />}
+      <Envoltorio incorporada={incorporada}>
         <section className="cartao" aria-label="Resumo">
           <p className="linha-grande"><strong>{textoTotalDePassageiros(passageiros.length)}</strong></p>
           {grupos.length > 0 && (
@@ -168,7 +173,7 @@ function Conteudo({ repo, etapas, locais, statusViagem, passageiros, eventos, re
             </ul>
           </section>
         ))}
-      </main>
+      </Envoltorio>
 
       {editando && (
         <FormularioPassageiro

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formularioLocalVazio, localDoFormulario, validarLocal } from '../formLocal'
+import { formularioDoLocal, formularioLocalVazio, localDoFormulario, validarLocal } from '../formLocal'
 
 describe('formulário de novo local', () => {
   it('nome e cidade são obrigatórios', () => {
@@ -42,5 +42,26 @@ describe('formulário de novo local', () => {
       onibusPara: 'sim',
       observacoes: 'Estacionamento amplo',
     })
+  })
+
+  it('edição: o formulário nasce do local e salvar mantém id e marcação', () => {
+    const local = {
+      id: 'id3',
+      nome: 'Restaurante fictício',
+      cidade: 'Cidade X',
+      tipo: 'posto',
+      coordenadas: { lat: -19.4687, lng: -42.5367 },
+      abre: '11:00',
+      fecha: '15:00',
+      telefone: '(31) 0000-0000',
+      onibusPara: 'sim' as const,
+      observacoes: 'Estacionamento amplo',
+      marcacao: 'favorito' as const,
+    }
+    const f = formularioDoLocal(local)
+    expect(validarLocal(f)).toEqual({})
+    expect(localDoFormulario(f, local.id, local)).toEqual(local)
+    // Apagar um campo opcional o tira do local.
+    expect(localDoFormulario({ ...f, telefone: '', abre: '', fecha: '' }, local.id, local).telefone).toBeUndefined()
   })
 })

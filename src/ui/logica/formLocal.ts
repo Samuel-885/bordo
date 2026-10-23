@@ -1,7 +1,7 @@
 // Modelo do formulário de novo local e a validação.
 
 import type { Local, OnibusPara } from '../../core/tipos'
-import { lerCoordenadas } from './coordenadas'
+import { formatarCoordenadas, lerCoordenadas } from './coordenadas'
 
 export interface FormLocal {
   nome: string
@@ -30,6 +30,21 @@ export function formularioLocalVazio(): FormLocal {
   }
 }
 
+/** O formulário preenchido com um local existente (edição). */
+export function formularioDoLocal(l: Local): FormLocal {
+  return {
+    nome: l.nome,
+    cidade: l.cidade,
+    tipo: l.tipo,
+    coordenadas: l.coordenadas ? formatarCoordenadas(l.coordenadas) : '',
+    abre: l.abre ?? '',
+    fecha: l.fecha ?? '',
+    telefone: l.telefone ?? '',
+    onibusPara: l.onibusPara,
+    observacoes: l.observacoes ?? '',
+  }
+}
+
 export type ErrosLocal = Partial<Record<'nome' | 'cidade' | 'coordenadas' | 'horario', string>>
 
 export function validarLocal(f: FormLocal): ErrosLocal {
@@ -44,8 +59,11 @@ export function validarLocal(f: FormLocal): ErrosLocal {
   return erros
 }
 
-/** Só chamar com o formulário válido. Campos opcionais vazios ficam de fora. */
-export function localDoFormulario(f: FormLocal, id: string): Local {
+/**
+ * Só chamar com o formulário válido. Campos opcionais vazios ficam de fora. Na edição,
+ * `anterior` mantém o que o formulário não mexe (a marcação de favorito ou evitar).
+ */
+export function localDoFormulario(f: FormLocal, id: string, anterior?: Local): Local {
   const c = f.coordenadas.trim() ? lerCoordenadas(f.coordenadas) : null
   const local: Local = {
     id,
@@ -61,5 +79,6 @@ export function localDoFormulario(f: FormLocal, id: string): Local {
   }
   if (f.telefone.trim()) local.telefone = f.telefone.trim()
   if (f.observacoes.trim()) local.observacoes = f.observacoes.trim()
+  if (anterior?.marcacao) local.marcacao = anterior.marcacao
   return local
 }

@@ -1571,7 +1571,7 @@ button.cartao.pequeno.atencao {
 .dica-mapa {
   margin-top: -6px;
 }
-.timeline-aba {
+.aba-interna {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1704,4 +1704,137 @@ button.cartao.pequeno.atencao {
 .parada-alternativas .atalho {
   border-top: 0;
   margin-top: 0;
+}
+
+/* ---------- Redesenho: Locais, Mais e Pessoas ---------- */
+
+.lista-locais {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.local-item {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+  padding: 4px 8px 4px 0;
+}
+.local-principal {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 8px 8px 12px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.local-principal strong {
+  font-size: 17px;
+}
+.local-detalhe {
+  font-size: 14px;
+  color: var(--texto-suave);
+  overflow-wrap: anywhere;
+}
+.local-item > .botao {
+  align-self: center;
+}
+.marca-local {
+  margin-left: 8px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--ok-fundo);
+  color: var(--ok-texto);
+}
+.marca-local.evitar {
+  background: var(--perigo-fundo);
+  color: var(--perigo);
+}
+.usos-do-local {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 15px;
+}
+.grupo-menu h2 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+.grupo-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.grupo-menu li + li {
+  border-top: 1px solid var(--linha);
+}
+.item-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: var(--texto);
+  cursor: pointer;
+}
+.item-menu:disabled {
+  cursor: default;
+  color: var(--texto-suave);
+}
+.item-texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.item-texto strong {
+  font-size: 16px;
+}
+.item-detalhe {
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+.item-seta {
+  font-size: 22px;
+  color: var(--texto-suave);
+}
+.item-tema {
+  padding: 8px 12px 12px;
+}
+.item-tema .segmentos {
+  margin-top: 8px;
+}
+.segmentos.tres {
+  grid-template-columns: repeat(3, 1fr);
+}
+.segmentos.tres .segmento {
+  padding: 0 4px;
+  font-size: 14px;
+}
+.segmento[aria-checked='true'] {
+  background: var(--cartao);
+  color: var(--texto);
+  box-shadow: 0 1px 3px var(--sombra);
 }

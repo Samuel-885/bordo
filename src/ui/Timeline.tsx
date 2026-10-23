@@ -1,9 +1,10 @@
 // Timeline: os eventos registrados em ordem, com o atraso de cada chegada e saída.
 // Chegadas e saídas podem ser corrigidas, com as travas do núcleo.
 
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { limitesDoHorario } from '../core/registro'
 import type { Repositorio } from '../data/repositorio'
+import { Envoltorio } from './componentes/Envoltorio'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
 import { FolhaHorario, FolhaObservacao } from './Folhas'
@@ -162,9 +163,4 @@ export function Timeline({ repo, viagemId, onVoltar, incorporada }: Props) {
       )}
     </>
   )
-}
-
-/** Tela cheia (com <main>) ou, dentro de uma aba, só o conteúdo. */
-function Envoltorio({ incorporada, children }: { incorporada?: boolean; children: ReactNode }) {
-  return incorporada ? <div className="timeline-aba">{children}</div> : <main className="conteudo">{children}</main>
 }

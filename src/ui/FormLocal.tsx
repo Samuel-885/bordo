@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import type { Local } from '../core/tipos'
 import { novoId } from '../data/repositorio'
-import { formularioLocalVazio, localDoFormulario, validarLocal, type ErrosLocal, type FormLocal as Form } from './logica/formLocal'
+import { formularioDoLocal, formularioLocalVazio, localDoFormulario, validarLocal, type ErrosLocal, type FormLocal as Form } from './logica/formLocal'
 import { ONIBUS_PARA, TIPOS_DE_LOCAL } from './logica/rotulos'
 import { Topo } from './componentes/Topo'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
 interface Props {
+  /** O local a editar; vazio = novo local. */
+  inicial?: Local
   onSalvar: (local: Local) => Promise<void>
   onCancelar: () => void
 }
 
-export function FormLocal({ onSalvar, onCancelar }: Props) {
-  const [f, setF] = useState<Form>(formularioLocalVazio)
+export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
+  const [f, setF] = useState<Form>(() => (inicial ? formularioDoLocal(inicial) : formularioLocalVazio()))
   const [erros, setErros] = useState<ErrosLocal>({})
   const [falha, setFalha] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -25,7 +27,7 @@ export function FormLocal({ onSalvar, onCancelar }: Props) {
     if (Object.keys(e).length > 0) return
     setSalvando(true)
     try {
-      await onSalvar(localDoFormulario(f, novoId()))
+      await onSalvar(localDoFormulario(f, inicial?.id ?? novoId(), inicial))
     } catch (x) {
       setFalha(mensagemDeErroDoBanco(x, 'Não foi possível salvar o local.'))
       setSalvando(false)
@@ -34,7 +36,7 @@ export function FormLocal({ onSalvar, onCancelar }: Props) {
 
   return (
     <>
-      <Topo titulo="Novo local" onVoltar={onCancelar} />
+      <Topo titulo={inicial ? 'Editar local' : 'Novo local'} onVoltar={onCancelar} />
       <main className="conteudo">
         <section className="cartao">
           <div className={`campo ${erros.nome ? 'erro' : ''}`}>

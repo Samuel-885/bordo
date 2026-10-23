@@ -12,6 +12,9 @@ import { Topo } from '../componentes/Topo'
 import { useAgora, useAoMudar } from '../useAgora'
 import { useDados } from '../useDados'
 import { acoesDoRodape } from './acoes'
+import { Locais } from '../Locais'
+import { AbaMais } from './AbaMais'
+import { AbaPessoas } from './AbaPessoas'
 import { AbaRoteiro, type VisaoDoRoteiro } from './AbaRoteiro'
 import { AbaViagem } from './AbaViagem'
 import { carregarDadosDaViagem, type ContextoDaViagem } from './dados'
@@ -30,6 +33,9 @@ interface Props {
   onAlternativas: () => void
   onModelos: () => void
   onBackup: () => void
+  onEditarLocal: (localId: string | null) => void
+  onAbrirDemo: () => void
+  onSairDaDemo: () => void
   /** A demonstração usa para sair do cenário e entrar no modo livre. */
   aoRegistrar?: () => void
 }
@@ -60,7 +66,7 @@ export function ViagemShell({ repo, viagemId, onVoltar, ...resto }: Props) {
   return <ViagemAberta c={c} onVoltar={onVoltar} {...resto} />
 }
 
-function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBackup, aoRegistrar }: { c: ContextoDaViagem } & Omit<Props, 'repo' | 'viagemId'>) {
+function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBackup, onEditarLocal, onAbrirDemo, onSairDaDemo, onVoltar, aoRegistrar }: { c: ContextoDaViagem } & Omit<Props, 'repo' | 'viagemId'>) {
   const d = derivarViagem(c)
   const r = useRegistros(c, d, aoRegistrar)
   const rodape = useAlturaDoRodape()
@@ -98,10 +104,14 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
         <AbaViagem c={c} d={d} r={r} onAba={onAba} onBackup={onBackup} />
       ) : aba === 'roteiro' ? (
         <AbaRoteiro c={c} d={d} visaoInicial={visao} onAlternativas={onAlternativas} />
-      ) : (
+      ) : aba === 'pessoas' ? (
+        <AbaPessoas c={c} d={d} />
+      ) : aba === 'locais' ? (
         <main className="conteudo viagem">
-          <p className="dica">Em construção.</p>
+          <Locais repo={c.repo} onEditar={onEditarLocal} incorporada />
         </main>
+      ) : (
+        <AbaMais c={c} d={d} r={r} onModelos={onModelos} onBackup={onBackup} onTrocarViagem={onVoltar} onAbrirDemo={onAbrirDemo} onSairDaDemo={onSairDaDemo} />
       )}
       <div className="rodape-fixo" ref={rodape}>
         {aba === 'viagem' && !d.concluida && (

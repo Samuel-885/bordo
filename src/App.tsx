@@ -18,6 +18,7 @@ import { EditorEtapa } from './ui/EditorEtapa'
 import { ListaViagens } from './ui/ListaViagens'
 import { Alternativas } from './ui/Alternativas'
 import { Backup } from './ui/Backup'
+import { EditorDeLocal, Locais } from './ui/Locais'
 import { Modelos } from './ui/Modelos'
 import { Passageiros } from './ui/Passageiros'
 import { Planejamento } from './ui/Planejamento'
@@ -35,6 +36,9 @@ type Tela =
   | { nome: 'passageiros'; viagemId: string }
   | { nome: 'alternativas'; viagemId: string }
   | { nome: 'backup' }
+  | { nome: 'locais' }
+  /** O formulário de um local do catálogo; vazio = novo. */
+  | { nome: 'local'; localId: string | null }
   /** `viagemId` é a viagem da prévia ao vivo; vazio = a em andamento mais recente. */
   | { nome: 'modelos'; viagemId: string | null }
 
@@ -163,6 +167,7 @@ function App() {
           onEntrarNaDemonstracao={abrirDemonstracao}
           onModelos={() => irPara({ nome: 'modelos', viagemId: null })}
           onBackup={() => irPara({ nome: 'backup' })}
+          onLocais={() => irPara({ nome: 'locais' })}
         />
       )}
       {tela.nome === 'planejamento' && (
@@ -198,6 +203,9 @@ function App() {
           onAlternativas={() => irPara({ nome: 'alternativas', viagemId: tela.viagemId })}
           onModelos={() => irPara({ nome: 'modelos', viagemId: tela.viagemId })}
           onBackup={() => irPara({ nome: 'backup' })}
+          onEditarLocal={(localId) => irPara({ nome: 'local', localId })}
+          onAbrirDemo={abrirDemonstracao}
+          onSairDaDemo={sairDaDemo}
           aoRegistrar={
             executor
               ? () => {
@@ -240,6 +248,12 @@ function App() {
           viagemId={tela.viagemId}
           onVoltar={() => voltar(LISTA)}
         />
+      )}
+      {tela.nome === 'locais' && (
+        <Locais key={`locais-${repo.espaco}-${versao}`} repo={repo} onEditar={(localId) => irPara({ nome: 'local', localId })} onVoltar={() => voltar(LISTA)} />
+      )}
+      {tela.nome === 'local' && (
+        <EditorDeLocal key={`local-${tela.localId ?? 'novo'}-${versao}`} repo={repo} localId={tela.localId} onFechar={() => voltar(LISTA)} />
       )}
       {tela.nome === 'backup' && !demo && (
         <Backup key={`backup-${versao}`} repo={repo} onVoltar={() => voltar(LISTA)} onAbrirViagem={abrirViagem} />
