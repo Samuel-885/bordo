@@ -42,7 +42,7 @@ describe('migração do banco da versão 1 para a 2', () => {
 
     const novo = new BancoBordo(nome)
     await novo.open()
-    expect(novo.verno).toBe(4)
+    expect(novo.verno).toBe(5)
     expect(await novo.viagens.count()).toBe(1)
     expect(await novo.etapas.count()).toBe(PLANO_DEMO.etapas.length)
     expect(await novo.locais.count()).toBe(PLANO_DEMO.locais.length)

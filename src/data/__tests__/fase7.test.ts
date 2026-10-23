@@ -92,7 +92,7 @@ describe('banco: esquema v4 só adiciona a tabela de modelos', () => {
 
     const novo = new BancoBordo(nome)
     await novo.open()
-    expect(novo.verno).toBe(4)
+    expect(novo.verno).toBe(5)
     expect(await novo.viagens.count()).toBe(1)
     expect((await novo.viagens.get(PLANO_DEMO.viagem.id))?.nome).toBe(PLANO_DEMO.viagem.nome)
     expect(await novo.etapas.count()).toBe(PLANO_DEMO.etapas.length)

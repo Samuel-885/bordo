@@ -19,7 +19,8 @@ import { diferencaMin, naHoraDoDia, somarMinutos, truncarMinuto } from '../core/
 import { eventosDaConferencia, type ContextoConferencia, type DecisaoDePendente, type EstadoConferencia } from '../core/conferencia'
 import { validarCadastro, validarExclusao, type DadosPassageiro } from '../core/passageiros'
 import { validarModelo, type IdModelo } from '../core/modelos'
-import type { Consulta, DadosPlano, Etapa, Evento, Instante, Local, Passageiro, Trecho, Viagem } from '../core/tipos'
+import { montarBackup, resumirViagens, type Backup, type ConteudoBackup, type ResumoViagem } from '../core/backup'
+import type { Consulta, DadosPlano, Etapa, Evento, Instante, Local, Passageiro, RestauradoDe, Trecho, UltimoBackup, Viagem } from '../core/tipos'
 import type { BancoBordo, Espaco } from './banco'
 
 export type ResultadoInicio =
@@ -40,6 +41,11 @@ export interface OpcoesRegistro {
 export class ErroDeEspaco extends Error {}
 export class EdicaoBloqueada extends Error {}
 export class LocalEmUso extends Error {}
+
+/** Como restaurar um backup: só as viagens escolhidas (as demais ficam) ou tudo (o celular vira o arquivo). */
+export type OpcoesDeRestauracao = { modo: 'juntar'; viagemIds: readonly string[] } | { modo: 'substituir_tudo' }
+
+export type ResultadoRestauracao = { ok: true; viagemIds: string[] } | { ok: false; motivo: string }
 
 export function novoId(): string {
   return crypto.randomUUID()
@@ -773,6 +779,144 @@ export class Repositorio {
     )
     await this.#db.eventos.add(evento)
     return evento
+  }
+
+  // ---------- Backup (fase 10a) ----------
+
+  #exigirEspacoReal(): void {
+    if (this.espaco !== 'real') throw new ErroDeEspaco('Backup e restauração só existem no espaço real, nunca na demonstração.')
+  }
+
+  /** Tudo do espaço real, numa leitura só; as consultas ao Google Maps ficam de fora. */
+  async lerTudoParaBackup(): Promise<ConteudoBackup> {
+    this.#exigirRelogioDoEspaco()
+    this.#exigirEspacoReal()
+    const { viagens, etapas, locais, trechos, eventos, passageiros, modelos } = this.#db
+    return this.#db.transaction('r', [viagens, etapas, locais, trechos, eventos, passageiros, modelos], async () => ({
+      viagens: await viagens.toArray(),
+      etapas: await etapas.toArray(),
+      locais: await locais.toArray(),
+      trechos: await trechos.toArray(),
+      eventos: await eventos.toArray(),
+      passageiros: await passageiros.toArray(),
+      modelos: await modelos.toArray(),
+    }))
+  }
+
+  async gerarBackup(): Promise<Backup> {
+    return montarBackup(await this.lerTudoParaBackup(), truncarMinuto(agora()))
+  }
+
+  /** As viagens do celular, no mesmo resumo do arquivo (para comparar antes de restaurar). */
+  async resumirViagensDoCelular(): Promise<ResumoViagem[]> {
+    return resumirViagens(await this.lerTudoParaBackup())
+  }
+
+  /** Marca o backup como entregue (menu de compartilhar aceito ou download disparado). */
+  async registrarBackupEntregue(backup: Pick<Backup, 'geradoEm' | 'conteudo'>): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    this.#exigirEspacoReal()
+    await this.#db.meta.bulkPut([
+      { chave: 'ultimoBackup', valor: { geradoEm: backup.geradoEm, totalEventos: backup.conteudo.eventos.length } },
+    ])
+    await this.#db.meta.delete('silencioBackupAte')
+  }
+
+  async obterUltimoBackup(): Promise<UltimoBackup | null> {
+    this.#exigirRelogioDoEspaco()
+    const linha = await this.#db.meta.get('ultimoBackup')
+    return linha?.chave === 'ultimoBackup' ? linha.valor : null
+  }
+
+  /** Quantos registros (eventos) o espaço tem hoje, para contar os feitos depois do último backup. */
+  async contarEventos(): Promise<number> {
+    this.#exigirRelogioDoEspaco()
+    return this.#db.eventos.count()
+  }
+
+  async obterSilencioDoBackup(): Promise<Instante | null> {
+    this.#exigirRelogioDoEspaco()
+    const linha = await this.#db.meta.get('silencioBackupAte')
+    return linha?.chave === 'silencioBackupAte' ? linha.valor : null
+  }
+
+  /** "AGORA NÃO": a sugestão de backup some até `ate`. */
+  async silenciarSugestaoDeBackup(ate: Instante): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    await this.#db.meta.put({ chave: 'silencioBackupAte', valor: ate })
+  }
+
+  async obterRestauradoDe(): Promise<RestauradoDe | null> {
+    this.#exigirRelogioDoEspaco()
+    const linha = await this.#db.meta.get('restauradoDe')
+    return linha?.chave === 'restauradoDe' ? linha.valor : null
+  }
+
+  async dispensarAvisoDeRestauracao(): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    const atual = await this.obterRestauradoDe()
+    if (atual) await this.#db.meta.put({ chave: 'restauradoDe', valor: { ...atual, dispensado: true } })
+  }
+
+  /**
+   * Grava o backup (já validado) no celular, tudo ou nada.
+   * - `juntar`: cada viagem escolhida substitui, inteira, a de mesmo id (viagem, etapas, trechos,
+   *   eventos e passageiros; nunca misturados, por causa da sequência dos eventos); as outras
+   *   viagens do celular ficam. Os locais do arquivo entram e vencem os de mesmo id; os modelos
+   *   do arquivo só entram onde o celular não tem modelo editado.
+   * - `substituir_tudo`: o espaço real vira o arquivo.
+   * Os registros são gravados como estão: nada é recalculado, o plano original não é refeito.
+   * As consultas ao Google Maps das viagens substituídas são apagadas (dependem da sequência).
+   */
+  async restaurarBackup(backup: Backup, opcoes: OpcoesDeRestauracao): Promise<ResultadoRestauracao> {
+    this.#exigirRelogioDoEspaco()
+    this.#exigirEspacoReal()
+    const c = backup.conteudo
+    const escolhidas = opcoes.modo === 'substituir_tudo' ? c.viagens.map((v) => v.id) : [...new Set(opcoes.viagemIds)]
+    if (opcoes.modo === 'juntar') {
+      if (escolhidas.length === 0) return { ok: false, motivo: 'Escolha ao menos uma viagem para restaurar.' }
+      const noArquivo = new Set(c.viagens.map((v) => v.id))
+      if (escolhidas.some((id) => !noArquivo.has(id))) return { ok: false, motivo: 'Uma das viagens escolhidas não está no arquivo.' }
+    }
+    const { viagens, etapas, locais, trechos, eventos, passageiros, consultas, modelos, meta } = this.#db
+    const todas = [viagens, etapas, locais, trechos, eventos, passageiros, consultas, modelos, meta]
+    await this.#db.transaction('rw', todas, async () => {
+      if (opcoes.modo === 'substituir_tudo') {
+        await Promise.all([viagens, etapas, locais, trechos, eventos, passageiros, consultas, modelos].map((t) => t.clear()))
+        await modelos.bulkPut(c.modelos)
+      } else {
+        for (const id of escolhidas) {
+          const ids = (await etapas.where('viagemId').equals(id).primaryKeys()) as string[]
+          await passageiros.where('viagemId').equals(id).delete()
+          await consultas.where('viagemId').equals(id).delete()
+          await trechos.where('etapaOrigemId').anyOf(ids).delete()
+          await trechos.where('etapaDestinoId').anyOf(ids).delete()
+          await etapas.where('viagemId').equals(id).delete()
+          await eventos.where('viagemId').equals(id).delete()
+          await viagens.delete(id)
+        }
+        const existentes = new Set((await modelos.toCollection().primaryKeys()) as string[])
+        await modelos.bulkPut(c.modelos.filter((m) => !existentes.has(m.id)))
+      }
+      const doEscolhido = new Set(escolhidas)
+      const etapasEscolhidas = c.etapas.filter((e) => doEscolhido.has(e.viagemId))
+      const idsDasEtapas = new Set(etapasEscolhidas.map((e) => e.id))
+      await locais.bulkPut(c.locais)
+      await viagens.bulkPut(c.viagens.filter((v) => doEscolhido.has(v.id)))
+      await etapas.bulkPut(etapasEscolhidas)
+      await trechos.bulkPut(c.trechos.filter((t) => idsDasEtapas.has(t.etapaOrigemId) && idsDasEtapas.has(t.etapaDestinoId)))
+      await eventos.bulkPut(c.eventos.filter((e) => doEscolhido.has(e.viagemId)))
+      await passageiros.bulkPut(c.passageiros.filter((p) => doEscolhido.has(p.viagemId)))
+
+      await meta.put({ chave: 'restauradoDe', valor: { geradoEm: backup.geradoEm, restauradoEm: truncarMinuto(agora()), viagemIds: escolhidas, dispensado: false } })
+      await meta.delete('silencioBackupAte')
+      // O celular só passa a valer como "igual ao arquivo" se nenhuma viagem ficou de fora com
+      // registros que o arquivo não tem; senão o último backup continua sendo o anterior.
+      if ((await eventos.count()) === c.eventos.length) {
+        await meta.put({ chave: 'ultimoBackup', valor: { geradoEm: backup.geradoEm, totalEventos: c.eventos.length } })
+      }
+    })
+    return { ok: true, viagemIds: escolhidas }
   }
 
   // ---------- Limpeza ----------

@@ -2,11 +2,12 @@
 // dados reais e outro só para a demonstração. Guardam plano e eventos; estado derivado nunca
 // é persistido. Única exceção: as consultas ao Google Maps (fase 6), que não são fato da
 // viagem nem estado derivado, valem por pouco tempo e ficam fora do backup; e os modelos de
-// mensagem (fase 7), configuração do app que entra no backup e sobrevive ao reinício da demonstração.
+// mensagem (fase 7), configuração do app que entra no backup e sobrevive ao reinício da demonstração; e a
+// tabela `meta` (fase 10a), configuração do aparelho (último backup, aviso de restauração) que fica fora do backup.
 
 import Dexie, { type Table } from 'dexie'
 import { avisarBanco, type AvisoDoBanco } from './avisoBanco'
-import type { Consulta, Etapa, Evento, Local, ModeloSalvo, Passageiro, Trecho, Viagem } from '../core/tipos'
+import type { Consulta, Etapa, Evento, LinhaMeta, Local, ModeloSalvo, Passageiro, Trecho, Viagem } from '../core/tipos'
 
 export type Espaco = 'real' | 'demo'
 
@@ -41,6 +42,7 @@ export class BancoBordo extends Dexie {
   passageiros!: Table<Passageiro, string>
   consultas!: Table<Consulta, [string, string, string]>
   modelos!: Table<ModeloSalvo, string>
+  meta!: Table<LinhaMeta, string>
 
   constructor(nome: string) {
     super(nome)
@@ -63,6 +65,10 @@ export class BancoBordo extends Dexie {
     // Fase 7: só adiciona a tabela dos modelos de mensagem (mesma regra das versões 2 e 3).
     this.version(4).stores({
       modelos: 'id',
+    })
+    // Fase 10a: só adiciona a tabela de configuração do aparelho (mesma regra das versões 2 a 4).
+    this.version(5).stores({
+      meta: 'chave',
     })
     ligarAvisosDeConexao(this)
   }
