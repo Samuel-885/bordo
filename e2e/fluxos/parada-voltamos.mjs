@@ -9,7 +9,7 @@ export const fluxo = {
     await escolherCenario(page, 'Parada não planejada', 6)
     await defineRelogio(page, '10:00')
 
-    const previsaoDoAlmoco = async () => (await page.locator('[aria-label="Próxima etapa"]').innerText()).replace(/\s+/g, ' ')
+    const previsaoDoAlmoco = async () => (await page.locator('[aria-label="Próxima parada"]').innerText()).replace(/\s+/g, ' ')
     const eventos = async (tipo) => (await lerBanco(page, 'eventos')).filter((e) => e.tipo === tipo)
 
     await passo('PARAMOS com 20 min previstos e a folha "Quem desceu?" abre sozinha', async () => {
@@ -63,7 +63,7 @@ export const fluxo = {
     await passo('com a parada fechada vale a duração real (14 min): almoço 12:48, não os 20 previstos', async () => {
       esperar((await previsaoDoAlmoco()).includes('12:48'), `previsão deveria ser 12:48: ${await previsaoDoAlmoco()}`)
       esperar((await page.locator('[aria-label="Parada não planejada"]').count()) === 0, 'o cartão da parada deveria sumir')
-      const aBordo = (await page.locator('.a-bordo').innerText()).replace(/\s+/g, ' ')
+      const aBordo = (await page.locator('[data-teste="cartao-a-bordo"] .valor').innerText()).replace(/\s+/g, ' ')
       esperar(aBordo.includes('38/38 a bordo · conferido às 10:14'), `a bordo inesperado: ${aBordo}`)
     })
 

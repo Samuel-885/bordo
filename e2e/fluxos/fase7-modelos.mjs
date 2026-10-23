@@ -20,7 +20,7 @@ export const fluxo = {
       await abrirDemo(page)
       await escolherCenario(page, 'Saída atrasada')
       await defineRelogio(page, '06:50')
-      await botao(page, 'GERAR ATUALIZAÇÃO').click()
+      await botao(page, 'Mensagem', { exact: true }).click()
       await page.locator('#mensagem-texto').waitFor()
       await botao(page, 'Editar modelo').click()
       await page.locator('#modelo-texto').waitFor()
@@ -66,7 +66,7 @@ export const fluxo = {
 
       await passo('a mensagem gerada passa a usar o modelo salvo', async () => {
         await voltar(page)
-        await botao(page, 'GERAR ATUALIZAÇÃO').click()
+        await botao(page, 'Mensagem', { exact: true }).click()
         await page.locator('#mensagem-texto').waitFor()
         igual((await textoPrevia(page)).split('\n')[1], 'SIT=em viagem', 'segunda linha da mensagem')
         await dialogoAberto(page).getByRole('button', { name: 'Fechar', exact: true }).click()
@@ -81,11 +81,13 @@ export const fluxo = {
       await defineRelogio(page, '06:50')
       // Um modelo antigo, com variável que não existe mais, gravado direto no banco.
       await escreverBanco(page, 'modelos', { id: 'atualizacao', texto: 'Antigo {variavel_que_sumiu}', atualizadoEm: '2026-11-14T06:00:00-03:00' })
-      await botao(page, 'Timeline').click()
+      // O banco foi mexido por fora: abrir outra tela e voltar recarrega os dados da viagem.
+      await h.abrirItemDeMais(page, 'Modelos de mensagem')
       await voltar(page)
+      await h.irParaAba(page, 'viagem')
 
       await passo('modelo salvo com variável desconhecida: a geração usa o padrão e avisa', async () => {
-        await botao(page, 'GERAR ATUALIZAÇÃO').click()
+        await botao(page, 'Mensagem', { exact: true }).click()
         await page.locator('#mensagem-texto').waitFor()
         igual(await textoPrevia(page), ESPERADO, 'texto padrão')
         esperar(await page.getByText('usei o modelo padrão').isVisible(), 'aviso ausente')

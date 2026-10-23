@@ -7,7 +7,7 @@ export const fluxo = {
     await escolherCenario(page, 'Recalibração pelo Google Maps', 7)
     // Falta o tempo de Monlevade até o Restaurante B (o trecho em curso para ele).
     await apagarDoBanco(page, 'trechos', ['demo-monlevade', 'demo-l-monlevade', 'demo-almoco', 'demo-l-rest-b'])
-    await botao(page, 'VER ALTERNATIVAS').click()
+    await h.abrirAlternativas(page)
     await page.locator('.alternativa').first().waitFor()
     const alternativa = (nome) => page.locator('.alternativa', { hasText: nome })
     const antes = (await lerBanco(page, 'eventos')).length

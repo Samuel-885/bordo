@@ -578,11 +578,6 @@ dialog.confirmar .acoes {
   font-size: 15px;
   color: var(--texto-suave);
 }
-.estado-viagem {
-  font-size: 24px;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}
 .duas-colunas {
   display: flex;
   gap: 12px;

@@ -8,7 +8,7 @@ export const fluxo = {
     await escolherCenario(page, 'Parada não planejada', 6)
     await defineRelogio(page, '10:00')
 
-    const previsaoDoAlmoco = async () => (await page.locator('[aria-label="Próxima etapa"]').innerText()).replace(/\s+/g, ' ')
+    const previsaoDoAlmoco = async () => (await page.locator('[aria-label="Próxima parada"]').innerText()).replace(/\s+/g, ' ')
     const eventosDaParada = async () => (await lerBanco(page, 'eventos')).filter((e) => e.tipo === 'parada_nao_planejada')
 
     await passo('a folha do PARAMOS tem "Café / lanche", "Onde" com a dica de privacidade e o tempo previsto', async () => {
@@ -88,11 +88,11 @@ export const fluxo = {
     })
 
     await passo('a timeline mostra "PARAMOS · Café / lanche · Padaria Exemplo" e a mensagem de atualização não leva o lugar nem o motivo', async () => {
-      await botao(page, 'Timeline').click()
+      await h.abrirTimeline(page)
       await page.getByText('Café / lanche · Padaria Exemplo · previsto 20 min').waitFor()
       await page.getByText('Parada ajustada').first().waitFor()
-      await h.voltar(page)
-      await botao(page, 'GERAR ATUALIZAÇÃO').click()
+      await h.irParaAba(page, 'viagem')
+      await botao(page, 'Mensagem', { exact: true }).click()
       await page.locator('#mensagem-texto').waitFor()
       const texto = await h.textoPrevia(page)
       esperar(!texto.includes('Padaria') && !texto.includes('Café'), `lugar ou motivo vazou na mensagem: ${texto}`)

@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 export const fluxo = {
   nome: 'Backup: gerar, restaurar em um navegador limpo e continuar a viagem',
   async executar(h) {
-    const { esperar, igual, passo, botao, voltar, dialogoAberto, abrirDemo, escolherCenario, copiarDemoParaReal, lerBanco } = h
+    const { esperar, igual, passo, botao, abrirItemDeMais, dialogoAberto, abrirDemo, escolherCenario, copiarDemoParaReal, lerBanco } = h
     const { ctx: ctxA, page: a } = await h.novaPagina({ relogioReal: '2026-11-14T10:05:00-03:00' })
     let arquivo = null
 
@@ -18,13 +18,13 @@ export const fluxo = {
       await copiarDemoParaReal(a)
       await a.goto(a.url())
       await a.getByText('Parada não planejada').first().waitFor()
-      igual((await a.locator('[data-teste="linha-backup"]').innerText()).trim(), 'Último backup: nunca', 'linha do último backup')
+      igual((await a.locator('[data-teste="linha-backup"] .valor').innerText()).trim(), 'nunca', 'o cartão "Último backup"')
+      igual((await a.locator('[data-teste="linha-backup"] h2').innerText()).trim().toLowerCase(), 'último backup', 'título do cartão')
       esperar(!(await a.locator('[data-teste="sugestao-backup"]').isVisible()), 'não deve sugerir backup durante a parada não planejada')
     })
 
     await passo('COMPARTILHAR: o arquivo sai como texto puro (.txt) pelo menu e a tela diz "arquivo gerado"', async () => {
-      await voltar(a)
-      await botao(a, 'BACKUP', { exact: true }).click()
+      await abrirItemDeMais(a, 'Backup')
       await a.getByText('contém os nomes dos passageiros').waitFor()
       esperar((await a.locator('.aviso').first().innerText()).includes('podem conter nomes'), 'aviso sobre observações e lugares')
       await botao(a, 'COMPARTILHAR BACKUP').click()
@@ -96,8 +96,8 @@ export const fluxo = {
       await aviso.waitFor()
       esperar((await aviso.innerText()).includes('Restaurada do backup de 14/11 10:'), `aviso: ${await aviso.innerText()}`)
       await b.getByText('Parada não planejada').first().waitFor()
-      const linha = (await b.locator('[data-teste="linha-backup"]').innerText()).trim()
-      esperar(/^Último backup: hoje 10:\d\d$/.test(linha), `linha: ${linha}`)
+      const linha = (await b.locator('[data-teste="linha-backup"] .valor').innerText()).trim()
+      esperar(/^hoje 10:\d\d$/.test(linha), `cartão: ${linha}`)
       await botao(b, 'Entendi').click()
       await aviso.waitFor({ state: 'detached' })
     })
@@ -109,8 +109,8 @@ export const fluxo = {
       await b.getByText('Parados em').waitFor()
       // A folha opcional "Quem desceu?" pode abrir sozinha; se abrir, dispensa.
       if (await botao(b, 'Agora não').isVisible()) await botao(b, 'Agora não').click()
-      const linha = (await b.locator('[data-teste="linha-backup"]').innerText()).trim()
-      igual(linha, 'Último backup: hoje 10:05 · 2 registros depois', 'linha do último backup depois dos novos registros')
+      const linha = (await b.locator('[data-teste="linha-backup"] .valor').innerText()).trim()
+      igual(linha, 'hoje 10:05 · 2 registros depois', 'cartão do último backup depois dos novos registros')
       const eventos = (await lerBanco(b, 'eventos', 'bordo')).sort((x, y) => x.sequencia - y.sequencia)
       const doArquivo = JSON.parse(arquivo.texto).conteudo.eventos
       const maior = Math.max(...doArquivo.map((e) => e.sequencia ?? 0))

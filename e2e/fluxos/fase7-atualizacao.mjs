@@ -36,12 +36,14 @@ export const fluxo = {
       await defineRelogio(page, '06:50')
 
       await passo('GERAR ATUALIZAÇÃO e OBSERVAÇÃO aparecem com a viagem em andamento', async () => {
-        esperar(await botao(page, 'GERAR ATUALIZAÇÃO').isVisible(), 'GERAR ATUALIZAÇÃO ausente')
-        esperar(await botao(page, 'OBSERVAÇÃO').isVisible(), 'OBSERVAÇÃO ausente')
+        esperar(await botao(page, 'Mensagem', { exact: true }).isVisible(), 'Mensagem ausente')
+        await h.irParaAba(page, 'mais')
+        esperar(await page.locator('.item-menu', { hasText: 'Observação' }).isEnabled(), 'Observação ausente em Mais')
+        await h.irParaAba(page, 'viagem')
       })
 
       await passo('a prévia traz o texto do modelo padrão, com o aviso de sinal, sem gravar nada', async () => {
-        await botao(page, 'GERAR ATUALIZAÇÃO').click()
+        await botao(page, 'Mensagem', { exact: true }).click()
         await page.locator('#mensagem-texto').waitFor()
         igual(await textoPrevia(page), ESPERADO, 'texto da prévia')
         esperar(await page.getByText('Sem sinal, a mensagem só sai quando houver internet.').isVisible(), 'aviso ausente')
@@ -72,7 +74,7 @@ export const fluxo = {
 
       await passo('uma nova prévia e COMPARTILHAR gravam a segunda atualização', async () => {
         await dialogoAberto(page).getByRole('button', { name: 'Fechar', exact: true }).click()
-        await botao(page, 'GERAR ATUALIZAÇÃO').click()
+        await botao(page, 'Mensagem', { exact: true }).click()
         await page.locator('#mensagem-texto').waitFor()
         await botao(page, 'COMPARTILHAR').click()
         await page.getByText('Compartilhado.').waitFor()
@@ -82,13 +84,13 @@ export const fluxo = {
       })
 
       await passo('a timeline mostra "Atualização gerada · previsão 23:47 (+17 min)" duas vezes, sem o texto', async () => {
-        await botao(page, 'Timeline').click()
+        await h.abrirTimeline(page)
         await page.getByText('Atualização gerada · previsão 23:47 (+17 min)').first().waitFor()
         igual(String(await page.getByText('Atualização gerada · previsão 23:47 (+17 min)').count()), '2', 'linhas na timeline')
         esperar(!(await page.content()).includes('Texto editado na prévia'), 'o texto aparece na timeline')
-        await voltar(page)
-        await page.locator('.atraso').waitFor()
-        igual((await page.locator('.atraso').innerText()).trim(), '+17 min', 'a previsão não mudou')
+        await h.irParaAba(page, 'viagem')
+        await page.locator('.selo-atraso').waitFor()
+        igual((await page.locator('.selo-atraso').innerText()).trim(), '+17 min', 'a previsão não mudou')
       })
       await ctx.close()
     }
@@ -98,7 +100,7 @@ export const fluxo = {
       await abrirDemo(page)
       await escolherCenario(page, 'Saída atrasada')
       await defineRelogio(page, '06:50')
-      await botao(page, 'GERAR ATUALIZAÇÃO').click()
+      await botao(page, 'Mensagem', { exact: true }).click()
       await page.locator('#mensagem-texto').waitFor()
 
       await passo('sem Web Share, COMPARTILHAR abre o link do WhatsApp com o texto', async () => {
@@ -132,11 +134,11 @@ export const fluxo = {
       await escolherCenario(page, 'Saída atrasada')
       await defineRelogio(page, '06:50')
       await passo('a atualização gerada no meio não impede o DESFAZER da observação', async () => {
-        await botao(page, 'OBSERVAÇÃO').click()
+        await h.abrirItemDeMais(page, 'Observação')
         await page.locator('#observacao-texto').fill('Teste do desfazer')
         await dialogoAberto(page).getByRole('button', { name: 'Registrar' }).click()
         await page.getByText('Observação registrada.').waitFor()
-        await botao(page, 'GERAR ATUALIZAÇÃO').click()
+        await h.abrirItemDeMais(page, 'Mensagem de atualização')
         await page.locator('#mensagem-texto').waitFor()
         await dialogoAberto(page).getByRole('button', { name: 'COPIAR' }).click()
         await page.getByText('Copiado.').waitFor()

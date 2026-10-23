@@ -80,6 +80,33 @@ export function criarAjudas({ browser, base }) {
   const botao = (page, nome, opcoes = {}) => page.getByRole('button', { name: nome, ...opcoes })
   /** O botão "‹" do cabeçalho. */
   const voltar = (page) => page.locator('header.topo button').first().click()
+  /** Muda de aba pela barra de baixo: viagem, roteiro, pessoas, locais ou mais. */
+  const irParaAba = async (page, aba) => {
+    await page.locator(`.barra-abas [data-aba="${aba}"]`).click()
+    await page.waitForTimeout(150)
+  }
+  /** Abre um item da aba Mais (vai para a aba antes). `nome` casa com o começo do nome do botão. */
+  const abrirItemDeMais = async (page, nome) => {
+    await irParaAba(page, 'mais')
+    await page.locator('.item-menu', { hasText: nome }).first().click()
+  }
+  /** Aba Roteiro, visão Timeline. */
+  const abrirTimeline = async (page) => {
+    await irParaAba(page, 'roteiro')
+    await page.getByRole('tab', { name: 'Timeline' }).click()
+  }
+  /** Aba Roteiro, visão Paradas. */
+  const abrirParadas = async (page) => {
+    await irParaAba(page, 'roteiro')
+    await page.getByRole('tab', { name: 'Paradas' }).click()
+  }
+  /** Aba Roteiro, "Comparar e escolher": a tela de alternativas. */
+  const abrirAlternativas = async (page) => {
+    await abrirParadas(page)
+    await page.getByRole('button', { name: /Comparar e escolher/ }).click()
+  }
+  /** Os botões da barra de ação (o rodapé fixo acima das abas). */
+  const rodape = (page) => page.locator('.barra-acao')
   /** A folha ou o diálogo aberto no momento. */
   const dialogoAberto = (page) => page.locator('dialog[open]').last()
 
@@ -100,7 +127,7 @@ export function criarAjudas({ browser, base }) {
   async function escolherCenario(page, nome, passos = 'todos') {
     await abrirControles(page)
     await page.locator('#demo-cenario').selectOption({ label: nome })
-    await page.locator('.estado-viagem').waitFor()
+    await page.locator('.rodape-fixo').waitFor()
     const total = passos === 'todos' ? 50 : passos
     for (let i = 0; i < total; i++) {
       const proximo = botao(page, 'Próximo passo')
@@ -227,7 +254,7 @@ export function criarAjudas({ browser, base }) {
   }
 
   return {
-    base, esperar, igual, passo, novaPagina, botao, voltar, dialogoAberto, abrirDemo, escolherCenario, defineRelogio,
+    base, esperar, igual, passo, novaPagina, botao, voltar, irParaAba, abrirItemDeMais, abrirTimeline, abrirParadas, abrirAlternativas, rodape, dialogoAberto, abrirDemo, escolherCenario, defineRelogio,
     lerBanco, copiarDemoParaReal, escreverBanco, apagarDoBanco, tiposDosEventos, textoPrevia, iniciarFluxo,
     resultados, errosDaPagina,
   }

@@ -6,7 +6,7 @@ export const fluxo = {
     await abrirDemo(page)
     await escolherCenario(page, 'Saída atrasada')
     await defineRelogio(page, '06:50')
-    await botao(page, 'VER ALTERNATIVAS').click()
+    await h.abrirAlternativas(page)
     await page.getByText('Mensagem para o restaurante').first().waitFor()
 
     const alternativa = (nome) => page.locator('.alternativa', { hasText: nome })
@@ -78,7 +78,7 @@ export const fluxo = {
         viagens[0],
       )
       await voltar(page)
-      await botao(page, 'VER ALTERNATIVAS').click()
+      await h.abrirAlternativas(page)
       await page.getByText('Cadastre os passageiros ou informe a equipe para gerar a mensagem.').first().waitFor()
       igual(String(await page.getByRole('button', { name: 'COPIAR' }).count()), '0', 'botões COPIAR')
       esperar(await alternativa('Restaurante B').getByRole('link', { name: 'LIGAR' }).isVisible(), 'LIGAR sumiu')

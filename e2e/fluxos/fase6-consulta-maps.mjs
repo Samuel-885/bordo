@@ -6,7 +6,7 @@ export const fluxo = {
     await abrirDemo(page)
     // Saímos de Monlevade às 09:14 e são 11:40, a caminho do almoço (Restaurante A, chegada 12:34).
     await escolherCenario(page, 'Recalibração pelo Google Maps', 7)
-    await botao(page, 'VER ALTERNATIVAS').click()
+    await h.abrirAlternativas(page)
     await page.locator('.alternativa').first().waitFor()
 
     const alternativa = (nome) => page.locator('.alternativa', { hasText: nome })
@@ -52,13 +52,14 @@ export const fluxo = {
       await page.getByText('Previsão atualizada pela consulta ao Google Maps.').waitFor()
       igual((await tiposDosEventos(page)).slice(base.eventos).join(','), 'recalibracao', 'eventos novos')
       await voltar(page)
-      await page.locator('.estado-viagem').waitFor()
-      const prox = await page.locator('section[aria-label="Próxima etapa"]').innerText()
+      await h.irParaAba(page, 'viagem')
+      await page.locator('.rodape-fixo').waitFor()
+      const prox = await page.locator('section[aria-label="Próxima parada"]').innerText()
       esperar(prox.includes('12:50') && prox.includes('Google Maps, informado às 11:40'), `próxima etapa inesperada: ${prox}`)
     })
 
     await passo('DESCARTAR CONSULTA apaga a consulta sem tocar nos eventos', async () => {
-      await botao(page, 'VER ALTERNATIVAS').click()
+      await h.abrirAlternativas(page)
       await page.locator('.alternativa').first().waitFor()
       await consultar('Restaurante B', '13:20')
       igual(String((await lerBanco(page, 'consultas')).length), '1', 'consultas antes de descartar')

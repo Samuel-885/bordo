@@ -8,7 +8,7 @@ export const fluxo = {
     await defineRelogio(page, '06:50')
 
     await passo('OBSERVAÇÃO abre a folha com horário em agora, contador, limite e a dica de privacidade', async () => {
-      await botao(page, 'OBSERVAÇÃO').click()
+      await h.abrirItemDeMais(page, 'Observação')
       igual(await page.locator('#observacao-hora').inputValue(), '06:50', 'horário inicial')
       esperar(await page.getByText('Fica só no celular. Não entra nas mensagens automáticas.').isVisible(), 'dica ausente')
       esperar(await page.getByText('0/500').isVisible(), 'contador ausente')
@@ -35,12 +35,13 @@ export const fluxo = {
     })
 
     await passo('registra de novo: a timeline mostra horário e texto e a previsão não muda', async () => {
-      await botao(page, 'OBSERVAÇÃO').click()
+      await h.abrirItemDeMais(page, 'Observação')
       await page.locator('#observacao-texto').fill('Parada rápida para o motorista')
       await dialogoAberto(page).getByRole('button', { name: 'Registrar' }).click()
       await page.getByText('Observação registrada.').waitFor()
-      igual((await page.locator('.atraso').innerText()).trim(), '+17 min', 'o atraso mudou')
-      await botao(page, 'Timeline').click()
+      await h.irParaAba(page, 'viagem')
+      igual((await page.locator('.selo-atraso').innerText()).trim(), '+17 min', 'o atraso mudou')
+      await h.abrirTimeline(page)
       await page.getByText('Parada rápida para o motorista').waitFor()
     })
 
@@ -66,8 +67,8 @@ export const fluxo = {
     })
 
     await passo('a observação nunca vaza para a mensagem de atualização', async () => {
-      await voltar(page)
-      await botao(page, 'GERAR ATUALIZAÇÃO').click()
+      await h.irParaAba(page, 'viagem')
+      await botao(page, 'Mensagem', { exact: true }).click()
       await page.locator('#mensagem-texto').waitFor()
       const texto = await textoPrevia(page)
       esperar(!texto.includes('motorista') && !texto.includes('Chuva'), 'a observação vazou na mensagem')

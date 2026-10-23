@@ -6,7 +6,7 @@ export const fluxo = {
     await abrirDemo(page)
     // Todos os passos menos a troca final: saímos de Monlevade às 10:55 e são 10:57 (caso 9).
     await escolherCenario(page, 'Restaurante inviável e troca', 9)
-    await botao(page, 'VER ALTERNATIVAS').click()
+    await h.abrirAlternativas(page)
     await page.getByRole('region', { name: 'Restaurante A' }).or(page.locator('section.cartao').first()).first().waitFor()
 
     const alternativa = (nome) => page.locator('.alternativa', { hasText: nome })
@@ -25,7 +25,7 @@ export const fluxo = {
     await passo('ESCOLHER troca o local (evento troca_local) e mostra DESFAZER', async () => {
       await alternativa('Restaurante C').getByRole('button', { name: 'ESCOLHER' }).click()
       await aviso('Local trocado para Restaurante C.')
-      esperar((await alternativa('Restaurante C').innerText()).includes('ESCOLHIDA'), 'C deveria ficar escolhida')
+      await page.locator('.alternativa.escolhida', { hasText: 'Restaurante C' }).waitFor() // C deveria ficar escolhida
       const troca = (await lerBanco(page, 'eventos')).find((e) => e.tipo === 'troca_local')
       igual(troca.dados.localId, 'demo-l-rest-c', 'local da troca')
     })
@@ -67,8 +67,9 @@ export const fluxo = {
 
     await passo('a tela principal acompanha o local escolhido', async () => {
       await voltar(page)
-      await page.locator('.estado-viagem').waitFor()
-      esperar((await page.locator('section[aria-label="Próxima etapa"]').innerText()).includes('Restaurante A'), 'próxima etapa deveria ser o Restaurante A')
+      await h.irParaAba(page, 'viagem')
+      await page.locator('.rodape-fixo').waitFor()
+      esperar((await page.locator('section[aria-label="Próxima parada"]').innerText()).includes('Restaurante A'), 'próxima etapa deveria ser o Restaurante A')
     })
     await ctx.close()
   },
