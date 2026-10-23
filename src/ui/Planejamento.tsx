@@ -1,7 +1,7 @@
 // Tela de planejamento da viagem: dados da viagem, etapas em ordem, trechos entre
 // elas e o botão "Iniciar viagem". Nenhuma regra aqui: tudo vem do núcleo.
 
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { avisosDoPlano, horariosForaDeOrdem } from '../core/avisos'
 import { calcularPlanoOriginal, estadosDoPlano } from '../core/previsao'
 import { agora } from '../core/relogio'
@@ -571,14 +571,25 @@ interface TemposDasAlternativasProps {
 
 /** Tempo de cada par de locais candidatos (alternativas) entre duas etapas vizinhas. */
 function TemposDasAlternativas({ pares, plano, editavel, rotas, onSalvar, onRemover }: TemposDasAlternativasProps) {
+  const precisaAbrir = pares.some(
+    (p) => p.duracao.minutos === null || (editavel && descreverTrecho(p.duracao, trechoDoPar(plano, p.par), rotas.fator).comparacao),
+  )
+  const [aberto, setAberto] = useState(precisaAbrir)
+  // Abre sozinho quando surge uma pendência, mas nunca fecha sozinho: o resultado da escolha fica à vista.
+  useEffect(() => {
+    if (precisaAbrir) setAberto(true)
+  }, [precisaAbrir])
   if (pares.length === 0) return null
   const semTempo = pares.filter((p) => p.duracao.minutos === null).length
+  // Manual e rota muito diferentes: a pessoa precisa escolher, então o bloco abre sozinho.
+  const paraEscolher = pares.filter((p) => descreverTrecho(p.duracao, trechoDoPar(plano, p.par), rotas.fator).comparacao).length
   const nome = (id: string) => plano.locais.find((l) => l.id === id)?.nome ?? 'local'
   return (
-    <details className="tempos-alternativas" open={semTempo > 0}>
+    <details className="tempos-alternativas" open={aberto} onToggle={(e) => setAberto(e.currentTarget.open)}>
       <summary>
         Tempos das alternativas
         {semTempo > 0 ? ` (${semTempo} sem tempo)` : ''}
+        {editavel && paraEscolher > 0 ? ` (${paraEscolher} para escolher entre o seu tempo e a rota)` : ''}
       </summary>
       {pares.map(({ par, duracao }) => {
         const guardado = trechoDoPar(plano, par)
