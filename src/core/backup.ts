@@ -254,7 +254,11 @@ const LOCAL: [Campos, Campos] = [
 
 const TRECHO: [Campos, Campos] = [
   { etapaOrigemId: texto, localOrigemId: texto, etapaDestinoId: texto, localDestinoId: texto, duracaoMin: ouNulo(numero), fonte: um('rota', 'manual') },
-  { distanciaKm: numero, calculadoEm: horario },
+  {
+    distanciaKm: numero,
+    calculadoEm: horario,
+    rota: (v) => conferir(v, { duracaoMin: numero, distanciaKm: numero, calculadoEm: horario }),
+  },
 ]
 
 const PASSAGEIRO: [Campos, Campos] = [

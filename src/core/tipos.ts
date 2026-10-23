@@ -89,6 +89,18 @@ export interface Trecho {
   fonte: 'rota' | 'manual'
   distanciaKm?: number
   calculadoEm?: Instante
+  /**
+   * Rota calculada guardada junto de um trecho manual (fase 8), para mostrar os dois tempos.
+   * Nunca entra no cálculo: quem vale é o manual. Tempo de carro, sem o fator ônibus.
+   */
+  rota?: RotaDoTrecho
+}
+
+/** Tempo de carro, distância e data de um cálculo de rota. */
+export interface RotaDoTrecho {
+  duracaoMin: number
+  distanciaKm: number
+  calculadoEm: Instante
 }
 
 export type StatusPassageiro = 'ativo' | 'nao_embarcou' | 'saiu_da_viagem'

@@ -15,4 +15,19 @@ export const CONFIG = {
   backupAvisaDepoisDeRegistros: 15,
   /** Backup (fase 10a): quantas horas "AGORA NÃO" silencia a sugestão de backup. */
   backupSilencioHoras: 2,
+  /** Fator ônibus aceito na viagem (fase 8). */
+  fatorOnibusMin: 1,
+  fatorOnibusMax: 2,
+  /** Trecho manual × rota (× fator ônibus): a diferença é "grande" quando passa dos dois limites ao mesmo tempo. */
+  rotaDiferencaGrandeMin: 15,
+  /** Percentual da rota × fator ônibus. */
+  rotaDiferencaGrandePct: 15,
+  /** Serviços da fase 8 (só no planejamento, com internet). OSRM público do FOSSGIS: perfil de carro, sem chave. */
+  rotasUrl: 'https://routing.openstreetmap.de/routed-car/route/v1/driving',
+  /** Photon (OpenStreetMap), sem chave. */
+  geocodificadorUrl: 'https://photon.komoot.io/api/',
+  /** O OSRM público pede no máximo 1 requisição por segundo: esperamos um pouco mais entre uma e outra. */
+  rotasIntervaloMs: 1100,
+  servicoTempoLimiteMs: 10000,
+  buscaMaxResultados: 5,
 } as const
