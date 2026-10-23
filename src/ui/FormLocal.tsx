@@ -1,10 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Local } from '../core/tipos'
 import { novoId } from '../data/repositorio'
 import { formularioDoLocal, formularioLocalVazio, localDoFormulario, validarLocal, type ErrosLocal, type FormLocal as Form } from './logica/formLocal'
 import { ONIBUS_PARA, TIPOS_DE_LOCAL } from './logica/rotulos'
 import { Topo } from './componentes/Topo'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
+import type { ResultadoDeBusca } from '../core/rotas'
+import { buscarEndereco, TAMANHO_MINIMO_DA_BUSCA } from '../servicos/busca'
+import { formularioComResultado, localizacaoDoResultado, textoDoErroDeBusca } from './logica/servicos'
+import { useOnline } from './useOnline'
 
 interface Props {
   /** O local a editar; vazio = novo local. */
@@ -18,6 +22,14 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
   const [erros, setErros] = useState<ErrosLocal>({})
   const [falha, setFalha] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
+  const online = useOnline()
+  const [consulta, setConsulta] = useState('')
+  const [buscando, setBuscando] = useState(false)
+  const [resultados, setResultados] = useState<ResultadoDeBusca[] | null>(null)
+  const [avisoDaBusca, setAvisoDaBusca] = useState<string | null>(null)
+  const [escolhido, setEscolhido] = useState<string | null>(null)
+  const pedido = useRef<AbortController | null>(null)
+  useEffect(() => () => pedido.current?.abort(), [])
 
   const muda = <K extends keyof Form>(campo: K, valor: Form[K]) => setF((atual) => ({ ...atual, [campo]: valor }))
 
@@ -32,6 +44,37 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
       setFalha(mensagemDeErroDoBanco(x, 'Não foi possível salvar o local.'))
       setSalvando(false)
     }
+  }
+
+  async function buscar() {
+    const texto = consulta.trim()
+    setEscolhido(null)
+    setResultados(null)
+    if (texto.length < TAMANHO_MINIMO_DA_BUSCA) return setAvisoDaBusca(`Digite pelo menos ${TAMANHO_MINIMO_DA_BUSCA} letras para buscar.`)
+    if (!navigator.onLine) return setAvisoDaBusca(textoDoErroDeBusca('sem_internet'))
+    pedido.current?.abort()
+    const controle = new AbortController()
+    pedido.current = controle
+    setAvisoDaBusca(null)
+    setBuscando(true)
+    try {
+      const r = await buscarEndereco(texto, { sinal: controle.signal })
+      if (controle.signal.aborted) return
+      if (!r.ok) setAvisoDaBusca(textoDoErroDeBusca(r.erro))
+      else if (r.resultados.length === 0) setAvisoDaBusca(`Nada encontrado para "${texto}". Tente outro nome ou cole as coordenadas.`)
+      else setResultados(r.resultados)
+    } catch {
+      // Busca cancelada (a tela foi fechada ou uma busca nova começou).
+    } finally {
+      if (pedido.current === controle) setBuscando(false)
+    }
+  }
+
+  function escolher(r: ResultadoDeBusca) {
+    setF((atual) => formularioComResultado(atual, r))
+    setErros((e) => ({ ...e, coordenadas: undefined, cidade: r.cidade ? undefined : e.cidade }))
+    setEscolhido(`${r.nome}${localizacaoDoResultado(r) ? ` (${localizacaoDoResultado(r)})` : ''}`)
+    setResultados(null)
   }
 
   return (
@@ -62,6 +105,53 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
         </section>
 
         <section className="cartao">
+          <div className="campo">
+            <label htmlFor="l-busca">Buscar endereço ou nome do lugar</label>
+            <div className="busca-linha">
+              <input
+                id="l-busca"
+                type="search"
+                value={consulta}
+                onChange={(e) => setConsulta(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void buscar()
+                  }
+                }}
+                autoComplete="off"
+                enterKeyHint="search"
+              />
+              <button type="button" className="botao" onClick={() => void buscar()} disabled={buscando}>
+                {buscando ? 'Buscando…' : 'Buscar'}
+              </button>
+            </div>
+            <p className="dica">Nome ou endereço do estabelecimento. Não digite nomes de pessoas nem endereços residenciais.</p>
+            {!online && <p className="dica atencao-texto">{textoDoErroDeBusca('sem_internet')}</p>}
+            {avisoDaBusca && (
+              <p className="msg-erro" role="status">
+                {avisoDaBusca}
+              </p>
+            )}
+            {escolhido && (
+              <p className="dica" role="status">
+                Coordenadas e cidade preenchidas com: {escolhido}. Confira e edite se precisar.
+              </p>
+            )}
+            {resultados && (
+              <ul className="resultados-busca" aria-label="Resultados da busca">
+                {resultados.map((r, i) => (
+                  <li key={`${r.lat},${r.lng},${i}`}>
+                    <button type="button" onClick={() => escolher(r)}>
+                      <strong>{r.nome}</strong>
+                      <span>{localizacaoDoResultado(r) || 'cidade não informada'}</span>
+                    </button>
+                  </li>
+                ))}
+                <li className="dica">Busca: Photon · dados do OpenStreetMap</li>
+              </ul>
+            )}
+          </div>
           <div className={`campo ${erros.coordenadas ? 'erro' : ''}`}>
             <label htmlFor="l-coord">Coordenadas (opcional)</label>
             <input
