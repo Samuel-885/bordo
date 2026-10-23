@@ -13,6 +13,7 @@ import {
 import { calcularEstado, calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from '../core/previsao'
 import { chegadaDaConsulta, validarConsulta, vigenciaDaConsulta } from '../core/consulta'
 import { validarTrechoManualEmViagem, validarTrocaComChegada } from '../core/viabilidade'
+import { aplicarRota, manterManual, trechoManualComRota, usarRotaNoLugarDoManual, validarFatorOnibus, type RotaCalculada } from '../core/rotas'
 import { paradaAberta, validarCorrecao, validarCorrecaoDaObservacao, validarHorario, validarRegistro } from '../core/registro'
 import { agora, simuladoAtivo } from '../core/relogio'
 import { diferencaMin, naHoraDoDia, somarMinutos, truncarMinuto } from '../core/tempo'
@@ -275,7 +276,74 @@ export class Repositorio {
     const { viagens, trechos } = this.#db
     await this.#db.transaction('rw', viagens, trechos, async () => {
       await this.#exigirPlanejando(viagemId)
-      await trechos.put({ ...par, duracaoMin, fonte: 'manual' })
+      // A rota já calculada para o par (se houver) fica ao lado do tempo digitado.
+      await trechos.put(trechoManualComRota(await trechos.get(chaveTrecho(par)), par, duracaoMin))
+    })
+  }
+
+  /**
+   * Guarda a rota calculada pelo serviço (fase 8), com a data de agora. Só no planejamento. Tempo
+   * manual nunca é sobrescrito: a rota fica ao lado dele (`rota`). Recusa par que não existe mais
+   * no roteiro (etapas vizinhas e locais candidatos).
+   */
+  async salvarRotaDoTrecho(
+    viagemId: string,
+    par: Pick<Trecho, 'etapaOrigemId' | 'localOrigemId' | 'etapaDestinoId' | 'localDestinoId'>,
+    rota: RotaCalculada,
+  ): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    if (!Number.isInteger(rota.minutosCarro) || rota.minutosCarro <= 0 || !Number.isFinite(rota.distanciaKm) || rota.distanciaKm < 0) {
+      throw new RangeError('A rota calculada não é válida.')
+    }
+    const { viagens, etapas, trechos } = this.#db
+    await this.#db.transaction('rw', viagens, etapas, trechos, async () => {
+      await this.#exigirPlanejando(viagemId)
+      const lista = await etapas.where('viagemId').equals(viagemId).toArray()
+      const candidato: Trecho = { ...par, duracaoMin: rota.minutosCarro, fonte: 'rota' }
+      if (trechosQueDeixamDeValer(lista, [candidato]).length > 0) throw new RangeError('Esse trecho não existe mais no roteiro.')
+      await trechos.put(aplicarRota(await trechos.get(chaveTrecho(par)), par, rota, agora()))
+    })
+  }
+
+  /** "Usar a rota": a rota guardada ao lado do manual vira o trecho e o tempo digitado deixa de existir. */
+  async usarRotaNoLugarDoManual(
+    viagemId: string,
+    par: Pick<Trecho, 'etapaOrigemId' | 'localOrigemId' | 'etapaDestinoId' | 'localDestinoId'>,
+  ): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, trechos } = this.#db
+    await this.#db.transaction('rw', viagens, trechos, async () => {
+      await this.#exigirPlanejando(viagemId)
+      const atual = await trechos.get(chaveTrecho(par))
+      const novo = atual ? usarRotaNoLugarDoManual(atual) : null
+      if (!novo) throw new RangeError('Esse trecho não tem uma rota calculada ao lado do tempo manual.')
+      await trechos.put(novo)
+    })
+  }
+
+  /** "Manter o meu": o tempo manual fica e a rota guardada ao lado dele é descartada. */
+  async manterTempoManual(
+    viagemId: string,
+    par: Pick<Trecho, 'etapaOrigemId' | 'localOrigemId' | 'etapaDestinoId' | 'localDestinoId'>,
+  ): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    const { viagens, trechos } = this.#db
+    await this.#db.transaction('rw', viagens, trechos, async () => {
+      await this.#exigirPlanejando(viagemId)
+      const atual = await trechos.get(chaveTrecho(par))
+      if (atual?.fonte === 'manual' && atual.rota) await trechos.put(manterManual(atual))
+    })
+  }
+
+  /** Fator ônibus da viagem (1,00 a 2,00). Só no planejamento: a previsão não muda em silêncio na viagem. */
+  async salvarFatorOnibus(viagemId: string, fator: number): Promise<void> {
+    this.#exigirRelogioDoEspaco()
+    const erro = validarFatorOnibus(fator)
+    if (erro) throw new RangeError(erro)
+    const { viagens } = this.#db
+    await this.#db.transaction('rw', viagens, async () => {
+      await this.#exigirPlanejando(viagemId)
+      await viagens.update(viagemId, { fatorOnibus: Math.round(fator * 100) / 100 })
     })
   }
 
