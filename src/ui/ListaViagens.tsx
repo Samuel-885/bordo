@@ -4,7 +4,7 @@ import { agora } from '../core/relogio'
 import { naHoraDoDia, ordenarPor } from '../core/tempo'
 import type { Viagem } from '../core/tipos'
 import { novoId, type Repositorio } from '../data/repositorio'
-import { Topo } from './componentes/Topo'
+import { Cabecalho } from './componentes/Cabecalho'
 import { formatarData } from './logica/horarios'
 import { useDados } from './useDados'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
@@ -50,7 +50,7 @@ export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao, onMo
 
   return (
     <>
-      <Topo titulo={demo ? 'Viagens da demonstração' : 'Bordo'} />
+      <Cabecalho subtitulo={demo ? 'Viagens da demonstração' : 'Suas viagens'} />
       <main className="conteudo">
         {erro && <p className="msg-erro">{erro}</p>}
         {viagens?.length === 0 && <p className="dica">Nenhuma viagem ainda. Toque em “Nova viagem” para começar.</p>}

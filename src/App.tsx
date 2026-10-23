@@ -20,7 +20,6 @@ import { Alternativas } from './ui/Alternativas'
 import { Backup } from './ui/Backup'
 import { EditorDeLocal, Locais } from './ui/Locais'
 import { Modelos } from './ui/Modelos'
-import { Passageiros } from './ui/Passageiros'
 import { Planejamento } from './ui/Planejamento'
 import { ViagemShell } from './ui/viagem/ViagemShell'
 import { viagemParaAbrirDireto } from './ui/logica/viagemInicial'
@@ -30,10 +29,9 @@ import { mensagemDeErroDoBanco } from './data/avisoBanco'
 
 type Tela =
   | { nome: 'lista' }
-  | { nome: 'planejamento'; viagemId: string }
+  | { nome: 'planejamento'; viagemId: string; aba?: Aba }
   | { nome: 'etapa'; viagemId: string; etapaId: string | null }
   | { nome: 'viagem'; viagemId: string; aba?: Aba; visao?: 'paradas' | 'timeline' }
-  | { nome: 'passageiros'; viagemId: string }
   | { nome: 'alternativas'; viagemId: string }
   | { nome: 'backup' }
   | { nome: 'locais' }
@@ -177,9 +175,15 @@ function App() {
           viagemId={tela.viagemId}
           onVoltar={() => voltar(LISTA)}
           onEditarEtapa={(etapaId) => irPara({ nome: 'etapa', viagemId: tela.viagemId, etapaId })}
-          onPassageiros={() => irPara({ nome: 'passageiros', viagemId: tela.viagemId })}
           onViagemExcluida={() => irPara(LISTA, true)}
           onAbrirViagem={() => irPara({ nome: 'viagem', viagemId: tela.viagemId }, true)}
+          aba={tela.aba ?? 'viagem'}
+          onAba={(aba) => irPara({ nome: 'planejamento', viagemId: tela.viagemId, aba })}
+          onModelos={() => irPara({ nome: 'modelos', viagemId: tela.viagemId })}
+          onBackup={() => irPara({ nome: 'backup' })}
+          onEditarLocal={(localId) => irPara({ nome: 'local', localId })}
+          onAbrirDemo={abrirDemonstracao}
+          onSairDaDemo={sairDaDemo}
         />
       )}
       {tela.nome === 'etapa' && (
@@ -188,7 +192,7 @@ function App() {
           repo={repo}
           viagemId={tela.viagemId}
           etapaId={tela.etapaId}
-          onFechar={() => voltar({ nome: 'planejamento', viagemId: tela.viagemId })}
+          onFechar={() => voltar({ nome: 'planejamento', viagemId: tela.viagemId, aba: 'roteiro' })}
         />
       )}
       {tela.nome === 'viagem' && (
@@ -214,14 +218,6 @@ function App() {
                 }
               : undefined
           }
-        />
-      )}
-      {tela.nome === 'passageiros' && (
-        <Passageiros
-          key={`passageiros-${tela.viagemId}-${versao}`}
-          repo={repo}
-          viagemId={tela.viagemId}
-          onVoltar={() => voltar({ nome: 'viagem', viagemId: tela.viagemId })}
         />
       )}
       {tela.nome === 'alternativas' && (

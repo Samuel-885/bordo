@@ -10,8 +10,16 @@ import type { ParDeAlternativas, ParDeTrecho } from '../core/trechos'
 import type { DadosPlano, DuracaoTrecho, Etapa, EstadoEtapa, Passageiro, TipoViagem } from '../core/tipos'
 import type { Repositorio } from '../data/repositorio'
 import { AcoesDeBackup } from './componentes/AcoesDeBackup'
+import { BarraDeAbas, type Aba } from './componentes/BarraDeAbas'
+import { BarraDeAcao } from './componentes/BarraDeAcao'
+import { Cabecalho } from './componentes/Cabecalho'
 import { Confirmar } from './componentes/Confirmar'
+import { Hora } from './componentes/Hora'
+import { GrupoDadosEAparelho, GrupoDeMenu, ItemDeMenu } from './componentes/MenuMais'
 import { Topo } from './componentes/Topo'
+import { Locais } from './Locais'
+import { Passageiros } from './Passageiros'
+import { useAlturaDoRodape } from './viagem/useAlturaDoRodape'
 import { formatarDuracao, horasEMinutosDe, minutosDeHorasEMinutos } from './logica/duracao'
 import { dataParaInstante, diasDepois, formatarData, formatarHora } from './logica/horarios'
 import { etiquetaDaEtapa } from './logica/rotulos'
@@ -19,6 +27,7 @@ import { resumoDaEtapa, textoDoAviso, textoManuaisApagados, textoDoBloqueio, tex
 import { podeMover } from '../core/ordem'
 import { paresDeTrechoDasAlternativas } from '../core/trechos'
 import { textoTotalDePassageiros } from './logica/passageiros'
+import { useAgora } from './useAgora'
 import { useDados } from './useDados'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
@@ -27,13 +36,19 @@ interface Props {
   viagemId: string
   onVoltar: () => void
   onEditarEtapa: (etapaId: string | null) => void
-  onPassageiros: () => void
   onViagemExcluida: () => void
   /** Abre a tela principal da viagem (depois de iniciada). */
   onAbrirViagem: () => void
+  aba: Aba
+  onAba: (aba: Aba) => void
+  onModelos: () => void
+  onBackup: () => void
+  onEditarLocal: (localId: string | null) => void
+  onAbrirDemo: () => void
+  onSairDaDemo: () => void
 }
 
-export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onPassageiros, onViagemExcluida, onAbrirViagem }: Props) {
+export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onViagemExcluida, onAbrirViagem, aba, onAba, onModelos, onBackup, onEditarLocal, onAbrirDemo, onSairDaDemo }: Props) {
   const { dados, erro, recarregar } = useDados(
     async () => {
       const [plano, passageiros] = await Promise.all([repo.carregarPlano(viagemId), repo.listarPassageiros(viagemId)])
@@ -75,9 +90,15 @@ export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onPassag
       agir={agir}
       onVoltar={onVoltar}
       onEditarEtapa={onEditarEtapa}
-      onPassageiros={onPassageiros}
       onViagemExcluida={onViagemExcluida}
       onAbrirViagem={onAbrirViagem}
+      aba={aba}
+      onAba={onAba}
+      onModelos={onModelos}
+      onBackup={onBackup}
+      onEditarLocal={onEditarLocal}
+      onAbrirDemo={onAbrirDemo}
+      onSairDaDemo={onSairDaDemo}
     />
   )
 }
@@ -90,12 +111,18 @@ interface ConteudoProps {
   agir: (acao: () => Promise<unknown>) => Promise<void>
   onVoltar: () => void
   onEditarEtapa: (etapaId: string | null) => void
-  onPassageiros: () => void
   onViagemExcluida: () => void
   onAbrirViagem: () => void
+  aba: Aba
+  onAba: (aba: Aba) => void
+  onModelos: () => void
+  onBackup: () => void
+  onEditarLocal: (localId: string | null) => void
+  onAbrirDemo: () => void
+  onSairDaDemo: () => void
 }
 
-function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEtapa, onPassageiros, onViagemExcluida, onAbrirViagem }: ConteudoProps) {
+function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEtapa, onViagemExcluida, onAbrirViagem, aba, onAba, onModelos, onBackup, onEditarLocal, onAbrirDemo, onSairDaDemo }: ConteudoProps) {
   const { viagem, etapas, locais } = plano
   const planejando = viagem.status === 'planejando'
   const estados = estadosDoPlano(plano)
@@ -104,6 +131,8 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
   const foraDeOrdem = horariosForaDeOrdem(plano)
   const calculo = calcularPlanoOriginal(plano, agora())
   const bloqueios: BloqueioInicio[] = calculo.ok ? [] : calculo.bloqueios
+  const agoraDoRelogio = useAgora()
+  const rodape = useAlturaDoRodape()
   const bloqueado = !calculo.ok || foraDeOrdem.length > 0 || !viagem.nome.trim()
 
   const [confirmarInicio, setConfirmarInicio] = useState(false)
@@ -136,15 +165,62 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
     })
   }
 
+  const destinoPrevisto = estados.at(-1)?.chegada ?? null
+  const principal = planejando
+    ? { rotulo: 'INICIAR VIAGEM', desabilitada: bloqueado, dica: bloqueado ? 'Resolva os itens da aba Viagem' : undefined, onClick: () => setConfirmarInicio(true) }
+    : null
+
   return (
     <>
-      <Topo titulo={viagem.nome || 'Planejamento'} onVoltar={onVoltar} rotuloVoltar="Voltar às viagens" />
-      <main className="conteudo">
-        {!planejando && <Iniciada plano={plano} onAbrir={onAbrirViagem} />}
+      <Cabecalho subtitulo={`${viagem.nome || 'Viagem'} · ${planejando ? 'Planejando' : 'Iniciada'}`} />
 
-        <DadosDaViagem key={viagem.id} plano={plano} editavel={planejando} salvar={(v) => agir(() => repo.salvarViagem(v))} />
+      {aba === 'viagem' && (
+        <main className="conteudo viagem">
+          {!planejando && <Iniciada plano={plano} onAbrir={onAbrirViagem} />}
 
-        <section aria-label="Etapas" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <DadosDaViagem key={viagem.id} plano={plano} editavel={planejando} salvar={(v) => agir(() => repo.salvarViagem(v))} />
+
+          <button type="button" className="cartao pequeno" onClick={() => onAba('pessoas')}>
+            <h2>Passageiros</h2>
+            <span className="valor">{passageiros.length === 0 ? 'Nenhum cadastrado' : textoTotalDePassageiros(passageiros.length)}</span>
+          </button>
+
+          {planejando && (
+            <>
+              {avisos.length > 0 && (
+                <div className="aviso" role="note">
+                  <h3>Avisos (não impedem de iniciar)</h3>
+                  <ul>
+                    {avisos.map((a, i) => (
+                      <li key={i}>{textoDoAviso(a, etapas, locais)}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(bloqueios.length > 0 || foraDeOrdem.length > 0 || !viagem.nome.trim() || bloqueiosDoInicio.length > 0) && (
+                <div className="aviso bloqueio" role="alert">
+                  <h3>Para iniciar, falta resolver:</h3>
+                  <ul>
+                    {!viagem.nome.trim() && <li>Dê um nome à viagem.</li>}
+                    {bloqueios.map((b, i) => (
+                      <li key={i}>{textoDoBloqueio(b, etapas, locais)}</li>
+                    ))}
+                    {foraDeOrdem.map((f) => (
+                      <li key={f.etapaId}>{textoForaDeOrdem(f, etapas, locais)}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p className="congelar">Ao iniciar, este planejamento vira a expectativa original e fica congelado.</p>
+            </>
+          )}
+        </main>
+      )}
+
+      {aba === 'roteiro' && (
+        <main className="conteudo viagem">
+          <section aria-label="Etapas" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {etapas.map((etapa, i) => {
             const estado = estados.find((e) => e.etapaId === etapa.id)
             const proxima = etapas[i + 1]
@@ -203,66 +279,66 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
               </Fragment>
             )
           })}
-        </section>
+          </section>
 
-        {planejando && (
-          <button type="button" className="botao largo" onClick={() => onEditarEtapa(null)}>
-            Adicionar etapa
-          </button>
-        )}
-
-        <section className="cartao" aria-label="Passageiros">
-          <h2>Passageiros</h2>
-          <p className="linha-grande">{passageiros.length === 0 ? 'Nenhum cadastrado' : textoTotalDePassageiros(passageiros.length)}</p>
-          <p className="dica">Os nomes ficam só neste celular.</p>
-          <button type="button" className="botao largo" onClick={onPassageiros}>
-            {planejando ? 'Cadastrar passageiros' : 'Ver passageiros'}
-          </button>
-        </section>
-
-        {falha && <p className="msg-erro">{falha}</p>}
-
-        {planejando && (
-          <>
-            {avisos.length > 0 && (
-              <div className="aviso" role="note">
-                <h3>Avisos (não impedem de iniciar)</h3>
-                <ul>
-                  {avisos.map((a, i) => (
-                    <li key={i}>{textoDoAviso(a, etapas, locais)}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {(bloqueios.length > 0 || foraDeOrdem.length > 0 || !viagem.nome.trim() || bloqueiosDoInicio.length > 0) && (
-              <div className="aviso bloqueio" role="alert">
-                <h3>Para iniciar, falta resolver:</h3>
-                <ul>
-                  {!viagem.nome.trim() && <li>Dê um nome à viagem.</li>}
-                  {bloqueios.map((b, i) => (
-                    <li key={i}>{textoDoBloqueio(b, etapas, locais)}</li>
-                  ))}
-                  {foraDeOrdem.map((f) => (
-                    <li key={f.etapaId}>{textoForaDeOrdem(f, etapas, locais)}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <button type="button" className="botao principal largo" disabled={bloqueado} onClick={() => setConfirmarInicio(true)}>
-              Iniciar viagem
+          {planejando && (
+            <button type="button" className="botao largo" onClick={() => onEditarEtapa(null)}>
+              Adicionar etapa
             </button>
-            <p className="congelar">Ao iniciar, este planejamento vira a expectativa original e fica congelado.</p>
-          </>
-        )}
+          )}
+        </main>
+      )}
 
-        {planejando && (
-          <button type="button" className="botao perigo largo" onClick={() => setConfirmarExclusao(true)}>
-            Excluir viagem
-          </button>
+      {aba === 'pessoas' && (
+        <main className="conteudo viagem">
+          <Passageiros repo={repo} viagemId={viagem.id} incorporada />
+        </main>
+      )}
+
+      {aba === 'locais' && (
+        <main className="conteudo viagem">
+          <Locais repo={repo} onEditar={onEditarLocal} incorporada />
+        </main>
+      )}
+
+      {aba === 'mais' && (
+        <main className="conteudo viagem">
+          <GrupoDeMenu titulo="Comunicação">
+            <ItemDeMenu titulo="Modelos de mensagem" detalhe="texto da atualização e do restaurante" onClick={onModelos} />
+          </GrupoDeMenu>
+          <GrupoDadosEAparelho
+            demo={repo.espaco === 'demo'}
+            onBackup={onBackup}
+            onTrocarViagem={onVoltar}
+            onAbrirDemo={onAbrirDemo}
+            onSairDaDemo={onSairDaDemo}
+            extra={planejando && <ItemDeMenu titulo="Excluir viagem" detalhe="apaga a viagem, as etapas e os tempos" perigo onClick={() => setConfirmarExclusao(true)} />}
+          />
+        </main>
+      )}
+
+      <div className="rodape-fixo" ref={rodape}>
+        {principal && aba === 'viagem' && <BarraDeAcao principal={principal} rapidas={[]} ocupado={false} erro={falha} />}
+        {principal && aba !== 'viagem' && (
+          <BarraDeAcao
+            principal={principal}
+            rapidas={[]}
+            ocupado={false}
+            erro={falha}
+            compacta={{
+              previsao: (
+                <>
+                  <span className="compacta-rotulo">Destino previsto</span>
+                  <span className="compacta-valor">
+                    {destinoPrevisto ? <Hora instante={destinoPrevisto.instante} agora={agoraDoRelogio} /> : <span className="sem-tempo-compacto">sem tempo</span>}
+                  </span>
+                </>
+              ),
+            }}
+          />
         )}
-      </main>
+        <BarraDeAbas atual={aba} onMudar={onAba} />
+      </div>
 
       <Confirmar
         aberto={moverPendente !== null}

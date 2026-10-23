@@ -1900,3 +1900,7 @@ button.cartao.pequeno.atencao {
   border-color: var(--atencao-borda);
   color: var(--atencao-texto);
 }
+.item-menu.perigo,
+.item-menu.perigo strong {
+  color: var(--perigo);
+}
