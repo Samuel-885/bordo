@@ -1,0 +1,98 @@
+// Casca da viagem em andamento: carrega os dados uma vez, calcula os derivados, guarda o
+// estado dos registros e desenha a aba atual com as folhas por cima. A conferência ocupa a
+// tela inteira enquanto está aberta.
+
+import { descidaParaConferencia, contextoDeSaida, contextoDeVolta } from '../../core/conferencia'
+import type { Repositorio } from '../../data/repositorio'
+import { Conferencia } from '../Conferencia'
+import { Topo } from '../componentes/Topo'
+import { useAgora, useAoMudar } from '../useAgora'
+import { useDados } from '../useDados'
+import { AbaViagem } from './AbaViagem'
+import { carregarDadosDaViagem, type ContextoDaViagem } from './dados'
+import { derivarViagem } from './derivados'
+import { FolhasDaViagem } from './FolhasDaViagem'
+import { useRegistros } from './useRegistros'
+
+interface Props {
+  repo: Repositorio
+  viagemId: string
+  onVoltar: () => void
+  onTimeline: () => void
+  onPassageiros: () => void
+  onAlternativas: () => void
+  onModelos: () => void
+  onBackup: () => void
+  /** A demonstração usa para sair do cenário e entrar no modo livre. */
+  aoRegistrar?: () => void
+}
+
+export function ViagemShell({ repo, viagemId, onVoltar, ...resto }: Props) {
+  const { dados, erro, recarregar } = useDados(() => carregarDadosDaViagem(repo, viagemId), `${repo.espaco}:${viagemId}`)
+  useAoMudar(recarregar)
+  const agora = useAgora()
+
+  if (erro) {
+    return (
+      <>
+        <Topo titulo="Viagem" onVoltar={onVoltar} rotuloVoltar="Voltar às viagens" />
+        <main className="conteudo"><p className="msg-erro">{erro}</p></main>
+      </>
+    )
+  }
+  if (!dados) return <Topo titulo="Viagem" onVoltar={onVoltar} rotuloVoltar="Voltar às viagens" />
+  if (!dados.plano || !dados.plano.viagem.planoOriginal) {
+    return (
+      <>
+        <Topo titulo="Viagem" onVoltar={onVoltar} rotuloVoltar="Voltar às viagens" />
+        <main className="conteudo"><p className="msg-erro">Viagem não encontrada ou ainda não iniciada.</p></main>
+      </>
+    )
+  }
+  const c: ContextoDaViagem = { repo, plano: dados.plano, eventos: dados.eventos, passageiros: dados.passageiros, modelos: dados.modelos, backup: dados.backup, agora, recarregar }
+  return <ViagemAberta c={c} onVoltar={onVoltar} {...resto} />
+}
+
+function ViagemAberta({ c, onVoltar, onTimeline, onPassageiros, onAlternativas, onModelos, onBackup, aoRegistrar }: { c: ContextoDaViagem } & Omit<Props, 'repo' | 'viagemId'>) {
+  const d = derivarViagem(c)
+  const r = useRegistros(c, d, aoRegistrar)
+
+  if (r.conferindo) {
+    const { conferindo } = r
+    const contexto =
+      conferindo.momento === 'saida'
+        ? contextoDeSaida(conferindo.etapaId, c.plano, c.passageiros, c.eventos)
+        : contextoDeVolta(conferindo.etapaId, c.plano, c.passageiros, c.eventos)
+    return (
+      <Conferencia
+        key={`${conferindo.momento}-${conferindo.etapaId}`}
+        contexto={contexto}
+        etapa={d.etapaDe(conferindo.etapaId) ?? { tipo: 'obrigatoria' }}
+        etapas={c.plano.etapas}
+        titulo={conferindo.momento === 'saida' ? `Saída de ${d.nome(conferindo.etapaId)}` : 'Volta à estrada'}
+        rotuloSair={conferindo.momento === 'saida' ? 'SAÍMOS' : 'VOLTAMOS'}
+        desceram={descidaParaConferencia(contexto, c.eventos)}
+        ocupado={r.ocupado}
+        erro={r.erro}
+        onConfirmar={(estado, decisoes) => void r.confirmarConferencia(estado, decisoes)}
+        onFechar={() => r.setConferindo(null)}
+      />
+    )
+  }
+
+  return (
+    <>
+      <AbaViagem
+        c={c}
+        d={d}
+        r={r}
+        onVoltar={onVoltar}
+        onTimeline={onTimeline}
+        onPassageiros={onPassageiros}
+        onAlternativas={onAlternativas}
+        onBackup={onBackup}
+      />
+      <FolhasDaViagem c={c} d={d} r={r} onModelos={onModelos} />
+    </>
+  )
+}
