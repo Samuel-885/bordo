@@ -1,7 +1,7 @@
 // Timeline: os eventos registrados em ordem, com o atraso de cada chegada e saída.
 // Chegadas e saídas podem ser corrigidas, com as travas do núcleo.
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { limitesDoHorario } from '../core/registro'
 import type { Repositorio } from '../data/repositorio'
 import { Hora } from './componentes/Hora'
@@ -18,10 +18,12 @@ import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 interface Props {
   repo: Repositorio
   viagemId: string
-  onVoltar: () => void
+  onVoltar?: () => void
+  /** Dentro da aba Roteiro: sem cabeçalho nem margens próprias. */
+  incorporada?: boolean
 }
 
-export function Timeline({ repo, viagemId, onVoltar }: Props) {
+export function Timeline({ repo, viagemId, onVoltar, incorporada }: Props) {
   const { dados, erro, recarregar } = useDados(async () => {
     const [plano, eventos, passageiros] = await Promise.all([
       repo.carregarPlano(viagemId),
@@ -40,12 +42,12 @@ export function Timeline({ repo, viagemId, onVoltar }: Props) {
   if (erro || (dados && (!dados.plano || !original))) {
     return (
       <>
-        <Topo titulo="Timeline" onVoltar={onVoltar} />
-        <main className="conteudo"><p className="msg-erro">{erro ?? 'Viagem não encontrada ou ainda não iniciada.'}</p></main>
+        {!incorporada && <Topo titulo="Timeline" onVoltar={onVoltar} />}
+        <Envoltorio incorporada={incorporada}><p className="msg-erro">{erro ?? 'Viagem não encontrada ou ainda não iniciada.'}</p></Envoltorio>
       </>
     )
   }
-  if (!dados?.plano || !original) return <Topo titulo="Timeline" onVoltar={onVoltar} />
+  if (!dados?.plano || !original) return incorporada ? null : <Topo titulo="Timeline" onVoltar={onVoltar} />
 
   const { plano, eventos, passageiros } = dados
   const itens = montarTimeline(plano, original, eventos, agora, passageiros)
@@ -92,8 +94,8 @@ export function Timeline({ repo, viagemId, onVoltar }: Props) {
 
   return (
     <>
-      <Topo titulo="Timeline" onVoltar={onVoltar} />
-      <main className="conteudo">
+      {!incorporada && <Topo titulo="Timeline" onVoltar={onVoltar} />}
+      <Envoltorio incorporada={incorporada}>
         <ol className="timeline">
           {itens.map((i) => {
             const classe = i.atraso === null ? null : classificarAtraso(i.atraso)
@@ -121,7 +123,7 @@ export function Timeline({ repo, viagemId, onVoltar }: Props) {
           })}
         </ol>
         <p className="dica">Toque em uma chegada, saída ou observação para corrigir.</p>
-      </main>
+      </Envoltorio>
 
       {alvo?.tipo === 'observacao' && (
         <FolhaObservacao
@@ -160,4 +162,9 @@ export function Timeline({ repo, viagemId, onVoltar }: Props) {
       )}
     </>
   )
+}
+
+/** Tela cheia (com <main>) ou, dentro de uma aba, só o conteúdo. */
+function Envoltorio({ incorporada, children }: { incorporada?: boolean; children: ReactNode }) {
+  return incorporada ? <div className="timeline-aba">{children}</div> : <main className="conteudo">{children}</main>
 }

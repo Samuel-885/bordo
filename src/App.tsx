@@ -22,7 +22,6 @@ import { Modelos } from './ui/Modelos'
 import { Passageiros } from './ui/Passageiros'
 import { Planejamento } from './ui/Planejamento'
 import { ViagemShell } from './ui/viagem/ViagemShell'
-import { Timeline } from './ui/Timeline'
 import { viagemParaAbrirDireto } from './ui/logica/viagemInicial'
 import { GerenciadorDeTema } from './ui/tema'
 import { avisarMudanca } from './ui/useAgora'
@@ -33,7 +32,6 @@ type Tela =
   | { nome: 'planejamento'; viagemId: string }
   | { nome: 'etapa'; viagemId: string; etapaId: string | null }
   | { nome: 'viagem'; viagemId: string; aba?: Aba; visao?: 'paradas' | 'timeline' }
-  | { nome: 'timeline'; viagemId: string }
   | { nome: 'passageiros'; viagemId: string }
   | { nome: 'alternativas'; viagemId: string }
   | { nome: 'backup' }
@@ -195,7 +193,8 @@ function App() {
           viagemId={tela.viagemId}
           onVoltar={() => voltar(LISTA)}
           aba={tela.aba ?? 'viagem'}
-          onAba={(aba) => irPara({ nome: 'viagem', viagemId: tela.viagemId, aba })}
+          visao={tela.visao}
+          onAba={(aba, visao) => irPara({ nome: 'viagem', viagemId: tela.viagemId, aba, ...(visao ? { visao } : {}) })}
           onAlternativas={() => irPara({ nome: 'alternativas', viagemId: tela.viagemId })}
           onModelos={() => irPara({ nome: 'modelos', viagemId: tela.viagemId })}
           onBackup={() => irPara({ nome: 'backup' })}
@@ -222,7 +221,7 @@ function App() {
           key={`alternativas-${tela.viagemId}-${versao}`}
           repo={repo}
           viagemId={tela.viagemId}
-          onVoltar={() => voltar({ nome: 'viagem', viagemId: tela.viagemId })}
+          onVoltar={() => voltar({ nome: 'viagem', viagemId: tela.viagemId, aba: 'roteiro' })}
           onModelos={() => irPara({ nome: 'modelos', viagemId: tela.viagemId })}
           aoRegistrar={
             executor
@@ -244,14 +243,6 @@ function App() {
       )}
       {tela.nome === 'backup' && !demo && (
         <Backup key={`backup-${versao}`} repo={repo} onVoltar={() => voltar(LISTA)} onAbrirViagem={abrirViagem} />
-      )}
-      {tela.nome === 'timeline' && (
-        <Timeline
-          key={`timeline-${tela.viagemId}-${versao}`}
-          repo={repo}
-          viagemId={tela.viagemId}
-          onVoltar={() => voltar({ nome: 'viagem', viagemId: tela.viagemId })}
-        />
       )}
     </>
   )

@@ -12,6 +12,7 @@ import { Topo } from '../componentes/Topo'
 import { useAgora, useAoMudar } from '../useAgora'
 import { useDados } from '../useDados'
 import { acoesDoRodape } from './acoes'
+import { AbaRoteiro, type VisaoDoRoteiro } from './AbaRoteiro'
 import { AbaViagem } from './AbaViagem'
 import { carregarDadosDaViagem, type ContextoDaViagem } from './dados'
 import { derivarViagem } from './derivados'
@@ -24,7 +25,8 @@ interface Props {
   viagemId: string
   onVoltar: () => void
   aba: Aba
-  onAba: (aba: Aba) => void
+  visao?: VisaoDoRoteiro
+  onAba: (aba: Aba, visao?: VisaoDoRoteiro) => void
   onAlternativas: () => void
   onModelos: () => void
   onBackup: () => void
@@ -58,7 +60,7 @@ export function ViagemShell({ repo, viagemId, onVoltar, ...resto }: Props) {
   return <ViagemAberta c={c} onVoltar={onVoltar} {...resto} />
 }
 
-function ViagemAberta({ c, aba, onAba, onModelos, onBackup, aoRegistrar }: { c: ContextoDaViagem } & Omit<Props, 'repo' | 'viagemId'>) {
+function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBackup, aoRegistrar }: { c: ContextoDaViagem } & Omit<Props, 'repo' | 'viagemId'>) {
   const d = derivarViagem(c)
   const r = useRegistros(c, d, aoRegistrar)
   const rodape = useAlturaDoRodape()
@@ -94,6 +96,8 @@ function ViagemAberta({ c, aba, onAba, onModelos, onBackup, aoRegistrar }: { c: 
       <Cabecalho subtitulo={`${viagem.nome || 'Viagem'} · ${viagem.tipo === 'ida' ? 'Ida' : 'Volta'}`} />
       {aba === 'viagem' ? (
         <AbaViagem c={c} d={d} r={r} onAba={onAba} onBackup={onBackup} />
+      ) : aba === 'roteiro' ? (
+        <AbaRoteiro c={c} d={d} visaoInicial={visao} onAlternativas={onAlternativas} />
       ) : (
         <main className="conteudo viagem">
           <p className="dica">Em construção.</p>

@@ -1538,3 +1538,170 @@ button.cartao.pequeno.atencao {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
+
+/* ---------- Redesenho: aba Roteiro ---------- */
+
+.roteiro-topo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.segmentos {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--linha);
+}
+.segmento {
+  min-height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-weight: 600;
+  cursor: pointer;
+}
+.segmento[aria-selected='true'] {
+  background: var(--cartao);
+  color: var(--texto);
+  box-shadow: 0 1px 3px var(--sombra);
+}
+.dica-mapa {
+  margin-top: -6px;
+}
+.timeline-aba {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.paradas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.parada {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+.parada::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 22px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--linha);
+}
+.parada:last-child::before {
+  display: none;
+}
+.parada.feita::before {
+  background: var(--link);
+}
+.parada-marca {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 3px solid var(--linha);
+  background: var(--fundo);
+}
+.parada.feita .parada-marca {
+  border-color: var(--link);
+  background: var(--link);
+}
+.parada.aqui .parada-marca {
+  border-color: var(--link);
+  background: var(--primaria-clara);
+}
+.parada.proxima .parada-marca {
+  border-color: var(--destaque);
+  background: var(--destaque);
+  box-shadow: 0 0 0 4px var(--primaria-clara);
+}
+.parada.pulada .parada-marca {
+  border-style: dashed;
+}
+.parada-corpo {
+  flex: 1;
+  min-width: 0;
+}
+.parada-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.parada-nome {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.parada.futura .parada-nome {
+  font-weight: 500;
+}
+.parada-hora .mono {
+  font-size: 18px;
+  font-weight: 600;
+}
+.parada-detalhe {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+.parada-estado {
+  font-weight: 700;
+}
+.parada-estado.proxima,
+.parada-estado.aqui,
+.parada-estado.feita {
+  color: var(--link);
+}
+.parada-atraso.atrasado {
+  color: var(--atraso);
+  font-weight: 700;
+}
+.parada-alternativas {
+  margin-top: 8px;
+  padding: 4px 12px 0;
+  background: var(--cartao);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+}
+.parada-alternativas ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.parada-alternativas li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--linha);
+}
+.parada-alternativas li.escolhida .alt-nome::after {
+  content: ' ●';
+  color: var(--destaque);
+}
+.alt-nome {
+  font-size: 16px;
+  font-weight: 600;
+}
+.parada-alternativas .classe {
+  font-size: 15px;
+}
+.alt-detalhe {
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+.parada-alternativas .atalho {
+  border-top: 0;
+  margin-top: 0;
+}

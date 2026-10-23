@@ -31,7 +31,7 @@ interface Props {
   c: ContextoDaViagem
   d: Derivados
   r: Registros
-  onAba: (aba: Aba) => void
+  onAba: (aba: Aba, visao?: 'paradas' | 'timeline') => void
   onBackup: () => void
 }
 
@@ -106,7 +106,7 @@ export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
           <h2>Restaurada de um backup</h2>
           <p>Restaurada do backup de {dataHoraCurta(restaurada.geradoEm)}. O que aconteceu depois não está aqui: registre pela timeline.</p>
           <div className="duas-colunas">
-            <button type="button" className="botao pequeno" onClick={() => onAba('roteiro')}>
+            <button type="button" className="botao pequeno" onClick={() => onAba('roteiro', 'timeline')}>
               Timeline
             </button>
             <button type="button" className="botao pequeno" onClick={() => void repo.dispensarAvisoDeRestauracao().then(recarregar)}>
