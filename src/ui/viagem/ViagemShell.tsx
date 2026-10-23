@@ -7,6 +7,7 @@ import type { Repositorio } from '../../data/repositorio'
 import { Conferencia } from '../Conferencia'
 import { BarraDeAbas, type Aba } from '../componentes/BarraDeAbas'
 import { BarraDeAcao } from '../componentes/BarraDeAcao'
+import { Hora } from '../componentes/Hora'
 import { Cabecalho } from '../componentes/Cabecalho'
 import { Topo } from '../componentes/Topo'
 import { useAgora, useAoMudar } from '../useAgora'
@@ -20,6 +21,7 @@ import { AbaViagem } from './AbaViagem'
 import { carregarDadosDaViagem, type ContextoDaViagem } from './dados'
 import { derivarViagem } from './derivados'
 import { FolhasDaViagem } from './FolhasDaViagem'
+import { SeloDeAtraso } from './SeloDeAtraso'
 import { useAlturaDoRodape } from './useAlturaDoRodape'
 import { useRegistros } from './useRegistros'
 
@@ -114,8 +116,27 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
         <AbaMais c={c} d={d} r={r} onModelos={onModelos} onBackup={onBackup} onTrocarViagem={onVoltar} onAbrirDemo={onAbrirDemo} onSairDaDemo={onSairDaDemo} />
       )}
       <div className="rodape-fixo" ref={rodape}>
-        {aba === 'viagem' && !d.concluida && (
+        {!d.concluida && aba === 'viagem' && (
           <BarraDeAcao principal={acoes.principal} rapidas={acoes.rapidas} ocupado={r.ocupado} erro={folhaAberta ? null : r.erro} />
+        )}
+        {!d.concluida && aba !== 'viagem' && (
+          <BarraDeAcao
+            principal={acoes.principal ?? (d.pendencia ? { rotulo: 'Falta um horário', onClick: () => onAba('viagem') } : null)}
+            rapidas={[]}
+            ocupado={r.ocupado}
+            erro={folhaAberta ? null : r.erro}
+            compacta={{
+              previsao: (
+                <>
+                  <span className="compacta-rotulo">Destino</span>
+                  <span className="compacta-valor">
+                    {d.destino ? <Hora instante={d.destino.instante} agora={c.agora} /> : <span className="sem-tempo-compacto">sem tempo</span>}
+                    {d.atraso !== null && <SeloDeAtraso minutos={d.atraso} compacto />}
+                  </span>
+                </>
+              ),
+            }}
+          />
         )}
         <BarraDeAbas atual={aba} onMudar={onAba} />
       </div>

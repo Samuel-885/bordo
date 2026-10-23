@@ -1838,3 +1838,65 @@ button.cartao.pequeno.atencao {
   color: var(--texto);
   box-shadow: 0 1px 3px var(--sombra);
 }
+
+/* ---------- Redesenho: barra compacta (outras abas) ---------- */
+
+.barra-acao.compacta {
+  padding: 6px 12px;
+  gap: 4px;
+}
+.compacta-linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.compacta-previsao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  line-height: 1.1;
+}
+.compacta-valor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.compacta-previsao .hora-com-dia {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4px;
+}
+.compacta-rotulo {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+.compacta-previsao .mono {
+  font-size: 20px;
+  font-weight: 600;
+}
+.compacta-previsao .hora-com-dia small {
+  font-size: 13px;
+}
+.sem-tempo-compacto {
+  font-size: 15px;
+  font-weight: 600;
+}
+.barra-acao.compacta .botao-principal {
+  flex: 1;
+  min-height: 52px;
+  font-size: 22px;
+  border-radius: 12px;
+}
+.selo-atraso.compacto {
+  padding: 0 8px;
+  font-size: 13px;
+  background: var(--primaria-clara);
+  border-color: var(--link);
+  color: var(--link);
+}
+.selo-atraso.compacto.atrasado {
+  background: var(--atencao-fundo);
+  border-color: var(--atencao-borda);
+  color: var(--atencao-texto);
+}

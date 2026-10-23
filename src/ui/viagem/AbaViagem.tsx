@@ -22,6 +22,7 @@ import {
   textoDoCronometroDeSaida,
   textoDoTempoRestante,
 } from '../logica/textosViagem'
+import { SeloDeAtraso } from './SeloDeAtraso'
 import type { Aba } from '../componentes/BarraDeAbas'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
@@ -38,7 +39,7 @@ interface Props {
 export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
   const { repo, plano, eventos, passageiros, agora, recarregar } = c
   const { locais } = plano
-  const { s, nome, localDe, proxima, proximaEtapa, mapa, pendencia, concluida, estadoBackup, sugerirBackup, restaurada, ultima, cidadeDe, destino, destinoOriginal, classe, nomeLocalParado, chegadaProxima, saidaOrigem, aBordo } = d
+  const { s, nome, localDe, proxima, proximaEtapa, mapa, pendencia, concluida, estadoBackup, sugerirBackup, restaurada, ultima, cidadeDe, destino, destinoOriginal, nomeLocalParado, chegadaProxima, saidaOrigem, aBordo } = d
   const { abrir, ocupado, setErro, horaPendente, setHoraPendente, registrar } = r
 
   /** "Marcar quem desceu" no cartão da parada: marca ou corrige a qualquer momento. */
@@ -61,12 +62,7 @@ export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
   const origemDoDestino = destino
     ? (textoDaOrigemDaPrevisao(destino) ?? (destino.origem === 'relogio' ? 'Acompanhando o relógio' : destino.origem === 'real' ? 'Horário registrado' : 'Calculada pelo roteiro'))
     : null
-  const seloAtraso = classe && (
-    <span className={`selo-atraso ${classe.situacao}`} aria-live="polite">
-      {classe.situacao === 'no_horario' ? 'No horário' : textoDoAtraso(classe.minutos)}
-      {classe.situacao === 'no_horario' && classe.minutos !== 0 ? ` (${classe.minutos > 0 ? '+' : '−'}${Math.abs(classe.minutos)} min)` : ''}
-    </span>
-  )
+  const seloAtraso = d.atraso !== null && <SeloDeAtraso minutos={d.atraso} />
   const cr = s.cronometro
   const progresso = cr && cr.planejadoMin > 0 ? Math.min(100, Math.round((cr.decorridoMin / cr.planejadoMin) * 100)) : cr ? 100 : 0
 
