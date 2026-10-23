@@ -1,18 +1,61 @@
 :root {
-  --fundo: #eef0f3;
+  /* Claro. Destaque (#5E8F2E) nunca como texto pequeno: só ponto, borda, ícone e marcador. */
+  --fundo: #f3f5f2;
   --cartao: #ffffff;
-  --texto: #171b22;
-  --texto-suave: #5b6472;
-  --linha: #d9dde3;
-  --escuro: #14181f;
-  --azul: #1e4fd8;
-  --azul-claro: #e6edff;
-  --atencao-fundo: #fff4cc;
-  --atencao-borda: #e0a100;
+  --campo: #ffffff;
+  --texto: #15211d;
+  --texto-suave: #4a5752;
+  --linha: #dce3de;
+  --primaria: #1f4d43;
+  --primaria-texto: #ffffff;
+  --primaria-clara: #e3eee8;
+  --link: #1f4d43;
+  --destaque: #5e8f2e;
+  --atencao-fundo: #ffe2a8;
+  --atencao-texto: #5c3700;
+  --atencao-borda: #c98a12;
+  --atraso: #7a4a00;
   --perigo: #b42318;
   --perigo-fundo: #fdecea;
+  --ok-fundo: #e3eee8;
+  --ok-texto: #14683a;
+  --barra: #eef2ee;
+  --inverso-fundo: #15211d;
+  --inverso-texto: #ffffff;
+  --sombra: rgb(0 0 0 / 0.3);
+  --fundo-folha: rgb(0 0 0 / 0.45);
   --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  color-scheme: light;
+}
+
+/* Noite: automático das 18:00 às 06:00 pelo agora() ou escolhido na aba Mais (src/ui/tema.ts). */
+:root[data-tema='escuro'] {
+  --fundo: #0e1513;
+  --cartao: #17211e;
+  --campo: #0e1513;
+  --texto: #ecf2ef;
+  --texto-suave: #a9b7b1;
+  --linha: #2a3833;
+  --primaria: #23704f;
+  --primaria-texto: #ffffff;
+  --primaria-clara: #1d3a30;
+  --link: #8fd1b3;
+  --destaque: #9ccb62;
+  --atencao-fundo: #4a3510;
+  --atencao-texto: #ffd58a;
+  --atencao-borda: #a87a1c;
+  --atraso: #ffd58a;
+  --perigo: #ff9a8f;
+  --perigo-fundo: #3a1a17;
+  --ok-fundo: #1d3a2b;
+  --ok-texto: #8fd1b3;
+  --barra: #121b18;
+  --inverso-fundo: #ecf2ef;
+  --inverso-texto: #0e1513;
+  --sombra: rgb(0 0 0 / 0.7);
+  --fundo-folha: rgb(0 0 0 / 0.65);
+  color-scheme: dark;
 }
 
 * {
@@ -58,6 +101,7 @@ textarea {
   padding: 6px 12px;
   background: var(--atencao-fundo);
   border-bottom: 2px solid var(--atencao-borda);
+  color: var(--atencao-texto);
   font-size: 13px;
 }
 .faixa-demo strong {
@@ -79,8 +123,9 @@ textarea {
   gap: 4px;
   min-height: 56px;
   padding: 4px 8px;
-  background: var(--escuro);
-  color: #fff;
+  background: var(--fundo);
+  color: var(--texto);
+  border-bottom: 1px solid var(--linha);
 }
 .topo h1 {
   margin: 0;
@@ -92,7 +137,7 @@ textarea {
   white-space: nowrap;
 }
 .topo button {
-  color: #fff;
+  color: var(--link);
   background: transparent;
   border: 0;
   min-height: 44px;
@@ -139,7 +184,7 @@ textarea {
 }
 .campo > label,
 .campo > .rotulo {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
 }
 .campo input,
@@ -149,7 +194,7 @@ textarea {
   padding: 8px 10px;
   border: 1px solid var(--linha);
   border-radius: 8px;
-  background: #fff;
+  background: var(--campo);
   width: 100%;
 }
 .campo textarea {
@@ -164,7 +209,7 @@ textarea {
 .campo select:focus,
 .campo textarea:focus,
 button:focus-visible {
-  outline: 2px solid var(--azul);
+  outline: 2px solid var(--link);
   outline-offset: 1px;
 }
 .campo.erro input,
@@ -177,7 +222,7 @@ button:focus-visible {
   margin: 0;
 }
 .msg-erro {
-  font-size: 13px;
+  font-size: 15px;
   color: var(--perigo);
   margin: 0;
 }
@@ -196,8 +241,9 @@ button:focus-visible {
   border-radius: 4px;
   background: var(--atencao-fundo);
   border: 1px solid var(--atencao-borda);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
+  color: var(--atencao-texto);
 }
 .somente-leitura {
   min-height: 44px;
@@ -216,14 +262,14 @@ button:focus-visible {
   padding: 0 16px;
   border-radius: 10px;
   border: 1px solid var(--linha);
-  background: #fff;
+  background: var(--cartao);
   font-weight: 600;
   cursor: pointer;
 }
 .botao.principal {
-  background: var(--azul);
-  border-color: var(--azul);
-  color: #fff;
+  background: var(--primaria);
+  border-color: var(--primaria);
+  color: var(--primaria-texto);
 }
 .botao.perigo {
   color: var(--perigo);
@@ -232,7 +278,7 @@ button:focus-visible {
 .botao.pequeno {
   min-height: 44px;
   padding: 0 12px;
-  font-size: 14px;
+  font-size: 15px;
 }
 .botao:disabled {
   opacity: 0.45;
@@ -279,7 +325,7 @@ button:focus-visible {
 }
 .etapa .hora small {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--texto-suave);
 }
@@ -299,21 +345,21 @@ button:focus-visible {
 }
 .etiqueta {
   align-self: flex-start;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.05em;
   padding: 2px 6px;
   border-radius: 4px;
-  background: var(--azul-claro);
-  color: var(--azul);
+  background: var(--primaria-clara);
+  color: var(--link);
 }
 .etiqueta.flex {
-  background: #e8f5ec;
-  color: #14683a;
+  background: var(--ok-fundo);
+  color: var(--ok-texto);
 }
 .etiqueta.fim {
-  background: var(--escuro);
-  color: #fff;
+  background: var(--inverso-fundo);
+  color: var(--inverso-texto);
 }
 .mover {
   display: flex;
@@ -357,7 +403,7 @@ button:focus-visible {
 .trecho.sem-tempo {
   border-left-color: var(--atencao-borda);
   background: var(--atencao-fundo);
-  color: var(--texto);
+  color: var(--atencao-texto);
   border-radius: 0 8px 8px 0;
   padding-top: 6px;
   padding-bottom: 6px;
@@ -382,7 +428,7 @@ button:focus-visible {
 .link {
   background: transparent;
   border: 0;
-  color: var(--azul);
+  color: var(--link);
   font-weight: 600;
   min-height: 44px;
   padding: 0 4px;
@@ -396,6 +442,7 @@ button:focus-visible {
   background: var(--atencao-fundo);
   border-radius: 12px;
   padding: 10px 12px;
+  color: var(--atencao-texto);
 }
 .aviso.bloqueio {
   border-color: var(--perigo);
@@ -403,22 +450,22 @@ button:focus-visible {
 }
 .aviso h3 {
   margin: 0 0 4px;
-  font-size: 14px;
+  font-size: 15px;
 }
 .aviso ul {
   margin: 0;
   padding-left: 18px;
-  font-size: 14px;
+  font-size: 15px;
 }
 .congelar {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--texto-suave);
   margin: 0;
   text-align: center;
 }
 .iniciada {
-  background: var(--azul-claro);
-  border: 1px solid var(--azul);
+  background: var(--primaria-clara);
+  border: 1px solid var(--primaria);
   border-radius: 12px;
   padding: 12px;
 }
@@ -446,7 +493,7 @@ button:focus-visible {
 .alternativa input[type='radio'] {
   width: 22px;
   height: 22px;
-  accent-color: var(--azul);
+  accent-color: var(--primaria);
 }
 .alternativa small {
   display: block;
@@ -483,11 +530,12 @@ dialog.confirmar {
   border: 0;
   border-radius: 14px;
   padding: 16px;
+  background: var(--cartao);
   color: var(--texto);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+  box-shadow: 0 12px 40px var(--sombra);
 }
 dialog.confirmar::backdrop {
-  background: rgb(0 0 0 / 0.45);
+  background: var(--fundo-folha);
 }
 dialog.confirmar h2 {
   margin: 0 0 8px;
@@ -505,7 +553,7 @@ dialog.confirmar .acoes {
 .botao-topo {
   font-size: 15px !important;
   font-weight: 600;
-  border: 1px solid rgb(255 255 255 / 0.35) !important;
+  border: 1px solid var(--linha) !important;
   border-radius: 8px;
   margin-right: 4px;
 }
@@ -513,7 +561,7 @@ dialog.confirmar .acoes {
   padding-bottom: 104px;
 }
 .faixa-demo strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 .viagem .cartao h2 {
   margin-bottom: 4px;
@@ -524,6 +572,7 @@ dialog.confirmar .acoes {
 .cartao.atencao {
   background: var(--atencao-fundo);
   border-color: var(--atencao-borda);
+  color: var(--atencao-texto);
 }
 .situacao .rota {
   font-size: 15px;
@@ -554,7 +603,7 @@ dialog.confirmar .acoes {
   vertical-align: top;
 }
 .hora-com-dia small {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--texto-suave);
 }
@@ -565,11 +614,11 @@ dialog.confirmar .acoes {
   line-height: 1.1;
 }
 .atraso.atrasado {
-  color: var(--perigo);
+  color: var(--atraso);
 }
 .atraso.no_horario,
 .atraso.adiantado {
-  color: var(--azul);
+  color: var(--link);
 }
 .linha-grande {
   font-size: 20px;
@@ -591,8 +640,8 @@ dialog.confirmar .acoes {
   min-height: 80px;
   border-radius: 14px;
   border: 0;
-  background: var(--azul);
-  color: #fff;
+  background: var(--primaria);
+  color: var(--primaria-texto);
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -608,7 +657,7 @@ dialog.confirmar .acoes {
   gap: 8px;
 }
 .secundarias .botao {
-  font-size: 14px;
+  font-size: 15px;
   padding: 8px;
   text-align: center;
 }
@@ -617,7 +666,7 @@ dialog.confirmar .acoes {
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  color: var(--azul);
+  color: var(--link);
 }
 .riscado {
   text-decoration: line-through;
@@ -639,16 +688,16 @@ dialog.confirmar .acoes {
   gap: 12px;
   padding: 8px 8px 8px 16px;
   border-radius: 12px;
-  background: var(--escuro);
-  color: #fff;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+  background: var(--inverso-fundo);
+  color: var(--inverso-texto);
+  box-shadow: 0 8px 24px var(--sombra);
 }
 .aviso-desfazer span {
   flex: 1;
 }
 .aviso-desfazer .botao {
-  background: #fff;
-  color: var(--azul);
+  background: var(--inverso-texto);
+  color: var(--inverso-fundo);
 }
 
 /* ---------- Folha (painel de baixo) ---------- */
@@ -660,11 +709,12 @@ dialog.folha {
   border: 0;
   border-radius: 16px 16px 0 0;
   padding: 16px;
+  background: var(--cartao);
   color: var(--texto);
-  box-shadow: 0 -8px 32px rgb(0 0 0 / 0.3);
+  box-shadow: 0 -8px 32px var(--sombra);
 }
 dialog.folha::backdrop {
-  background: rgb(0 0 0 / 0.45);
+  background: var(--fundo-folha);
 }
 dialog.folha h2 {
   margin: 0 0 12px;
@@ -740,15 +790,15 @@ button.t-item {
 .t-atraso {
   font-family: var(--mono);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   white-space: nowrap;
 }
 .t-atraso.atrasado {
-  color: var(--perigo);
+  color: var(--atraso);
 }
 .t-atraso.no_horario,
 .t-atraso.adiantado {
-  color: var(--azul);
+  color: var(--link);
 }
 
 /* ---------- Controles da demonstração ---------- */
@@ -757,7 +807,7 @@ button.t-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  font-size: 14px;
+  font-size: 15px;
 }
 .faixa-grupo {
   display: flex;
@@ -776,7 +826,7 @@ button.t-item {
   padding: 0 8px;
   border: 1px solid var(--linha);
   border-radius: 8px;
-  background: #fff;
+  background: var(--campo);
   font-family: var(--mono);
 }
 .faixa-grupo select {
@@ -794,9 +844,9 @@ button.t-item {
   flex-wrap: wrap;
   gap: 8px;
   padding: 8px 12px;
-  background: var(--azul-claro);
-  border-bottom: 1px solid var(--azul);
-  font-size: 14px;
+  background: var(--primaria-clara);
+  border-bottom: 1px solid var(--primaria);
+  font-size: 15px;
 }
 .aviso-atualizacao span {
   flex: 1;
@@ -813,7 +863,8 @@ button.t-item {
   border-radius: 8px;
   background: var(--atencao-fundo);
   border: 1px solid var(--atencao-borda);
-  font-size: 14px;
+  font-size: 15px;
+  color: var(--atencao-texto);
 }
 .aviso-paramos p {
   margin: 0;
@@ -834,8 +885,8 @@ button.a-bordo {
   margin: 0;
 }
 .quadro-conferencia.completo {
-  background: var(--azul-claro);
-  border-color: var(--azul);
+  background: var(--primaria-clara);
+  border-color: var(--primaria);
 }
 .seletor-modo {
   display: grid;
@@ -877,7 +928,7 @@ button.a-bordo {
   border-radius: 12px;
   border: 2px solid var(--atencao-borda);
   background: var(--atencao-fundo);
-  color: var(--texto);
+  color: var(--atencao-texto);
   font: inherit;
   font-size: 18px;
   text-align: left;
@@ -886,6 +937,7 @@ button.a-bordo {
 .passageiro-item.confirmado {
   border-color: var(--linha);
   background: var(--cartao);
+  color: var(--texto);
 }
 .passageiro-item span:first-child {
   width: 24px;
@@ -939,16 +991,17 @@ button.a-bordo {
   border: 0;
   border-bottom: 2px solid var(--atencao-borda);
   background: var(--atencao-fundo);
-  color: var(--texto);
+  color: var(--atencao-texto);
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
 .passageiro-item.desceu {
-  border-color: var(--azul);
-  background: var(--azul-claro);
+  border-color: var(--primaria);
+  background: var(--primaria-clara);
+  color: var(--texto);
 }
 dialog.folha .acoes.colunas {
   flex-direction: column;
@@ -964,7 +1017,7 @@ dialog.folha .acoes.colunas {
   bottom: -16px;
   margin: 0 -16px -16px;
   padding: 12px 16px 16px;
-  background: #fff;
+  background: var(--cartao);
   border-top: 1px solid var(--linha);
 }
 
@@ -1014,8 +1067,8 @@ dialog.folha .acoes.colunas {
   gap: 6px;
 }
 .alternativa.escolhida {
-  border-color: var(--azul);
-  background: var(--azul-claro);
+  border-color: var(--primaria);
+  background: var(--primaria-clara);
 }
 .alternativa-topo {
   display: flex;
@@ -1030,8 +1083,8 @@ dialog.folha .acoes.colunas {
   font-size: 20px;
   font-weight: 700;
 }
-.classe-viavel { color: #14683a; }
-.classe-pouca_margem { color: #8a5a00; }
+.classe-viavel { color: var(--ok-texto); }
+.classe-pouca_margem { color: var(--atraso); }
 .classe-inviavel { color: var(--perigo); }
 .classe-sem_horario,
 .classe-sem_tempo { color: var(--texto-suave); }
@@ -1040,7 +1093,7 @@ dialog.folha .acoes.colunas {
   grid-template-columns: auto 1fr;
   gap: 2px 12px;
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
 }
 .dados-alternativa dt { color: var(--texto-suave); }
 .dados-alternativa dd { margin: 0; text-align: right; }
@@ -1051,16 +1104,17 @@ dialog.folha .acoes.colunas {
   margin: 0;
 }
 .aviso-chip {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--atencao-fundo);
   border: 1px solid var(--atencao-borda);
+  color: var(--atencao-texto);
 }
 .aviso-chip.aviso-favorito {
-  background: #e8f5ec;
-  border-color: #14683a;
+  background: var(--ok-fundo);
+  border-color: var(--ok-texto);
 }
 .falta-trecho {
   display: flex;
@@ -1072,6 +1126,7 @@ dialog.folha .acoes.colunas {
   border-left: 3px solid var(--atencao-borda);
   background: var(--atencao-fundo);
   font-size: 13px;
+  color: var(--atencao-texto);
 }
 .acoes-alternativa {
   display: flex;
@@ -1081,14 +1136,14 @@ dialog.folha .acoes.colunas {
 .acoes-alternativa .botao {
   flex: 1 1 100px;
   padding: 0 8px;
-  font-size: 14px;
+  font-size: 15px;
   text-align: center;
 }
 .consulta-maps {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: var(--azul);
+  color: var(--link);
 }
 .consulta-maps.antiga {
   color: var(--texto-suave);
@@ -1113,7 +1168,7 @@ dialog.folha-mensagem textarea {
 .aviso-rede.offline {
   background: var(--atencao-fundo);
   border: 1px solid var(--atencao-borda);
-  color: var(--texto);
+  color: var(--atencao-texto);
 }
 .acoes-linha {
   display: flex;
@@ -1148,9 +1203,9 @@ dialog.folha-mensagem textarea {
   flex: 1;
 }
 .modelo-abas .botao[aria-selected='true'] {
-  background: var(--azul);
-  color: #fff;
-  border-color: var(--azul);
+  background: var(--primaria);
+  color: var(--primaria-texto);
+  border-color: var(--primaria);
 }
 .variaveis {
   list-style: none;
@@ -1183,7 +1238,7 @@ dialog.folha-mensagem textarea {
   padding: 10px;
 }
 .contador {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--texto-suave);
   text-align: right;
 }

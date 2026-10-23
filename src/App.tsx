@@ -23,6 +23,7 @@ import { Planejamento } from './ui/Planejamento'
 import { TelaViagem } from './ui/TelaViagem'
 import { Timeline } from './ui/Timeline'
 import { viagemParaAbrirDireto } from './ui/logica/viagemInicial'
+import { GerenciadorDeTema } from './ui/tema'
 import { avisarMudanca } from './ui/useAgora'
 import { mensagemDeErroDoBanco } from './data/avisoBanco'
 
@@ -144,6 +145,7 @@ function App() {
 
   return (
     <>
+      <GerenciadorDeTema />
       <FaixaDemo
         executor={executor}
         onReiniciar={abrirDemonstracao}
