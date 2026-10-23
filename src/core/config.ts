@@ -9,4 +9,10 @@ export const CONFIG = {
   fatorOnibusPadrao: 1.15,
   /** Depois de quantos minutos uma consulta ao Google Maps vira "antiga" e deixa de valer. */
   consultaValidaMin: 30,
+  /** Backup (fase 10a): depois de quantas horas o último backup passa a pedir atenção na tela principal. */
+  backupAvisaDepoisDeHoras: 4,
+  /** Backup (fase 10a): quantos registros novos desde o último backup passam a pedir atenção. */
+  backupAvisaDepoisDeRegistros: 15,
+  /** Backup (fase 10a): quantas horas "AGORA NÃO" silencia a sugestão de backup. */
+  backupSilencioHoras: 2,
 } as const

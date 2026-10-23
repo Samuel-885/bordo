@@ -253,6 +253,36 @@ export interface ModeloSalvo {
   atualizadoEm: Instante
 }
 
+/**
+ * Última vez que o backup foi entregue (menu de compartilhar aceito ou download disparado; o app
+ * não sabe se o envio terminou). `totalEventos` é quantos registros o arquivo tinha.
+ */
+export interface UltimoBackup {
+  geradoEm: Instante
+  totalEventos: number
+}
+
+/** Restauração de um backup (fase 10a). Fica à disposição do relatório da fase 10b. */
+export interface RestauradoDe {
+  /** Data do arquivo restaurado. */
+  geradoEm: Instante
+  restauradoEm: Instante
+  /** Viagens que vieram do arquivo. */
+  viagemIds: string[]
+  /** A pessoa dispensou o aviso da tela principal. */
+  dispensado: boolean
+}
+
+/**
+ * Configuração do app guardada no aparelho (tabela `meta`, fase 10a): não é fato da viagem nem
+ * estado derivado, e fica fora do backup.
+ */
+export type LinhaMeta =
+  | { chave: 'ultimoBackup'; valor: UltimoBackup }
+  | { chave: 'restauradoDe'; valor: RestauradoDe }
+  /** "AGORA NÃO" na sugestão de backup: não sugere de novo antes deste horário. */
+  | { chave: 'silencioBackupAte'; valor: Instante }
+
 /** O que o cálculo precisa do planejamento. */
 export interface DadosPlano {
   viagem: Viagem
