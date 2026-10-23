@@ -662,3 +662,28 @@ Aprovadas em 22 e 23/10/2026: backup e restauração. Relatório, feedback, viag
 - Sugestão (cartão, nunca janela) com FAZER BACKUP e AGORA NÃO (silencia por 2 h), só se o backup está defasado e só parado numa etapa ou logo depois de um SAÍMOS. Nunca durante a parada não planejada, nem logo depois de CHEGAMOS ou PARAMOS.
 
 **Testes:** `backup.test.ts` no núcleo, nos dados e na lógica da interface, e o fluxo `e2e/fluxos/fase10a-backup.mjs`.
+
+## Decisões do redesenho (interface, antes da fase 8)
+
+Aprovadas em 23/10/2026. Só interface: nenhuma regra de cálculo, o núcleo e o banco não mudam. Onde as seções anteriores falam de botões da tela principal, valem as equivalências abaixo.
+
+**Estrutura.** Cinco abas fixas embaixo: Viagem, Roteiro, Pessoas, Locais e Mais. Antes de iniciar, as mesmas abas valem para o planejamento: Viagem = dados, avisos e bloqueios (rodapé INICIAR VIAGEM), Roteiro = etapas e trechos, Pessoas = cadastro, Locais = catálogo, Mais = modelos, backup, modo noite, demonstração e excluir viagem. A lista de viagens fica fora das abas (Locais, Modelos, Backup e Demonstração por botões).
+
+**Aba Viagem.** Cartão de destaque (chegada no destino, horário grande, "original HH:MM", selo de atraso e origem da previsão); cartão da situação (próxima parada com "falta X" e "Abrir no Maps", cronômetro "7 min para sair" ou "excedeu em X" com barra de progresso, ou a parada não planejada); cartões "A bordo" (ou "Esperados na saída") e "Último backup" (este não existe na demonstração); sugestão de backup. O rodapé fixo traz a ação principal (CHEGAMOS, SAÍMOS ou VOLTAMOS, ~68 px) e três ações rápidas: em viagem, PARAMOS, Previsão e Mensagem; parado, Quem desceu, Observação e Mensagem. "N alternativas · ver no Roteiro" usa N = alternativas além do local preferido. Viagem concluída: sem ação principal, com "Viagem encerrada" e o resumo original × real. Registro esquecido: o cartão "Falta um horário" substitui a ação principal.
+
+**Equivalências.** GERAR ATUALIZAÇÃO = Mensagem (rodapé e Mais); ATUALIZAR PREVISÃO = Previsão (rodapé, em viagem) e Mais › Registros (quando vale, inclusive parado); OBSERVAÇÃO, REGISTRAR IMPREVISTO e PULAR ETAPA = Mais › Registros; PASSAGEIROS = aba Pessoas; Timeline = aba Roteiro, visão Timeline; VER ALTERNATIVAS = aba Roteiro, "Comparar e escolher"; ABRIR NO GOOGLE MAPS = "Abrir no Maps" no cartão da próxima parada e o link da folha de previsão; BACKUP = Mais › Backup e o cartão "Último backup". "CHEGAMOS (sem registrar a volta antes)" fica no cartão da parada não planejada.
+
+**Barra compacta.** Nas abas Roteiro, Pessoas, Locais e Mais, uma barra de ~52 px acima das abas mostra a previsão do destino e a ação principal, para registrar sem voltar à aba Viagem. Some com a viagem concluída.
+
+**Roteiro.** Visão "Paradas": lista vertical com marcador (feita, estamos aqui, próxima, adiante, pulada), horário real ou previsto em mono e o atraso; as alternativas da próxima parada flexível aparecem abertas, com classificação e margem, e levam à tela de alternativas. Visão "Timeline": a de sempre. "Mapa" desligado, com a dica "chega na fase 9".
+
+**Locais.** Lista, novo, editar e excluir. A exclusão usa a trava do repositório (`LocalEmUso`): em uso, a tela diz em qual viagem e etapa o local está (preferido ou alternativa) e não exclui; livre, pede confirmação.
+
+**Mais.** Três grupos: Comunicação (Mensagem de atualização com "última gerada às", Modelos), Registros (imprevisto, observação, atualizar previsão, pular etapa, Relatório desligado: "chega na fase 10b") e Dados e aparelho (Backup com o último, Modo noite, Trocar de viagem, Demonstração).
+
+**Identidade e modo noite.** Tokens em `estilos.css` (ver CLAUDE.md). Noite automática das 18:00 (inclusive) às 06:00 (exclusive), pelo `agora()`, portanto também na demonstração; "Automático", "Sempre claro" ou "Sempre escuro" em Mais, guardado no `localStorage` (fora do banco e do backup). Cores de noite acrescentadas: destaque `#9CCB62`, perigo `#FF9A8F`, barra `#121B18`. O destaque `#5E8F2E` não vai em texto pequeno (3,9:1 sobre branco); o cabeçalho usa o fundo da tela para o ponto de "bordo." passar de 3:1. O `theme-color` do navegador acompanha o tema; o ícone do app não muda.
+
+**Online.** O selo do topo mostra "Online" ou "Sem internet" por `navigator.onLine` e pelos eventos `online` e `offline`.
+
+**Testes.** Fluxos e2e atualizados para a navegação nova e `e2e/fluxos/redesenho.mjs` (abas, ação principal por situação, barra compacta, locais, selo de rede, tamanhos mínimos e modo noite). Testes unitários: `tema.test.ts`, `usoDoLocal.test.ts` e a edição em `formLocal.test.ts`.
+
