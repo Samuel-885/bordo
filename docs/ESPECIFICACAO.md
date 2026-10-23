@@ -25,7 +25,7 @@ São oito entidades. O registro de eventos é a fonte da verdade: o estado da vi
 | Viagem | id, nome, tipo (ida, volta), data de saída, status, viagem relacionada, fator ônibus, identificação, equipe, plano original | Plano original fica vazio até "Iniciar viagem". A volta aponta para a ida. Identificação (texto) e equipe (número de motoristas e responsáveis, padrão 0) são opcionais e só alimentam as mensagens (fase 7). |
 | Etapa | id, viagem, ordem, tipo, local, motivo, categoria, janela início/fim, permanência (min), chegada do roteiro, alternativas, modo de conferência | Tipos: origem, obrigatória, flexível, destino. Na origem, o horário do roteiro é a saída. O local é o preferido (o do roteiro); as alternativas são os outros candidatos. Parada não planejada não é etapa: é um par de eventos. |
 | Local | id, nome, cidade, tipo, coordenadas, abre, fecha, telefone, ônibus para (sim, não, não sei), observações, marcação (favorito, evitar) | Catálogo reutilizado entre viagens e anos. Abre e fecha são "HH:MM", um único horário por local, resolvidos pela data da chegada (única exceção à regra dos horários completos). |
-| Trecho | etapa de origem, local de origem, etapa de destino, local de destino, duração (min), fonte, distância (km), calculado em | Fonte: roteiro, rota, manual, estimado. Um trecho por par de locais candidatos. Só rota e manual são guardados; roteiro e estimado são derivados no cálculo. Na rota, a duração guardada é a de carro, sem o fator ônibus. |
+| Trecho | etapa de origem, local de origem, etapa de destino, local de destino, duração (min), fonte, distância (km), calculado em | Fonte: roteiro, rota, manual, estimado. Um trecho por par de locais candidatos. Só rota e manual são guardados; roteiro e estimado são derivados no cálculo. Na rota, a duração guardada é a de carro, sem o fator ônibus. Um trecho manual pode guardar ao lado a rota calculada (`rota`: duração de carro, distância e data), que nunca entra no cálculo (ver "Decisões da fase 8"). |
 | Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, pular etapa, parada não planejada (fase início, fim ou previsão), imprevisto, conferência, status do passageiro, atualização gerada, observação, fim. Todo horário de evento é arredondado para baixo, para o minuto. |
 | Passageiro | id, nome, etapa de embarque, etapa de desembarque, status | Desembarque vazio = destino. Status: ativo, não embarcou, saiu da viagem. |
 | Conferência | etapa, modo, confirmados, pendentes, resultado, motivo | Resultado: completa ou incompleta. |
@@ -209,12 +209,12 @@ A timeline é a lista de eventos ordenada pelo horário do fato. Ela é gerada, 
 Rotas são calculadas só no planejamento, com internet, e guardadas. Durante a viagem o app nunca depende delas.
 
 - Exigem coordenadas nos dois locais. Sem coordenadas, o trecho fica "sem tempo".
-- O serviço usa dados do OpenStreetMap e é gratuito. A escolha exata (por exemplo, um servidor público de OSRM ou o OpenRouteService com cadastro gratuito) fica para a fase de stack, e os limites de uso precisam ser confirmados na época.
+- O serviço usa dados do OpenStreetMap e é gratuito: o OSRM público do FOSSGIS (perfil de carro), sem chave. A escolha, os limites e o plano B estão em "Decisões da fase 8".
 - O tempo do serviço é de carro. O app multiplica pelo fator ônibus (proposta: 1,15, ajustável na viagem).
 - Distância em linha reta nunca é usada como tempo.
 - Cada trecho guarda distância, duração, fonte e data do cálculo. A tela mostra "calculado pela rota".
 - Se o serviço falhar ou estiver fora, o trecho fica "sem tempo" e você pode digitar a duração (fonte "manual") ou tentar de novo depois.
-- Um botão "recalcular rotas" refaz todos os trechos de fonte rota, sem tocar nos de roteiro e manuais.
+- O botão "Calcular tempos" faz o cálculo e também o recálculo: refaz todos os trechos de fonte rota, sem tocar nos manuais (a rota nova fica ao lado deles) e sem alterar o tempo do roteiro.
 
 Para calibrar o fator ônibus antes da viagem: compare dois ou três trechos do roteiro (que vêm da empresa) com o tempo calculado pela rota.
 
@@ -277,6 +277,7 @@ O Bordo é um app web instalável (PWA) que guarda tudo no próprio celular e fu
 | Compartilhar no WhatsApp | Abre, mas a mensagem só sai quando houver sinal |
 | Editar modelos de mensagem, registrar observação | Funciona |
 | Calcular rotas | Não funciona (só no planejamento) |
+| Buscar endereço no cadastro de local | Não funciona (avisa; o resto do formulário funciona) |
 | Mapa | Só as áreas já carregadas antes |
 | Abrir no Google Maps | Depende do próprio Google Maps |
 
@@ -324,7 +325,7 @@ Os valores abaixo estão neste documento como proposta. Cada um vira uma configu
 - [x] Horário de funcionamento: um único horário por local na primeira versão (ver "Decisões da fase 1").
 - [x] Texto de identificação na mensagem (unidade, cidade).
 - [ ] Regras de descanso do motorista: confirmar com a empresa de ônibus se há um ou dois motoristas e se existe parada mínima obrigatória.
-- [ ] Serviço de rotas e hospedagem: definir na fase de stack, com os limites gratuitos confirmados.
+- [x] Serviço de rotas e hospedagem: OSRM público do FOSSGIS e Photon, hospedagem no Netlify (ver "Decisões da fase 8"). Se o app virar ferramenta oficial da empresa, rever.
 
 ## Decisões da fase 1
 
@@ -687,3 +688,47 @@ Aprovadas em 23/10/2026. Só interface: nenhuma regra de cálculo, o núcleo e o
 
 **Testes.** Fluxos e2e atualizados para a navegação nova e `e2e/fluxos/redesenho.mjs` (abas, ação principal por situação, barra compacta, locais, selo de rede, tamanhos mínimos e modo noite). Testes unitários: `tema.test.ts`, `usoDoLocal.test.ts` e a edição em `formLocal.test.ts`.
 
+
+## Decisões da fase 8
+
+Aprovadas em 23/10/2026, na construção das rotas automáticas e da busca de endereço. Tudo isso só no planejamento, com internet: na viagem nada depende de rede. Complementam as seções anteriores. Nenhuma regra de cálculo da previsão muda: a rota entra como a fonte "rota" que a seção "Regras de cálculo da previsão" já previa.
+
+**Serviços** (limites e termos lidos em 23/10/2026; podem mudar)
+
+| Uso | Serviço | Chave | Limite e termos |
+| --- | --- | --- | --- |
+| Rotas de carro | OSRM público do FOSSGIS, endpoint `routing.openstreetmap.de/routed-car` (perfil de carro) | Não | No máximo 1 requisição por segundo; uso razoável e não comercial; sem garantia de disponibilidade; o acesso pode ser retirado. |
+| Busca de endereço | Photon (Komoot, dados do OpenStreetMap), `photon.komoot.io/api/` | Não | "Seja justo": uso excessivo é limitado, sem números; sem garantia de disponibilidade. |
+
+- Os dois respondem com `access-control-allow-origin: *`: o navegador chama direto, sem backend e sem Netlify Function (custo zero, nenhuma chave no site público).
+- **Plano B.** Se o OSRM cair, bloquear ou limitar: (1) no próprio app, o trecho fica "sem tempo" e a duração é digitada (fonte manual), como já prevê a seção "Rotas automáticas e fallback"; (2) se a queda for duradoura, trocar para o OpenRouteService com cadastro gratuito (2.000 rotas e 1.000 buscas por dia no plano padrão; exige chave, então com uma Netlify Function de repasse e a chave numa variável de ambiente do Netlify, nunca no repositório). Isso não foi construído: o cliente de rotas fica isolado em `src/servicos/` para a troca mexer num arquivo. O endereço alternativo `router.project-osrm.org` não conta como reserva: respondeu igual, byte a byte, ao do FOSSGIS.
+- **Uso pessoal.** O app é de uso pessoal e o volume é mínimo (cerca de 30 requisições por planejamento). Os termos dizem "não comercial": **se o app passar a ser ferramenta oficial da empresa, o serviço de rotas deve ser revisto** (servidor próprio ou plano pago).
+- Atribuição: a tela mostra "dados do OpenStreetMap" junto da busca e dos tempos pela rota.
+- **Privacidade (LGPD).** Vão para a rede apenas o texto digitado na busca e as coordenadas dos locais. Nada de passageiros. A dica do campo de busca diz: "Nome ou endereço do estabelecimento. Não digite nomes de pessoas nem endereços residenciais." Sem cookies (`credentials: omit`). A busca só dispara no botão ou no Enter, nunca a cada tecla.
+
+**Busca de endereço (cadastro de local)**
+
+- Campo "Buscar endereço ou nome do lugar", com até 5 resultados (nome, cidade e estado). Ao escolher, preenche coordenadas e cidade; os dois continuam editáveis, e o nome e o resto do formulário não mudam. A cidade vem de `city`; para uma cidade, o próprio nome; senão, município ou bairro; sem nenhum, a cidade digitada fica como está. O campo de coordenadas coladas (texto ou link do Google Maps) continua funcionando.
+- Sem internet, a busca avisa antes de tentar e o resto do formulário funciona. Falha do serviço, limite excedido, tempo esgotado (10 s) e "nada encontrado" têm mensagem própria.
+
+**Calcular tempos (aba Roteiro do planejamento)**
+
+- Calcula todos os pares de locais candidatos entre etapas vizinhas (trechos e pares das alternativas) com coordenadas nos dois locais, **inclusive os que já têm tempo de roteiro**: o roteiro continua valendo primeiro, e a rota fica guardada só para exibir e calibrar. Pares de um local com ele mesmo não são calculados.
+- Em sequência, com 1,1 s entre as requisições (o serviço pede no máximo 1 por segundo) e botão Cancelar. Cada rota é gravada assim que chega: o que já foi calculado não se perde. Guarda duração de carro, distância (km, uma casa) e a data do cálculo (`agora()`).
+- **Arredondamento:** o tempo de carro, em segundos, é arredondado para **cima**, para o minuto; depois vale a regra de sempre (× fator ônibus, para cima).
+- **Falhas.** Sem internet, limite excedido (429), servidor fora ou tempo esgotado: o lote **para na primeira falha, sem insistir**, avisa quantos trechos ficaram sem calcular e mantém tudo o que já estava guardado. Resposta vazia, inválida ou "sem caminho" (`NoRoute`) de um par marca só aquele par ("Sem rota encontrada: A → B") e o lote continua. O tempo nunca é inventado; sem rota, o trecho fica "sem tempo" e pode ser digitado.
+- **Sem coordenadas:** o trecho fica como está, com a dica "Sem coordenadas em X: cadastre em Locais para calcular a rota", e o cartão da aba lista os locais com atalho para editá-los.
+- **Fonte à vista.** Cada tempo mostra a fonte e, quando há rota, o tempo de carro, o fator, a distância e quando foi calculado ("carro 1h40 × fator 1,15 · 90 km · calculado em 23/10 às 15:30"). Num trecho com tempo de roteiro e rota: "roteiro 1h55 · carro 1h40 · fator implícito 1,15" (fator implícito = tempo do roteiro ÷ tempo de carro).
+
+**Manual × rota**
+
+- Tempo digitado à mão (fonte manual) **nunca é sobrescrito**. Calcular guarda a rota ao lado dele, no campo `rota` do trecho (duração de carro, distância e data); o cálculo da previsão continua usando só o manual. Digitar um tempo sobre um trecho de rota também guarda a rota ao lado.
+- A diferença é **grande** quando manual − (rota × fator ônibus) passa, em módulo, de **15 min ou mais e 15% ou mais** da rota × fator (`rotaDiferencaGrandeMin` e `rotaDiferencaGrandePct`, em `config.ts`). Então a tela mostra os dois tempos ("Seu tempo 3h40 · rota 2h18 (diferença +1h22)") e deixa escolher: **Usar a rota** (o trecho vira rota e o tempo digitado deixa de existir) ou **Manter o meu** (fica o manual e a rota guardada ao lado é descartada; um novo cálculo pode propô-la de novo). Diferença pequena só mostra a rota, sem pedir escolha. O bloco "Tempos das alternativas" abre sozinho enquanto houver escolha pendente.
+- O campo `rota` é opcional e aditivo: o backup aceita (formato 1, sem mudança) e versões antigas o ignoram.
+
+**Fator ônibus**
+
+- Campo "Fator ônibus" em "Dados da viagem" (aba Viagem), **editável só no planejamento** (na viagem, mudá-lo alteraria a previsão em silêncio) e de **1,00 a 2,00** (`fatorOnibusMin` e `fatorOnibusMax`, em `config.ts`). Padrão 1,15, duas casas. Mostra um exemplo ("2h00 de carro → 2h24 de ônibus").
+- **Sugestão para calibrar:** a média dos fatores implícitos dos trechos que têm tempo de roteiro e rota calculada, mostrada sob o campo ("Sugestão pelo roteiro: 1,20, média de 5 trechos"). Só é aplicada quando a pessoa toca em "Usar 1,20".
+
+**Testes.** Núcleo (`fase8-rotas.test.ts`: leitura das respostas, pares, rota ao lado do manual, comparação, fator, backup), serviços com respostas simuladas e sem rede (`src/servicos/__tests__`: sucesso, limite 429, servidor fora, sem internet, tempo esgotado, resposta vazia e inválida, "sem caminho", lote com parada e cancelamento), dados (`fase8-rotas.test.ts` em `src/data`), texto da interface (`trechoDescricao.test.ts`, `formLocal.test.ts`) e o fluxo `e2e/fluxos/fase8-rotas.mjs`, com os dois serviços simulados.
