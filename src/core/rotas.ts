@@ -130,6 +130,13 @@ export function paresParaCalcular(d: DadosPlano): ParesDaRota {
   return { calcular, semCoordenadas }
 }
 
+/** Locais (sem repetir) que impedem algum par de ser calculado por falta de coordenadas. */
+export function locaisSemCoordenadas(d: DadosPlano, pares: readonly ParDeTrecho[]): string[] {
+  const sem = (id: string) => !d.locais.find((l) => l.id === id)?.coordenadas
+  const ids = pares.flatMap((p) => [p.localOrigemId, p.localDestinoId]).filter(sem)
+  return [...new Set(ids)]
+}
+
 // ---------- Guardar o resultado sem pisar no manual ----------
 
 /**

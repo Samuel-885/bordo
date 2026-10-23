@@ -263,6 +263,50 @@ button:focus-visible {
   font-size: 13px;
   color: var(--texto-suave);
 }
+.calculo-andamento {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+}
+.calculo-sem-coordenadas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+.calculo-sem-coordenadas .dica {
+  flex-basis: 100%;
+}
+.trecho-fonte {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.trecho-comparacao {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--atencao-fundo);
+  color: var(--atencao-texto);
+  border: 1px solid var(--atencao-borda);
+}
+.trecho-comparacao strong {
+  flex-basis: 100%;
+}
+.fator-sugestao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
 .atencao-texto {
   color: var(--atencao-texto);
 }

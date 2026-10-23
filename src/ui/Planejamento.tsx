@@ -7,7 +7,7 @@ import { calcularPlanoOriginal, estadosDoPlano } from '../core/previsao'
 import { agora } from '../core/relogio'
 import type { BloqueioInicio } from '../core/previsao'
 import type { ParDeAlternativas, ParDeTrecho } from '../core/trechos'
-import type { DadosPlano, DuracaoTrecho, Etapa, EstadoEtapa, Passageiro, TipoViagem } from '../core/tipos'
+import type { DadosPlano, DuracaoTrecho, Etapa, EstadoEtapa, Passageiro, TipoViagem, Trecho } from '../core/tipos'
 import type { Repositorio } from '../data/repositorio'
 import { AcoesDeBackup } from './componentes/AcoesDeBackup'
 import { BarraDeAbas, type Aba } from './componentes/BarraDeAbas'
@@ -23,9 +23,13 @@ import { useAlturaDoRodape } from './viagem/useAlturaDoRodape'
 import { formatarDuracao, horasEMinutosDe, minutosDeHorasEMinutos } from './logica/duracao'
 import { dataParaInstante, diasDepois, formatarData, formatarHora } from './logica/horarios'
 import { etiquetaDaEtapa } from './logica/rotulos'
-import { resumoDaEtapa, textoDoAviso, textoManuaisApagados, textoDoBloqueio, textoDaFonte, textoForaDeOrdem } from './logica/textos'
+import { resumoDaEtapa, textoDoAviso, textoManuaisApagados, textoDoBloqueio, textoForaDeOrdem } from './logica/textos'
 import { podeMover } from '../core/ordem'
 import { paresDeTrechoDasAlternativas } from '../core/trechos'
+import { fatorSugeridoPeloRoteiro, locaisSemCoordenadas, paresParaCalcular, trechoDoPar, validarFatorOnibus, type FatorSugerido } from '../core/rotas'
+import { aplicarFatorOnibus } from '../core/trechos'
+import { CalculoDeRotas } from './CalculoDeRotas'
+import { descreverTrecho, formatarFator, lerFator } from './logica/trechoDescricao'
 import { textoTotalDePassageiros } from './logica/passageiros'
 import { useAgora } from './useAgora'
 import { useDados } from './useDados'
@@ -88,6 +92,7 @@ export function Planejamento({ repo, viagemId, onVoltar, onEditarEtapa, onViagem
       repo={repo}
       falha={falha}
       agir={agir}
+      recarregarPlano={recarregar}
       onVoltar={onVoltar}
       onEditarEtapa={onEditarEtapa}
       onViagemExcluida={onViagemExcluida}
@@ -109,6 +114,7 @@ interface ConteudoProps {
   repo: Repositorio
   falha: string | null
   agir: (acao: () => Promise<unknown>) => Promise<void>
+  recarregarPlano: () => void
   onVoltar: () => void
   onEditarEtapa: (etapaId: string | null) => void
   onViagemExcluida: () => void
@@ -122,12 +128,24 @@ interface ConteudoProps {
   onSairDaDemo: () => void
 }
 
-function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEtapa, onViagemExcluida, onAbrirViagem, aba, onAba, onModelos, onBackup, onEditarLocal, onAbrirDemo, onSairDaDemo }: ConteudoProps) {
+function Conteudo({ plano, passageiros, repo, falha, agir, recarregarPlano, onVoltar, onEditarEtapa, onViagemExcluida, onAbrirViagem, aba, onAba, onModelos, onBackup, onEditarLocal, onAbrirDemo, onSairDaDemo }: ConteudoProps) {
   const { viagem, etapas, locais } = plano
   const planejando = viagem.status === 'planejando'
   const estados = estadosDoPlano(plano)
   const avisos = avisosDoPlano(plano, estados, passageiros)
   const paresDasAlternativas = paresDeTrechoDasAlternativas(plano)
+  const semCoordenadas = paresParaCalcular(plano).semCoordenadas
+  const rotas: ContextoDeRotas = {
+    fator: viagem.fatorOnibus,
+    plano,
+    faltaCoordenadas: (par) => {
+      const key = (p: ParDeTrecho) => `${p.etapaOrigemId}|${p.localOrigemId}|${p.etapaDestinoId}|${p.localDestinoId}`
+      if (!semCoordenadas.some((p) => key(p) === key(par))) return []
+      return locaisSemCoordenadas(plano, [par]).map((id) => locais.find((l) => l.id === id)?.nome ?? 'local')
+    },
+    onUsarRota: (par) => agir(() => repo.usarRotaNoLugarDoManual(viagem.id, par)),
+    onManterManual: (par) => agir(() => repo.manterTempoManual(viagem.id, par)),
+  }
   const foraDeOrdem = horariosForaDeOrdem(plano)
   const calculo = calcularPlanoOriginal(plano, agora())
   const bloqueios: BloqueioInicio[] = calculo.ok ? [] : calculo.bloqueios
@@ -178,7 +196,7 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
         <main className="conteudo viagem">
           {!planejando && <Iniciada plano={plano} onAbrir={onAbrirViagem} />}
 
-          <DadosDaViagem key={viagem.id} plano={plano} editavel={planejando} salvar={(v) => agir(() => repo.salvarViagem(v))} />
+          <DadosDaViagem key={viagem.id} plano={plano} editavel={planejando} salvar={(v) => agir(() => repo.salvarViagem(v))} salvarFator={(f) => agir(() => repo.salvarFatorOnibus(viagem.id, f))} />
 
           <button type="button" className="cartao pequeno" onClick={() => onAba('pessoas')}>
             <h2>Passageiros</h2>
@@ -220,6 +238,7 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
 
       {aba === 'roteiro' && (
         <main className="conteudo viagem">
+          {planejando && <CalculoDeRotas plano={plano} repo={repo} onAtualizar={recarregarPlano} onEditarLocal={onEditarLocal} />}
           <section aria-label="Etapas" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {etapas.map((etapa, i) => {
             const estado = estados.find((e) => e.etapaId === etapa.id)
@@ -234,15 +253,8 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
                     localDestinoId: estadoProximo.localId,
                   }
                 : null
-            const manual = par
-              ? plano.trechos.find(
-                  (t) =>
-                    t.etapaOrigemId === par.etapaOrigemId &&
-                    t.localOrigemId === par.localOrigemId &&
-                    t.etapaDestinoId === par.etapaDestinoId &&
-                    t.localDestinoId === par.localDestinoId,
-                )?.duracaoMin ?? null
-              : null
+            const guardado = par ? trechoDoPar(plano, par) : undefined
+            const manual = guardado?.fonte === 'manual' ? guardado.duracaoMin : null
             return (
               <Fragment key={etapa.id}>
                 <LinhaEtapa
@@ -263,6 +275,9 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
                     editavel={planejando}
                     pode={par !== null}
                     duracaoManual={manual}
+                    guardado={guardado}
+                    rotas={rotas}
+                    par={par}
                     onSalvar={(min) => agir(() => repo.salvarTrechoManual(viagem.id, par!, min))}
                     onRemover={() => agir(() => repo.removerTrecho(viagem.id, par!))}
                   />
@@ -272,6 +287,7 @@ function Conteudo({ plano, passageiros, repo, falha, agir, onVoltar, onEditarEta
                     pares={paresDasAlternativas.filter((p) => p.par.etapaOrigemId === etapa.id)}
                     plano={plano}
                     editavel={planejando}
+                    rotas={rotas}
                     onSalvar={(par, min) => agir(() => repo.salvarTrechoManual(viagem.id, par, min))}
                     onRemover={(par) => agir(() => repo.removerTrecho(viagem.id, par))}
                   />
@@ -415,10 +431,12 @@ function DadosDaViagem({
   plano,
   editavel,
   salvar,
+  salvarFator,
 }: {
   plano: DadosPlano
   editavel: boolean
   salvar: (v: DadosPlano['viagem']) => Promise<void>
+  salvarFator: (fator: number) => Promise<void>
 }) {
   const { viagem } = plano
   const [nome, setNome] = useState(viagem.nome)
@@ -460,6 +478,7 @@ function DadosDaViagem({
         />
         <p className="dica">Entra no tamanho do grupo da mensagem para o restaurante.</p>
       </div>
+      <CampoFatorOnibus plano={plano} editavel={editavel} salvar={salvarFator} />
       <div className="linha-campos">
         <div className="campo">
           <label htmlFor="v-tipo">Tipo</label>
@@ -532,16 +551,26 @@ function LinhaEtapa({ etapa, estado, dataSaida, local, editavel, podeSubir, pode
   )
 }
 
+interface ContextoDeRotas {
+  fator: number
+  plano: DadosPlano
+  /** Nomes dos locais do par que ainda não têm coordenadas (vazio = o par pode ser calculado). */
+  faltaCoordenadas: (par: ParDeTrecho) => string[]
+  onUsarRota: (par: ParDeTrecho) => void
+  onManterManual: (par: ParDeTrecho) => void
+}
+
 interface TemposDasAlternativasProps {
   pares: ParDeAlternativas[]
   plano: DadosPlano
   editavel: boolean
+  rotas: ContextoDeRotas
   onSalvar: (par: ParDeTrecho, minutos: number) => void
   onRemover: (par: ParDeTrecho) => void
 }
 
 /** Tempo de cada par de locais candidatos (alternativas) entre duas etapas vizinhas. */
-function TemposDasAlternativas({ pares, plano, editavel, onSalvar, onRemover }: TemposDasAlternativasProps) {
+function TemposDasAlternativas({ pares, plano, editavel, rotas, onSalvar, onRemover }: TemposDasAlternativasProps) {
   if (pares.length === 0) return null
   const semTempo = pares.filter((p) => p.duracao.minutos === null).length
   const nome = (id: string) => plano.locais.find((l) => l.id === id)?.nome ?? 'local'
@@ -552,14 +581,8 @@ function TemposDasAlternativas({ pares, plano, editavel, onSalvar, onRemover }: 
         {semTempo > 0 ? ` (${semTempo} sem tempo)` : ''}
       </summary>
       {pares.map(({ par, duracao }) => {
-        const manual =
-          plano.trechos.find(
-            (t) =>
-              t.etapaOrigemId === par.etapaOrigemId &&
-              t.localOrigemId === par.localOrigemId &&
-              t.etapaDestinoId === par.etapaDestinoId &&
-              t.localDestinoId === par.localDestinoId,
-          )?.duracaoMin ?? null
+        const guardado = trechoDoPar(plano, par)
+        const manual = guardado?.fonte === 'manual' ? guardado.duracaoMin : null
         return (
           <LinhaTrecho
             key={`${par.localOrigemId}>${par.localDestinoId}-${manual}`}
@@ -568,6 +591,9 @@ function TemposDasAlternativas({ pares, plano, editavel, onSalvar, onRemover }: 
             editavel={editavel}
             pode
             duracaoManual={manual}
+            guardado={guardado}
+            rotas={rotas}
+            par={par}
             onSalvar={(min) => onSalvar(par, min)}
             onRemover={() => onRemover(par)}
           />
@@ -585,11 +611,15 @@ interface LinhaTrechoProps {
   /** Os dois locais estão escolhidos: dá para digitar a duração. */
   pode: boolean
   duracaoManual: number | null
+  /** O que está guardado para o par (rota, distância, data), se houver. */
+  guardado?: Trecho
+  rotas: ContextoDeRotas
+  par: ParDeTrecho | null
   onSalvar: (minutos: number) => void
   onRemover: () => void
 }
 
-function LinhaTrecho({ rotulo, trecho, editavel, pode, duracaoManual, onSalvar, onRemover }: LinhaTrechoProps) {
+function LinhaTrecho({ rotulo, trecho, editavel, pode, duracaoManual, guardado, rotas, par, onSalvar, onRemover }: LinhaTrechoProps) {
   const [editando, setEditando] = useState(false)
   const inicial = horasEMinutosDe(duracaoManual ?? 0)
   const [horas, setHoras] = useState(duracaoManual ? inicial.horas : '')
@@ -598,6 +628,9 @@ function LinhaTrecho({ rotulo, trecho, editavel, pode, duracaoManual, onSalvar, 
 
   const semTempo = !trecho || trecho.minutos === null
   const manual = trecho?.fonte === 'manual'
+  const daRota = trecho?.fonte === 'rota'
+  const descricao = descreverTrecho(trecho, guardado, rotas.fator)
+  const semCoordenadas = par ? rotas.faltaCoordenadas(par) : []
 
   function salvar() {
     const total = minutosDeHorasEMinutos(horas, minutos)
@@ -613,14 +646,37 @@ function LinhaTrecho({ rotulo, trecho, editavel, pode, duracaoManual, onSalvar, 
       {semTempo ? <strong>Sem tempo definido</strong> : (
         <>
           <span className="mono">{formatarDuracao(trecho.minutos)}</span>
-          <span>{textoDaFonte(trecho.fonte)}</span>
+          <span>{descricao.fonte}</span>
         </>
       )}
-      {editavel && (semTempo || manual) && !editando && (
+      {descricao.detalhes.length > 0 && (
+        <span className="trecho-fonte">
+          {descricao.detalhes.map((d) => (
+            <span key={d}>{d}</span>
+          ))}
+        </span>
+      )}
+      {semCoordenadas.length > 0 && (
+        <span className="trecho-fonte">
+          Sem coordenadas em {semCoordenadas.join(' e ')}: cadastre em Locais para calcular a rota.
+        </span>
+      )}
+      {editavel && descricao.comparacao && par && (
+        <div className="trecho-comparacao" role="group" aria-label="Escolher entre o seu tempo e a rota">
+          <strong>{descricao.comparacao.texto}</strong>
+          <button type="button" className="link" onClick={() => rotas.onUsarRota(par)}>
+            Usar a rota
+          </button>
+          <button type="button" className="link" onClick={() => rotas.onManterManual(par)}>
+            Manter o meu
+          </button>
+        </div>
+      )}
+      {editavel && (semTempo || manual || daRota) && !editando && (
         pode ? (
           <>
             <button type="button" className="link" onClick={() => setEditando(true)}>
-              {semTempo ? 'Informar duração' : 'Editar'}
+              {semTempo ? 'Informar duração' : daRota ? 'Digitar o meu' : 'Editar'}
             </button>
             {manual && (
               <button type="button" className="link" onClick={onRemover}>
@@ -651,3 +707,68 @@ function LinhaTrecho({ rotulo, trecho, editavel, pode, duracaoManual, onSalvar, 
   )
 }
 
+
+interface CampoFatorProps {
+  plano: DadosPlano
+  editavel: boolean
+  salvar: (fator: number) => Promise<void>
+}
+
+/**
+ * Fator ônibus da viagem (só no planejamento). Mostra a média dos fatores implícitos dos trechos
+ * do roteiro com rota calculada como sugestão; ela só é aplicada quando a pessoa toca em "Usar".
+ */
+function CampoFatorOnibus({ plano, editavel, salvar }: CampoFatorProps) {
+  const atual = plano.viagem.fatorOnibus
+  const [texto, setTexto] = useState(formatarFator(atual))
+  const [erro, setErro] = useState<string | null>(null)
+  const sugestao: FatorSugerido | null = fatorSugeridoPeloRoteiro(plano)
+  const sugerido = sugestao ? Math.round(sugestao.fator * 100) / 100 : null
+
+  const digitado = lerFator(texto)
+  const exemplo = plano.trechos.map((t) => (t.fonte === 'manual' ? t.rota : t.duracaoMin !== null ? { duracaoMin: t.duracaoMin } : null)).find((r) => r) ?? null
+
+  async function confirmar(valor: number | null) {
+    if (valor === null) return setErro('Digite o fator ônibus, por exemplo 1,15.')
+    const motivo = validarFatorOnibus(valor)
+    if (motivo) return setErro(motivo)
+    setErro(null)
+    if (Math.round(valor * 100) / 100 !== atual) await salvar(valor)
+    setTexto(formatarFator(valor))
+  }
+
+  return (
+    <div className={`campo ${erro ? 'erro' : ''}`}>
+      <label htmlFor="v-fator">Fator ônibus</label>
+      <input
+        id="v-fator"
+        inputMode="decimal"
+        className="mono"
+        value={texto}
+        disabled={!editavel}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={() => editavel && void confirmar(digitado)}
+        autoComplete="off"
+      />
+      {erro && <p className="msg-erro">{erro}</p>}
+      <p className="dica">
+        Multiplica o tempo de carro das rotas (de 1,00 a 2,00). Os tempos do roteiro e os digitados não mudam.
+        {!editavel && ' Só pode ser mudado no planejamento.'}
+        {exemplo && digitado !== null && !validarFatorOnibus(digitado) && ` Por exemplo: ${formatarDuracao(exemplo.duracaoMin)} de carro → ${formatarDuracao(aplicarFatorOnibus(exemplo.duracaoMin, digitado))} de ônibus.`}
+      </p>
+      {sugestao && sugerido !== null && (
+        <div className="fator-sugestao">
+          <span className="dica">
+            Sugestão pelo roteiro: <strong className="mono">{formatarFator(sugerido)}</strong> (média de {sugestao.trechos}{' '}
+            {sugestao.trechos === 1 ? 'trecho' : 'trechos'} com roteiro e rota).
+          </span>
+          {editavel && sugerido !== atual && (
+            <button type="button" className="link" onClick={() => void confirmar(sugerido)}>
+              Usar {formatarFator(sugerido)}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
