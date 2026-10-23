@@ -280,7 +280,7 @@ O Bordo é um app web instalável (PWA) que guarda tudo no próprio celular e fu
 | Mapa | Só as áreas já carregadas antes |
 | Abrir no Google Maps | Depende do próprio Google Maps |
 
-**Backup.** "Exportar backup" gera um arquivo com a viagem, os locais e os passageiros. "Importar" restaura em outro celular. O app lembra de exportar antes de iniciar a viagem. Instalar na tela inicial reduz o risco de o navegador apagar os dados, mas o backup continua sendo a garantia.
+**Backup.** A tela "Backup" (botão BACKUP da lista de viagens) gera um arquivo com tudo do espaço real (viagens com o plano original, etapas, locais, trechos, eventos, passageiros e modelos de mensagem; as consultas ao Google Maps ficam de fora) e restaura esse arquivo em outro celular ou no mesmo. O app pergunta se a pessoa quer fazer o backup antes de iniciar a viagem e mostra na tela principal quando foi o último. Instalar na tela inicial reduz o risco de o navegador apagar os dados, mas o backup continua sendo a garantia. Detalhes na seção "Decisões da fase 10a".
 
 **Privacidade (LGPD).**
 
@@ -621,3 +621,44 @@ Aprovado em 22/10/2026. Pensado para paradas por escolha ("todo mundo quer parar
 | P10 | Recalibração depois do PARAMOS | Parada anterior à recalibração não conta; parada nova com T conta |
 | P11 | `previsao` com parada fechada, T=0, T=601, T não inteiro, "onde" com mais de 60 caracteres | Recusado, com mensagem |
 | P12 | Qualquer caso acima | Plano original idêntico ao do início |
+
+## Decisões da fase 10a
+
+Aprovadas em 22 e 23/10/2026: backup e restauração. Relatório, feedback, viagem de volta e "apagar passageiros" ficam para a fase 10b. Complementam a seção "Armazenamento, offline e privacidade". Nenhuma regra de cálculo muda: a restauração grava os registros como estão, sem recalcular nada.
+
+**O arquivo**
+
+- Envelope JSON: `{ app: "bordo", formato: 1, geradoEm, resumo, conteudo, integridade }`. O `conteudo` tem `viagens` (com o `planoOriginal` congelado), `etapas`, `locais`, `trechos`, `eventos` (com `sequencia`), `passageiros` e `modelos`, copiados literalmente. Não leva consultas, nem a tabela `meta`, nem nada do espaço da demonstração. O `resumo` só facilita a leitura do arquivo: ao restaurar, o app o recalcula a partir do conteúdo.
+- `integridade`: SHA-256 do `conteudo` serializado, calculado com `crypto.subtle` (exige conexão segura, HTTPS ou localhost). Detecta arquivo cortado ou corrompido. **Não protege contra edição feita à mão**: quem alterar o conteúdo e refizer o hash produz um arquivo válido. A estrutura e as referências cruzadas são conferidas de novo ao restaurar.
+- `formato`: versão do formato do arquivo (hoje 1). Arquivo de formato mais novo que o do app é recusado com "atualize o app"; formato mais antigo passará por migração (ainda não existe nenhum).
+- Nome: `bordo-backup-AAAA-MM-DD-HHMM.txt`, com a data e a hora de `agora()`.
+- **Extensão e tipo `.txt` / `text/plain`.** O Chrome só deixa compartilhar arquivos de alguns tipos pelo menu do celular. Pela lista do código do Chromium (`share_service_impl.cc`), aceitam-se, entre outros, `.txt` e `text/plain`, mas **não** `.json` nem `application/json`: com `.json`, `navigator.canShare` devolveria falso e o COMPARTILHAR nunca apareceria. Por isso o arquivo sai como texto puro, com o JSON dentro. A restauração aceita `.txt` e `.json` (o que vale é o conteúdo, não a extensão). A lista foi lida em 23/10/2026 e pode mudar com versões do Chrome; o teste no celular está no roteiro.
+
+**Entregar**
+
+- COMPARTILHAR BACKUP (Web Share com arquivo, para WhatsApp, Drive ou e-mail) só aparece quando `navigator.canShare({ files })` aceita o arquivo; BAIXAR ARQUIVO está sempre disponível e é o botão principal quando não há menu de compartilhar. Gerar funciona sem internet; só o envio espera o sinal.
+- O app não sabe se o envio terminou: só que o menu aceitou o arquivo ou que o download começou. A tela diz "arquivo gerado" e nunca "backup enviado". Compartilhamento cancelado não conta como backup.
+- **Aviso de privacidade**, sempre junto dos botões de gerar: "Este arquivo contém os nomes dos passageiros. Trate como confidencial: envie só para você ou para quem for continuar a viagem, e apague depois. Observações e nomes de lugares que você digitou também podem conter nomes." Não há backup sem nomes na 10a (ver PENDENCIAS.md).
+
+**Restaurar**
+
+- Validação, nesta ordem, parando no primeiro problema, com mensagem em português: JSON; `app`; versão do formato; data de geração e integridade; estrutura, tipos e valores permitidos (enums); referências cruzadas (etapa → viagem, local → catálogo, evento, passageiro e trecho → etapa da própria viagem, plano original); identificadores únicos.
+- Resumo antes de confirmar: data do backup; para cada viagem, nome, tipo, data, status, nº de registros, nº de passageiros e o último registro; totais de registros, passageiros, locais e modelos.
+- **Juntar por viagem (padrão).** Uma lista com as viagens do arquivo, cada uma com checkbox. Cada viagem marcada substitui, inteira, a de mesmo id no celular (viagem, etapas, trechos, eventos e passageiros), nunca misturando registros, porque a `sequencia` dos eventos quebraria. As outras viagens do celular não mudam. A viagem vem **desmarcada** com o aviso "O celular tem N registros a mais; restaurar apaga esses registros" quando a do celular tem mais eventos ou uma sequência maior que a do arquivo. Locais: o do arquivo vence no mesmo id e os demais do celular ficam. Modelos: só entram os que o celular não tem (o modelo editado no celular fica). Consultas ao Google Maps das viagens restauradas são apagadas.
+- **Substituir tudo (opção avançada).** Apaga o espaço real inteiro e grava o arquivo. Exige marcar "Entendo que o que está no celular será perdido" e confirmar uma segunda vez numa janela que diz quantas viagens e registros serão apagados.
+- Tudo numa só transação do banco (tudo ou nada). Na mesma tela, antes de confirmar, GERAR BACKUP do que está no celular. Nunca roda na demonstração. A demonstração não tem backup (o espaço dela é recriado a cada entrada), e o botão BACKUP não aparece nela.
+- Depois de restaurar, a tela principal mostra um cartão dispensável: "Restaurada do backup de DD/MM HH:MM. O que aconteceu depois não está aqui: registre pela timeline."
+- **O que aconteceu entre o backup e a restauração** entra pelos botões de sempre, com as travas de sempre (testado):
+  - parada não planejada aberta no backup continua aberta (com "onde" e tempo previsto); CHEGAMOS sem informar a volta é recusado, e "CHEGAMOS (sem registrar a volta antes)" ou o VOLTAMOS aceitam a hora real da volta, anterior a agora;
+  - a etapa atual: CHEGAMOS e SAÍMOS gravam com o horário de agora e o horário do fato é corrigido na timeline (nunca antes da saída anterior nem depois de agora);
+  - o registro esquecido (`pendenciasDeRegistro`) só aparece quando já existe um registro posterior fora de ordem, o que os botões não produzem; ao restaurar um arquivo assim, `registrarPendencia` aceita o horário digitado. A sequência de gravação continua a do arquivo, e o plano original não muda.
+  - Saída gravada depois, pelo horário digitado, não tem conferência. Fica como já é: a tela mostra "sem conferência", sem marca nova na timeline.
+
+**Último backup e lembrete**
+
+- Tabela `meta` no banco (versão 5, só adiciona, como as versões 2 a 4), fora do backup: `ultimoBackup` (data do arquivo e total de registros que ele tinha), `restauradoDe` (data do arquivo, quando foi restaurado, viagens e se o aviso foi dispensado) e `silencioBackupAte`. Depois de restaurar, o último backup passa a ser a data do arquivo, a menos que fiquem no celular viagens com registros que o arquivo não tem. O `restauradoDe` fica à disposição do relatório da fase 10b.
+- Ao tocar INICIAR VIAGEM: a janela "Fazer backup antes de iniciar?", com os botões de gerar e INICIAR SEM BACKUP (vira "Iniciar viagem" depois de gerar). Não bloqueia.
+- Tela principal: linha discreta no fim, "Último backup: hoje 08:12 · 3 registros depois" (ou "nunca"; "ontem" ou DD/MM depois de um dia), em destaque quando passa de 4 h ou de 15 registros desde o último (`config.ts`). Toque abre a tela Backup.
+- Sugestão (cartão, nunca janela) com FAZER BACKUP e AGORA NÃO (silencia por 2 h), só se o backup está defasado e só parado numa etapa ou logo depois de um SAÍMOS. Nunca durante a parada não planejada, nem logo depois de CHEGAMOS ou PARAMOS.
+
+**Testes:** `backup.test.ts` no núcleo, nos dados e na lógica da interface, e o fluxo `e2e/fluxos/fase10a-backup.mjs`.

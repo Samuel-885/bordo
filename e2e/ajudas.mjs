@@ -42,18 +42,28 @@ export function criarAjudas({ browser, base }) {
    * `navigator.share` e `window.open` simulados: `window.__compartilhados` e `window.__abertos`
    * guardam o que o app tentou compartilhar e abrir.
    */
-  async function novaPagina({ comShare = true } = {}) {
+  async function novaPagina({ comShare = true, relogioReal = null } = {}) {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 })
+    // Espaço real com o relógio do navegador num horário combinado (o tempo segue correndo dali).
+    if (relogioReal) await ctx.clock.install({ time: new Date(relogioReal) })
     await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base.replace(/\/$/, '') })
     await ctx.addInitScript((comShare) => {
       window.__compartilhados = []
       window.__abertos = []
       if (comShare) {
+        // Como o Chrome do Android: só aceita arquivos de alguns tipos (texto puro, não JSON).
+        navigator.canShare = (dados) => !dados.files || dados.files.every((f) => ['text/plain', 'application/pdf', 'image/png'].includes(f.type))
         navigator.share = async (dados) => {
-          window.__compartilhados.push(dados)
+          if (!dados.files) {
+            window.__compartilhados.push(dados)
+            return
+          }
+          const arquivos = await Promise.all(dados.files.map(async (f) => ({ name: f.name, type: f.type, texto: await f.text() })))
+          window.__compartilhados.push({ ...dados, files: undefined, arquivos })
         }
       } else {
         Object.defineProperty(navigator, 'share', { value: undefined, configurable: true })
+        Object.defineProperty(navigator, 'canShare', { value: undefined, configurable: true })
       }
       window.open = (url) => {
         window.__abertos.push(String(url))
@@ -109,11 +119,11 @@ export function criarAjudas({ browser, base }) {
     await page.waitForTimeout(150)
   }
 
-  const lerBanco = (page, loja) =>
+  const lerBanco = (page, loja, banco = 'bordo-demo') =>
     page.evaluate(
-      (loja) =>
+      ([loja, banco]) =>
         new Promise((resolve, reject) => {
-          const r = indexedDB.open('bordo-demo')
+          const r = indexedDB.open(banco)
           r.onerror = () => reject(r.error)
           r.onsuccess = () => {
             const db = r.result
@@ -124,7 +134,44 @@ export function criarAjudas({ browser, base }) {
             }
           }
         }),
-      loja,
+      [loja, banco],
+    )
+
+  /** Copia as tabelas do banco da demonstração para o banco real (o celular "de verdade" com a viagem pronta). */
+  const copiarDemoParaReal = (page) =>
+    page.evaluate(
+      () =>
+        new Promise((resolve, reject) => {
+          const tabelas = ['viagens', 'etapas', 'locais', 'trechos', 'eventos', 'passageiros', 'modelos']
+          const abrir = (nome) =>
+            new Promise((ok, erro) => {
+              const r = indexedDB.open(nome)
+              r.onerror = () => erro(r.error)
+              r.onsuccess = () => ok(r.result)
+            })
+          const ler = (db, loja) =>
+            new Promise((ok, erro) => {
+              const q = db.transaction(loja, 'readonly').objectStore(loja).getAll()
+              q.onsuccess = () => ok(q.result)
+              q.onerror = () => erro(q.error)
+            })
+          Promise.all([abrir('bordo-demo'), abrir('bordo')])
+            .then(async ([demo, real]) => {
+              for (const t of tabelas) {
+                const linhas = await ler(demo, t)
+                await new Promise((ok, erro) => {
+                  const tx = real.transaction(t, 'readwrite')
+                  for (const l of linhas) tx.objectStore(t).put(l)
+                  tx.oncomplete = () => ok(true)
+                  tx.onerror = () => erro(tx.error)
+                })
+              }
+              demo.close()
+              real.close()
+              resolve(true)
+            })
+            .catch(reject)
+        }),
     )
 
   const escreverBanco = (page, loja, linha) =>
@@ -180,8 +227,8 @@ export function criarAjudas({ browser, base }) {
   }
 
   return {
-    esperar, igual, passo, novaPagina, botao, voltar, dialogoAberto, abrirDemo, escolherCenario, defineRelogio,
-    lerBanco, escreverBanco, apagarDoBanco, tiposDosEventos, textoPrevia, iniciarFluxo,
+    base, esperar, igual, passo, novaPagina, botao, voltar, dialogoAberto, abrirDemo, escolherCenario, defineRelogio,
+    lerBanco, copiarDemoParaReal, escreverBanco, apagarDoBanco, tiposDosEventos, textoPrevia, iniciarFluxo,
     resultados, errosDaPagina,
   }
 }

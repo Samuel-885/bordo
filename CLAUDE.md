@@ -31,7 +31,7 @@ A especificação completa está em `docs/ESPECIFICACAO.md` e é a fonte da verd
 - `src/core/`: lógica pura. Sem React, sem IndexedDB, sem rede. Funções determinísticas do tipo `(plano, eventos, agora) → estado`.
 - `src/core/__tests__/`: um teste para cada caso da seção "Casos de teste do recálculo" da especificação, com o número do caso no nome.
 - `src/core/config.ts`: valores ajustáveis da seção "Decisões em aberto" (tolerância 5 min, margem 15 min, fator ônibus 1,15).
-- `src/data/`: persistência. Guarda plano e eventos; estado derivado nunca é persistido. Exceções: a tabela `consultas` (consultas ao Google Maps da fase 6), que não é fato da viagem nem estado derivado, vale por pouco tempo e fica fora do backup; e a tabela `modelos` (modelos de mensagem da fase 7), configuração do app que entra no backup.
+- `src/data/`: persistência. Guarda plano e eventos; estado derivado nunca é persistido. Exceções: a tabela `consultas` (consultas ao Google Maps da fase 6), que não é fato da viagem nem estado derivado, vale por pouco tempo e fica fora do backup; e a tabela `modelos` (modelos de mensagem da fase 7), configuração do app que entra no backup; e a tabela `meta` (fase 10a: último backup, aviso de restauração), configuração do aparelho que fica fora do backup.
 - `src/ui/`: telas. Nenhuma regra de negócio na UI: ela chama o core.
 
 ## Fluxo de trabalho
@@ -54,7 +54,7 @@ A especificação completa está em `docs/ESPECIFICACAO.md` e é a fonte da verd
 7. Mensagem de atualização (copiar e compartilhar)
 8. Rotas automáticas com fallback
 9. Mapa
-10. Relatório, feedback, volta, backup
+10. Backup e restauração (10a); relatório, feedback, volta e apagar passageiros (10b)
 
 ## Interface
 
