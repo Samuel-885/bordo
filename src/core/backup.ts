@@ -378,8 +378,12 @@ function erroDoConteudo(c: unknown): string | null {
       if (o.localId !== null && !locais.has(o.localId)) return `o plano original da viagem "${v.nome}" aponta para um local que não está no arquivo`
     }
   }
+  // Etapas criadas em viagem (parada incluída): valem como etapas da viagem do evento.
+  const incluidas = new Set(x.eventos.flatMap((e) => (e.tipo === 'parada_incluida' ? [`${e.viagemId}|${e.etapaId}`] : [])))
+  const idsIncluidos = new Set(x.eventos.flatMap((e) => (e.tipo === 'parada_incluida' ? [e.etapaId] : [])))
   for (const t of x.trechos) {
-    if (!etapaDaViagem.has(t.etapaOrigemId) || !etapaDaViagem.has(t.etapaDestinoId)) return 'um trecho aponta para uma etapa que não está no arquivo'
+    const existe = (id: string) => etapaDaViagem.has(id) || idsIncluidos.has(id)
+    if (!existe(t.etapaOrigemId) || !existe(t.etapaDestinoId)) return 'um trecho aponta para uma etapa que não está no arquivo'
     if (!locais.has(t.localOrigemId) || !locais.has(t.localDestinoId)) return 'um trecho aponta para um local que não está no arquivo'
   }
   for (const p of x.passageiros) {
@@ -388,8 +392,6 @@ function erroDoConteudo(c: unknown): string | null {
       return 'um passageiro aponta para uma etapa que não é da viagem dele'
     }
   }
-  // Etapas criadas em viagem (parada incluída): valem como etapas da viagem do evento.
-  const incluidas = new Set(x.eventos.flatMap((e) => (e.tipo === 'parada_incluida' ? [`${e.viagemId}|${e.etapaId}`] : [])))
   const daViagemOuIncluida = (etapaId: string, viagemId: string) => daViagem(etapaId, viagemId) || incluidas.has(`${viagemId}|${etapaId}`)
   const idsDeEventos = new Map(x.eventos.map((e) => [e.id, e]))
   for (const e of x.eventos) {

@@ -12,7 +12,8 @@ import {
 } from '../core/ordem'
 import { calcularEstado, calcularPlanoOriginal, pendenciasDeRegistro, type BloqueioInicio } from '../core/previsao'
 import { chegadaDaConsulta, validarConsulta, vigenciaDaConsulta } from '../core/consulta'
-import { validarTrechoManualEmViagem, validarTrocaComChegada } from '../core/viabilidade'
+import { validarTrechoManualEmViagem, validarTroca, validarTrocaComChegada } from '../core/viabilidade'
+import { aplicarInclusoes, validarInclusao, validarLocalNovo, type DadosDaInclusao, type DadosDoLocalNovo } from '../core/inclusao'
 import { aplicarRota, manterManual, trechoManualComRota, usarRotaNoLugarDoManual, validarFatorOnibus, type RotaCalculada } from '../core/rotas'
 import { paradaAberta, validarCorrecao, validarCorrecaoDaObservacao, validarHorario, validarRegistro } from '../core/registro'
 import { agora, simuladoAtivo } from '../core/relogio'
@@ -38,6 +39,9 @@ export interface OpcoesRegistro {
   horarioFato?: Instante
   observacao?: string
 }
+
+/** Ids das etapas criadas em viagem (paradas incluídas), mesmo as canceladas: os trechos delas valem junto. */
+const idsDeParadasIncluidas = (lista: readonly Evento[]): string[] => lista.flatMap((e) => (e.tipo === 'parada_incluida' ? [e.etapaId] : []))
 
 export class ErroDeEspaco extends Error {}
 export class EdicaoBloqueada extends Error {}
@@ -152,7 +156,10 @@ export class Repositorio {
     this.#exigirRelogioDoEspaco()
     const { viagens, etapas, trechos, eventos, passageiros, consultas, meta } = this.#db
     await this.#db.transaction('rw', [viagens, etapas, trechos, eventos, passageiros, consultas, meta], async () => {
-      const ids = (await etapas.where('viagemId').equals(id).primaryKeys()) as string[]
+      const ids = [
+        ...((await etapas.where('viagemId').equals(id).primaryKeys()) as string[]),
+        ...idsDeParadasIncluidas(await eventos.where('viagemId').equals(id).toArray()),
+      ]
       await passageiros.where('viagemId').equals(id).delete()
       await consultas.where('viagemId').equals(id).delete()
       await trechos.where('etapaOrigemId').anyOf(ids).delete()
@@ -260,10 +267,15 @@ export class Repositorio {
   /** Um local que alguma etapa usa não pode ser excluído. */
   async excluirLocal(id: string): Promise<void> {
     this.#exigirRelogioDoEspaco()
-    const { locais, etapas } = this.#db
-    await this.#db.transaction('rw', locais, etapas, async () => {
+    const { locais, etapas, eventos } = this.#db
+    await this.#db.transaction('rw', locais, etapas, eventos, async () => {
       const emUso = await etapas.filter((e) => e.localId === id || e.alternativas.includes(id)).count()
       if (emUso > 0) throw new LocalEmUso('Este local é usado em uma etapa.')
+      // Local incluído em viagem (parada ou local novo) vive nos eventos, não nas etapas.
+      const emInclusao = await eventos
+        .filter((e) => (e.tipo === 'parada_incluida' || e.tipo === 'local_incluido') && e.dados.localId === id)
+        .count()
+      if (emInclusao > 0) throw new LocalEmUso('Este local foi incluído em uma viagem.')
       await locais.delete(id)
     })
   }
@@ -272,7 +284,10 @@ export class Repositorio {
 
   async listarTrechos(viagemId: string): Promise<Trecho[]> {
     this.#exigirRelogioDoEspaco()
-    const ids = (await this.#db.etapas.where('viagemId').equals(viagemId).primaryKeys()) as string[]
+    const ids = [
+      ...((await this.#db.etapas.where('viagemId').equals(viagemId).primaryKeys()) as string[]),
+      ...idsDeParadasIncluidas(await this.#db.eventos.where('viagemId').equals(viagemId).toArray()),
+    ]
     return this.#db.trechos.where('etapaOrigemId').anyOf(ids).toArray()
   }
 
@@ -450,6 +465,14 @@ export class Repositorio {
 
   /** Tudo o que o núcleo precisa do planejamento. */
   async carregarPlano(viagemId: string): Promise<DadosPlano | null> {
+    const bruto = await this.#carregarPlanoBruto(viagemId)
+    if (!bruto || bruto.viagem.status === 'planejando') return bruto
+    // Viagem iniciada: o plano efetivo inclui o que os eventos de mudança de roteiro acrescentam.
+    return aplicarInclusoes(bruto, await this.listarEventos(viagemId))
+  }
+
+  /** O plano como está gravado, sem as inclusões em viagem (que vêm dos eventos). */
+  async #carregarPlanoBruto(viagemId: string): Promise<DadosPlano | null> {
     this.#exigirRelogioDoEspaco()
     const viagem = await this.#db.viagens.get(viagemId)
     if (!viagem) return null
@@ -634,6 +657,52 @@ export class Repositorio {
     ])
   }
 
+  // ---------- Mudança de roteiro em viagem ----------
+
+  /**
+   * Incluir uma parada nova (flexível) depois de `dados.apos`. Com `chegadaPeloMaps`, grava junto a
+   * recalibração da parada nova (trecho em curso). O DESFAZER retira os eventos juntos. Quem chama
+   * gera o `etapaId` (`novoId()`) antes, porque os trechos novos apontam para ele.
+   */
+  async registrarInclusao(viagemId: string, etapaId: string, dados: DadosDaInclusao, chegadaPeloMaps?: Instante): Promise<ResultadoRegistro> {
+    return this.#registrar(viagemId, [
+      {
+        conteudo: { tipo: 'parada_incluida', etapaId, dados },
+        validar: (d, original, lista, momento) => validarInclusao(d, original, lista, momento, etapaId, dados, chegadaPeloMaps),
+      },
+      ...(chegadaPeloMaps ? [{ conteudo: { tipo: 'recalibracao' as const, etapaId, dados: { horario: chegadaPeloMaps } } }] : []),
+    ])
+  }
+
+  /**
+   * Trocar o local de uma parada flexível por um local novo: o local vira candidato, a troca é
+   * feita e, se a chegada vier do Google Maps, a recalibração da etapa vai junto.
+   */
+  async registrarLocalNovo(viagemId: string, etapaId: string, dados: DadosDoLocalNovo, chegadaPeloMaps?: Instante): Promise<ResultadoRegistro> {
+    return this.#registrar(viagemId, [
+      {
+        conteudo: { tipo: 'local_incluido', etapaId, dados },
+        validar: (d, original, lista, momento) => validarLocalNovo(d, original, lista, momento, etapaId, dados, chegadaPeloMaps),
+      },
+      {
+        conteudo: { tipo: 'troca_local', etapaId, dados: { localId: dados.localId } },
+        validar: (d, original, lista, momento) =>
+          chegadaPeloMaps
+            ? validarTrocaComChegada(d, original, lista, momento, etapaId, dados.localId, chegadaPeloMaps)
+            : validarTroca(d, original, lista, momento, etapaId, dados.localId),
+      },
+      ...(chegadaPeloMaps ? [{ conteudo: { tipo: 'recalibracao' as const, etapaId, dados: { horario: chegadaPeloMaps } } }] : []),
+    ])
+  }
+
+  /** Cancela uma parada incluída antes de chegar nela (o evento `parada_incluida` é o `eventoId`). */
+  async cancelarInclusao(viagemId: string, eventoId: string): Promise<ResultadoRegistro> {
+    const lista = await this.listarEventos(viagemId)
+    const alvo = lista.find((e) => e.id === eventoId)
+    if (!alvo || alvo.tipo !== 'parada_incluida') return { ok: false, motivo: 'Este registro não é uma parada incluída.' }
+    return this.#registrar(viagemId, [{ conteudo: { tipo: 'inclusao_cancelada', etapaId: alvo.etapaId, dados: { eventoId } } }])
+  }
+
   /**
    * SAÍMOS com conferência: grava, na mesma transação, a conferência, um status para cada
    * pendente e a saída. O DESFAZER desfaz tudo junto. O resultado da conferência vem do núcleo.
@@ -805,16 +874,18 @@ export class Repositorio {
     this.#exigirRelogioDoEspaco()
     const { viagens, etapas, locais, trechos, eventos, passageiros } = this.#db
     return this.#db.transaction('rw', [viagens, etapas, locais, trechos, eventos, passageiros], async (): Promise<ResultadoRegistro> => {
-      const dados = await this.carregarPlano(viagemId)
-      if (!dados) return { ok: false, motivo: 'Viagem não encontrada.' }
-      const original = dados.viagem.planoOriginal
+      const bruto = await this.#carregarPlanoBruto(viagemId)
+      if (!bruto) return { ok: false, motivo: 'Viagem não encontrada.' }
+      const original = bruto.viagem.planoOriginal
       if (!original) return { ok: false, motivo: 'A viagem ainda não foi iniciada.' }
       const momento = agora()
       let lista = await this.listarEventos(viagemId)
       const todosPassageiros = await this.listarPassageiros(viagemId)
       const criados: Evento[] = []
-      let viagem = dados.viagem
+      let viagem = bruto.viagem
       for (const passo of passos) {
+        // O plano efetivo é refeito a cada passo: um passo pode incluir ou cancelar uma etapa.
+        const dados = aplicarInclusoes(bruto, lista)
         const horario = passo.horarioFato ?? momento
         const r = passo.validar
           ? passo.validar({ ...dados, viagem }, original, lista, momento)
@@ -965,7 +1036,10 @@ export class Repositorio {
         await modelos.bulkPut(c.modelos)
       } else {
         for (const id of escolhidas) {
-          const ids = (await etapas.where('viagemId').equals(id).primaryKeys()) as string[]
+          const ids = [
+            ...((await etapas.where('viagemId').equals(id).primaryKeys()) as string[]),
+            ...idsDeParadasIncluidas(await eventos.where('viagemId').equals(id).toArray()),
+          ]
           await passageiros.where('viagemId').equals(id).delete()
           await consultas.where('viagemId').equals(id).delete()
           await trechos.where('etapaOrigemId').anyOf(ids).delete()
@@ -979,7 +1053,10 @@ export class Repositorio {
       }
       const doEscolhido = new Set(escolhidas)
       const etapasEscolhidas = c.etapas.filter((e) => doEscolhido.has(e.viagemId))
-      const idsDasEtapas = new Set(etapasEscolhidas.map((e) => e.id))
+      const idsDasEtapas = new Set([
+        ...etapasEscolhidas.map((e) => e.id),
+        ...idsDeParadasIncluidas(c.eventos.filter((e) => doEscolhido.has(e.viagemId))),
+      ])
       await locais.bulkPut(c.locais)
       await viagens.bulkPut(c.viagens.filter((v) => doEscolhido.has(v.id)))
       await etapas.bulkPut(etapasEscolhidas)
