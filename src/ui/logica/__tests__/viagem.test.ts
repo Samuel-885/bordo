@@ -6,7 +6,7 @@ import { MOTIVOS_DE_PARADA } from '../rotulos'
 import { avisoDeDia, horaValida, resolverHorarioPassado, resolverHorarioProximo } from '../horarioDigitado'
 import { linkGoogleMaps } from '../linkMaps'
 import { mesmoInstante } from '../../../core/tempo'
-import { montarTimeline, textoDaOrigemDaPrevisao, textoDaSituacao, textoDoAtraso, textoDoCronometro, textoDoTempoRestante } from '../textosViagem'
+import { montarTimeline, textoDaEstimativaPelaRota, textoDaOrigemDaPrevisao, textoDaSituacao, textoDoAtraso, textoDoCronometro, textoDoTempoRestante } from '../textosViagem'
 
 describe('link do Google Maps', () => {
   it('usa coordenadas; sem elas, nome e cidade; sem local, nada', () => {
@@ -63,6 +63,17 @@ describe('textos', () => {
     const base = { instante: horaDemo('13:02'), atrasoMin: 62 }
     expect(textoDaOrigemDaPrevisao({ ...base, origem: 'recalibracao', recalibradoEm: horaDemo('11:40') })).toBe('Google Maps, informado às 11:40')
     expect(textoDaOrigemDaPrevisao({ ...base, origem: 'calculado' })).toBeNull()
+  })
+
+  it('"estimativa pela rota (sem trânsito)" só quando a previsão vem calculada de um trecho de rota', () => {
+    const base = { instante: horaDemo('22:17'), atrasoMin: null }
+    const rota = { minutos: 12, fonte: 'rota' as const }
+    expect(textoDaEstimativaPelaRota({ ...base, origem: 'calculado' }, rota)).toBe('Estimativa pela rota, sem trânsito')
+    expect(textoDaEstimativaPelaRota({ ...base, origem: 'calculado' }, { minutos: 12, fonte: 'roteiro' })).toBeNull()
+    expect(textoDaEstimativaPelaRota({ ...base, origem: 'calculado' }, { minutos: 12, fonte: 'manual' })).toBeNull()
+    expect(textoDaEstimativaPelaRota({ ...base, origem: 'recalibracao', recalibradoEm: horaDemo('22:10') }, rota)).toBeNull()
+    expect(textoDaEstimativaPelaRota({ ...base, origem: 'relogio' }, rota)).toBeNull()
+    expect(textoDaEstimativaPelaRota(null, rota)).toBeNull()
   })
 })
 

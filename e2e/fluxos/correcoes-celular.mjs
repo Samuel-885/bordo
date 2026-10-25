@@ -69,6 +69,31 @@ export const fluxo = {
       await ctxD.close()
     })
 
+    await passo('Trecho calculado pela rota: o cartão diz "Estimativa pela rota, sem trânsito", e Atualizar previsão aparece ali', async () => {
+      const { ctx: ctxF, page: f } = await h.novaPagina({ relogioReal: '2026-11-14T21:40:00-03:00' })
+      await abrirDemo(f)
+      await escolherCenario(f, 'Chegada ao destino', 18)
+      // Último trecho sem horário de roteiro e com tempo de rota (60 min de carro × 1,15 = 1h09).
+      const etapas = await h.lerBanco(f, 'etapas')
+      const { chegadaRoteiro, ...destino } = etapas.find((x) => x.id === 'demo-destino')
+      await h.escreverBanco(f, 'etapas', destino)
+      await h.escreverBanco(f, 'trechos', { etapaOrigemId: 'demo-jantar', localOrigemId: 'demo-l-jantar', etapaDestinoId: 'demo-destino', localDestinoId: 'demo-l-chegada', duracaoMin: 60, fonte: 'rota', distanciaKm: 30, calculadoEm: '2026-11-13T10:00:00-03:00' })
+      await copiarDemoParaReal(f)
+      await f.goto(f.url())
+      const cartao = f.locator('[aria-label="Próxima parada"]')
+      await cartao.waitFor()
+      const texto = (await cartao.innerText()).replace(/\s+/g, ' ')
+      esperar(texto.includes('Estimativa pela rota, sem trânsito'), `cartão da próxima parada: ${texto}`)
+      esperar(/22:46/.test(await f.locator('[aria-label="Previsão no destino"]').innerText()), 'chegada no destino 21:37 + 1h09')
+      esperar((await f.locator('[aria-label="Previsão no destino"]').innerText()).includes('Estimativa pela rota, sem trânsito'), 'origem no cartão do destino')
+      await cartao.getByRole('button', { name: /Atualizar previsão/ }).click()
+      await f.locator('#recalibracao-hora').fill('22:24')
+      await dialogoAberto(f).getByRole('button', { name: 'Atualizar', exact: true }).click()
+      await f.getByText(/Google Maps, informado às/).first().waitFor()
+      esperar(!(await cartao.innerText()).includes('Estimativa pela rota'), 'depois da recalibração, a linha de estimativa some')
+      await ctxF.close()
+    })
+
     await passo('Parado no jantar (etapa anterior ao destino): Mais › Atualizar previsão aceita a chegada no destino', async () => {
       const { ctx: ctxE, page: e } = await h.novaPagina()
       await abrirDemo(e)

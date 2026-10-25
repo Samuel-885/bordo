@@ -35,16 +35,22 @@ export interface DescricaoDoTrecho {
   comparacao: (ComparacaoManualRota & { texto: string }) | null
 }
 
+/** O OSRM não vê trânsito, semáforos nem conversões: em trecho urbano curto subestima bastante. */
+export const TEXTO_SEM_TRANSITO = 'estimativa sem trânsito, semáforos ou conversões'
+
 export function descreverTrecho(duracao: DuracaoTrecho | null, guardado: Trecho | undefined, fator: number): DescricaoDoTrecho {
   if (!duracao || duracao.minutos === null) return { fonte: '', detalhes: [], comparacao: null }
   const resultado: DescricaoDoTrecho = { fonte: textoDaFonte(duracao.fonte), detalhes: [], comparacao: null }
   const rota = rotaDoTrecho(guardado)
-  if (!rota) return resultado
+  if (!rota) {
+    if (duracao.fonte === 'rota') resultado.detalhes.push(TEXTO_SEM_TRANSITO)
+    return resultado
+  }
   const carro = formatarDuracao(rota.duracaoMin)
   const quando = `${km(rota.distanciaKm)} · calculado em ${textoDaDataDoCalculo(rota.calculadoEm)}`
 
   if (duracao.fonte === 'rota') {
-    resultado.detalhes.push(`carro ${carro} × fator ${formatarFator(fator)} · ${quando}`)
+    resultado.detalhes.push(`carro ${carro} × fator ${formatarFator(fator)} · ${quando}`, TEXTO_SEM_TRANSITO)
   } else if (duracao.fonte === 'roteiro') {
     resultado.detalhes.push(
       `roteiro ${formatarDuracao(duracao.minutos)} · carro ${carro} · fator implícito ${formatarFator(fatorImplicito(duracao.minutos, rota.duracaoMin))}`,

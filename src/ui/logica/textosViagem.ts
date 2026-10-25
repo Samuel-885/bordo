@@ -5,7 +5,7 @@ import { emOrdemDeGravacao } from '../../core/eventos'
 import type { ABordo } from '../../core/conferencia'
 import { rotuloHorario, type Situacao } from '../../core/registro'
 import { diferencaMin, ordenarPor } from '../../core/tempo'
-import type { Conferencia, DadosPlano, Etapa, Evento, HorarioPrevisto, Instante, Local, Passageiro, PlanoOriginal } from '../../core/tipos'
+import type { Conferencia, DadosPlano, DuracaoTrecho, Etapa, Evento, HorarioPrevisto, Instante, Local, Passageiro, PlanoOriginal } from '../../core/tipos'
 import { formatarDuracao } from './duracao'
 import { formatarHora } from './horarios'
 import { textoDeQuemFalta } from './passageiros'
@@ -42,6 +42,14 @@ export const textoDaSituacao = (s: Situacao, nomeLocal: string | null): string =
 export function textoDaOrigemDaPrevisao(h: HorarioPrevisto | null | undefined): string | null {
   if (h?.origem !== 'recalibracao' || !h.recalibradoEm) return null
   return `Google Maps, informado às ${formatarHora(h.recalibradoEm)}`
+}
+
+/**
+ * "Estimativa pela rota (sem trânsito)": a previsão vem só do trecho calculado pelo OSRM, sem
+ * recalibração, sem relógio e sem registro. Vazio quando não é esse o caso.
+ */
+export function textoDaEstimativaPelaRota(h: HorarioPrevisto | null | undefined, trecho: DuracaoTrecho | null | undefined): string | null {
+  return h?.origem === 'calculado' && trecho?.fonte === 'rota' ? 'Estimativa pela rota, sem trânsito' : null
 }
 
 /** Quanto falta até `previsao`: "1h05", "12 min" ou "chegando". */

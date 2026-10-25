@@ -15,6 +15,7 @@ import {
   formatarDuracaoCurta,
   textoABordo,
   tituloDoABordo,
+  textoDaEstimativaPelaRota,
   textoDaOrigemDaPrevisao,
   textoDaSituacao,
   textoDoAtalhoDeAlternativas,
@@ -57,11 +58,12 @@ export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
     )
   }
 
+  const estimativaPelaRota = textoDaEstimativaPelaRota(chegadaProxima, d.estadoProxima?.trechoChegada)
   const nomeProxima = proximaEtapa ? nomeDaEtapa(proximaEtapa, locais) : ''
   const localProxima = localDe(proxima)?.nome ?? 'Local não escolhido'
   const nAlternativas = proximaEtapa?.tipo === 'flexivel' && !concluida ? proximaEtapa.alternativas.length : 0
   const origemDoDestino = destino
-    ? (textoDaOrigemDaPrevisao(destino) ?? (destino.origem === 'relogio' ? 'Acompanhando o relógio' : destino.origem === 'real' ? 'Horário registrado' : 'Calculada pelo roteiro'))
+    ? (textoDaOrigemDaPrevisao(destino) ?? textoDaEstimativaPelaRota(destino, d.estadoDe(ultima?.id ?? null)?.trechoChegada) ?? (destino.origem === 'relogio' ? 'Acompanhando o relógio' : destino.origem === 'real' ? 'Horário registrado' : 'Calculada pelo roteiro'))
     : null
   const seloAtraso = d.atraso !== null && <SeloDeAtraso minutos={d.atraso} />
   const cr = s.cronometro
@@ -175,6 +177,11 @@ export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
                 <span className="suave"> · falta {textoDoTempoRestante(chegadaProxima.instante, agora)}</span>
               </p>
               {textoDaOrigemDaPrevisao(chegadaProxima) && <p className="dica">{textoDaOrigemDaPrevisao(chegadaProxima)}</p>}
+              {estimativaPelaRota && (
+                <p className="dica">
+                  {estimativaPelaRota}. Confira no Maps{d.podeRecalibrar ? ' e atualize a previsão.' : '.'}
+                </p>
+              )}
             </>
           ) : (
             <p className="dica">Sem tempo definido para este trecho.</p>
@@ -183,6 +190,12 @@ export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
             <a className="link-texto" href={mapa} target="_blank" rel="noopener noreferrer">
               Abrir no Maps
             </a>
+          )}
+          {estimativaPelaRota && d.podeRecalibrar && (
+            <button type="button" className="atalho" disabled={ocupado} onClick={() => abrir('recalibracao')}>
+              Atualizar previsão
+              <span aria-hidden="true"> ›</span>
+            </button>
           )}
           {nAlternativas > 0 && (
             <button type="button" className="atalho" onClick={() => onAba('roteiro')}>

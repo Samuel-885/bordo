@@ -28,9 +28,14 @@ describe('descrição da fonte de cada tempo (fase 8)', () => {
     const d: DuracaoTrecho = { minutos: 128, fonte: 'rota' }
     expect(descreverTrecho(d, daRota(111), 1.15)).toEqual({
       fonte: 'calculado pela rota',
-      detalhes: ['carro 1h51 × fator 1,15 · 96,7 km · calculado em 23/10 às 15:30'],
+      detalhes: ['carro 1h51 × fator 1,15 · 96,7 km · calculado em 23/10 às 15:30', 'estimativa sem trânsito, semáforos ou conversões'],
       comparacao: null,
     })
+  })
+
+  it('rota sem os dados da rota guardados: ainda avisa que é estimativa sem trânsito', () => {
+    expect(descreverTrecho({ minutos: 20, fonte: 'rota' }, undefined, 1.15).detalhes).toEqual(['estimativa sem trânsito, semáforos ou conversões'])
+    expect(descreverTrecho({ minutos: 20, fonte: 'manual' }, undefined, 1.15).detalhes).toEqual([])
   })
 
   it('roteiro com rota calculada: mostra o fator implícito', () => {
