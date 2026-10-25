@@ -105,13 +105,15 @@ function CampoDeTempo({
   )
 }
 
-export function MudancaDeRoteiro({ repo, plano, eventos, agora, alvo, onFeito, onFechar }: Props) {
-  const original = plano.viagem.planoOriginal!
+export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, alvo, onFeito, onFechar }: Props) {
+  const original = planoRecebido.viagem.planoOriginal!
   const online = useOnline()
   useVoltarFecha(true, onFechar)
 
   const [vista, setVista] = useState<Vista>('formulario')
-  const [locais, setLocais] = useState<Local[]>(plano.locais)
+  const [locais, setLocais] = useState<Local[]>(planoRecebido.locais)
+  // O catálogo pode ganhar um local cadastrado aqui mesmo: o núcleo precisa enxergá-lo.
+  const plano = useMemo(() => ({ ...planoRecebido, locais }), [planoRecebido, locais])
   const [localId, setLocalId] = useState('')
   const [etapaNovaId] = useState(() => novoId())
   const posicoes = useMemo(() => posicoesParaIncluir(plano, original, eventos, agora), [plano, original, eventos, agora])

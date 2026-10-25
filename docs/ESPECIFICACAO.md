@@ -791,6 +791,13 @@ Aprovada em 25/10/2026, antes da fase 9. Cobre dois casos durante a viagem: (1) 
 - **Local.** O local novo é cadastrado no catálogo (busca de endereço ou coordenadas coladas, como no cadastro). Excluir um local usado só por um evento de inclusão é barrado (`LocalEmUso`).
 - **Rota na viagem.** Mesmo serviço, termos e privacidade da fase 8 (só coordenadas dos dois locais na rede). Falha ou ausência de rota nunca impede nada além do que a falta de tempo já impede.
 
+**Limites da inclusão (recusa com mensagem, nada é adivinhado)**
+
+- Com parada não planejada aberta (PARAMOS sem VOLTAMOS), não inclui parada: o VOLTAMOS vem antes.
+- Em trânsito, não inclui parada se o trecho em curso já teve parada não planejada ou previsão do Google Maps para a próxima etapa: esses registros ficariam atribuídos à etapa errada. Registre a chegada primeiro.
+- A interface usa os vizinhos imediatos da parada nova no percurso; se um vizinho está pulado, o tempo pedido é dele.
+- "Outro local…" fica na tela "Comparar e escolher", em toda parada flexível pendente; a rota na viagem não tem fluxo e2e (o serviço é testado com respostas simuladas).
+
 **Backup (formato 1).** Os eventos novos entram como qualquer evento. A restauração aceita os três tipos, confere a estrutura (reaproveitando a de `Trecho`), aceita como etapa válida o id criado por `parada_incluida` da mesma viagem e exige que o `localId` esteja no catálogo. Um app antigo recusa um arquivo com esses eventos ("tipo de evento desconhecido"); o arquivo antigo no app novo restaura sem mudança.
 
 **Interface.** Aba Roteiro, visão Paradas: "+ Incluir parada" no fim das paradas adiante; em "Comparar e escolher", "Outro local…" na parada flexível pendente; Mais › Registros: "Incluir parada". Nada novo na aba Viagem. Cancelar parada incluída fica no item da parada na aba Roteiro.
