@@ -56,6 +56,8 @@ function App() {
   const [executor, setExecutor] = useState<ExecutorNoBanco | null>(null)
   /** Posição da tela atual na pilha do histórico (0 = primeira). */
   const indice = useRef(0)
+  /** A navegação em curso é "ir para a lista": a entrada 0 vira a lista, seja qual for o seu conteúdo. */
+  const paraLista = useRef(false)
 
   const irPara = useCallback((nova: Tela, substituir = false) => {
     if (substituir) {
@@ -76,12 +78,25 @@ function App() {
     [irPara],
   )
 
+  /** Volta à lista pulando as abas empilhadas no histórico (voltar uma entrada só trocaria de aba). */
+  const irParaLista = useCallback(() => {
+    if (indice.current > 0) {
+      paraLista.current = true
+      window.history.go(-indice.current)
+    } else irPara(LISTA, true)
+  }, [irPara])
+
   useEffect(() => {
     void pedirArmazenamentoPersistente()
     window.history.replaceState({ tela: LISTA, indice: 0 } satisfies EstadoHistorico, '')
     const aoVoltar = (e: PopStateEvent) => {
       const estado = e.state as EstadoHistorico | null
-      if (estado?.tela) {
+      if (paraLista.current) {
+        paraLista.current = false
+        indice.current = 0
+        window.history.replaceState({ tela: LISTA, indice: 0 } satisfies EstadoHistorico, '')
+        setTela(LISTA)
+      } else if (estado?.tela) {
         indice.current = estado.indice
         setTela(estado.tela)
       } else {
@@ -173,7 +188,7 @@ function App() {
           key={`plan-${tela.viagemId}-${versao}`}
           repo={repo}
           viagemId={tela.viagemId}
-          onVoltar={() => voltar(LISTA)}
+          onVoltar={irParaLista}
           onEditarEtapa={(etapaId) => irPara({ nome: 'etapa', viagemId: tela.viagemId, etapaId })}
           onViagemExcluida={() => irPara(LISTA, true)}
           onAbrirViagem={() => irPara({ nome: 'viagem', viagemId: tela.viagemId }, true)}
@@ -200,7 +215,7 @@ function App() {
           key={`viagem-${tela.viagemId}-${versao}`}
           repo={repo}
           viagemId={tela.viagemId}
-          onVoltar={() => voltar(LISTA)}
+          onVoltar={irParaLista}
           aba={tela.aba ?? 'viagem'}
           visao={tela.visao}
           onAba={(aba, visao) => irPara({ nome: 'viagem', viagemId: tela.viagemId, aba, ...(visao ? { visao } : {}) })}

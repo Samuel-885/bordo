@@ -732,3 +732,9 @@ Aprovadas em 23/10/2026, na construção das rotas automáticas e da busca de en
 - **Sugestão para calibrar:** a média dos fatores implícitos dos trechos que têm tempo de roteiro e rota calculada, mostrada sob o campo ("Sugestão pelo roteiro: 1,20, média de 5 trechos"). Só é aplicada quando a pessoa toca em "Usar 1,20".
 
 **Testes.** Núcleo (`fase8-rotas.test.ts`: leitura das respostas, pares, rota ao lado do manual, comparação, fator, backup), serviços com respostas simuladas e sem rede (`src/servicos/__tests__`: sucesso, limite 429, servidor fora, sem internet, tempo esgotado, resposta vazia e inválida, "sem caminho", lote com parada e cancelamento), dados (`fase8-rotas.test.ts` em `src/data`), texto da interface (`trechoDescricao.test.ts`, `formLocal.test.ts`) e o fluxo `e2e/fluxos/fase8-rotas.mjs`, com os dois serviços simulados.
+
+## Correções dos testes no celular
+
+Aprovadas em 25/10/2026, depois de uma viagem curta urbana testada no celular (Ipatinga, cerca de 20 min). Nenhuma regra de cálculo muda, salvo o que está dito no item 1.
+
+**Trocar de viagem.** Cada troca de aba entra no histórico do navegador; "voltar uma entrada" só voltava à aba anterior. "Trocar de viagem" e o "Voltar às viagens" do cabeçalho (planejamento e viagem, em qualquer status) agora voltam à lista de viagens pulando as abas empilhadas. O botão voltar do Android continua passo a passo. Teste: `e2e/fluxos/correcoes-celular.mjs`.
