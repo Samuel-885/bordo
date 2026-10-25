@@ -595,6 +595,28 @@ button:focus-visible {
 
 /* ---------- Lista de viagens ---------- */
 
+.viagem-linha {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.viagem-linha .viagem-item {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+.viagem-opcoes {
+  flex: 0 0 48px;
+  min-width: 48px;
+  min-height: 56px;
+  background: var(--cartao);
+  color: var(--texto);
+  border: 1px solid var(--linha);
+  border-radius: 12px;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
 .viagem-item {
   display: flex;
   flex-direction: column;

@@ -6,12 +6,14 @@ interface Props {
   children: ReactNode
   rotuloConfirmar: string
   perigo?: boolean
+  /** Deixa o botão de confirmar desligado (por exemplo, até marcar "entendo"). */
+  desligarConfirmar?: boolean
   onConfirmar: () => void
   onCancelar: () => void
 }
 
 /** Pede confirmação antes de uma ação difícil de desfazer. */
-export function Confirmar({ aberto, titulo, children, rotuloConfirmar, perigo, onConfirmar, onCancelar }: Props) {
+export function Confirmar({ aberto, titulo, children, rotuloConfirmar, perigo, desligarConfirmar, onConfirmar, onCancelar }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
@@ -29,7 +31,7 @@ export function Confirmar({ aberto, titulo, children, rotuloConfirmar, perigo, o
         <button type="button" className="botao" onClick={onCancelar}>
           Voltar
         </button>
-        <button type="button" className={`botao ${perigo ? 'perigo' : 'principal'}`} onClick={onConfirmar}>
+        <button type="button" className={`botao ${perigo ? 'perigo' : 'principal'}`} disabled={desligarConfirmar} onClick={onConfirmar}>
           {rotuloConfirmar}
         </button>
       </div>

@@ -1,9 +1,11 @@
 // Aba "Mais": tudo o que não precisa estar à mão na tela principal, em três grupos.
 // Comunicação, Registros e Dados e aparelho. Nenhuma regra: abre as mesmas folhas e telas.
 
+import { useState } from 'react'
 import { ordenarPor } from '../../core/tempo'
 import { linhaDoUltimoBackup } from '../logica/backup'
 import { formatarHora } from '../logica/horarios'
+import { ExcluirViagem } from '../componentes/ExcluirViagem'
 import { GrupoDadosEAparelho, GrupoDeMenu, ItemDeMenu as Item } from '../componentes/MenuMais'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
@@ -24,6 +26,7 @@ export function AbaMais({ c, d, r, onModelos, onBackup, onTrocarViagem, onAbrirD
   const { eventos, agora } = c
   const demo = c.repo.espaco === 'demo'
   const { concluida, podeRecalibrar, podePular, estadoBackup } = d
+  const [excluindo, setExcluindo] = useState(false)
 
   const ultimaAtualizacao = ordenarPor(
     eventos.filter((e) => e.tipo === 'atualizacao_gerada'),
@@ -57,7 +60,9 @@ export function AbaMais({ c, d, r, onModelos, onBackup, onTrocarViagem, onAbrirD
         onTrocarViagem={onTrocarViagem}
         onAbrirDemo={onAbrirDemo}
         onSairDaDemo={onSairDaDemo}
+        extra={<Item titulo="Excluir viagem" detalhe="apaga a viagem, os registros e os passageiros" perigo onClick={() => setExcluindo(true)} />}
       />
+      {excluindo && <ExcluirViagem repo={c.repo} viagem={c.plano.viagem} onCancelar={() => setExcluindo(false)} onExcluida={onTrocarViagem} />}
     </main>
   )
 }

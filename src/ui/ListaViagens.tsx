@@ -5,7 +5,9 @@ import { naHoraDoDia, ordenarPor } from '../core/tempo'
 import type { Viagem } from '../core/tipos'
 import { novoId, type Repositorio } from '../data/repositorio'
 import { Cabecalho } from './componentes/Cabecalho'
-import { formatarData } from './logica/horarios'
+import { dataBr, rotuloDaViagem, STATUS_DA_VIAGEM as STATUS } from './logica/viagens'
+import { ExcluirViagem } from './componentes/ExcluirViagem'
+import { OpcoesDaViagem } from './componentes/OpcoesDaViagem'
 import { useDados } from './useDados'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 
@@ -19,16 +21,11 @@ interface Props {
   onLocais: () => void
 }
 
-const STATUS = { planejando: 'Planejando', em_andamento: 'Em andamento', concluida: 'Concluída' } as const
-
-function dataBr(i: Viagem['dataSaida']): string {
-  const [a, m, d] = formatarData(i).split('-')
-  return `${d}/${m}/${a}`
-}
-
 export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao, onModelos, onBackup, onLocais }: Props) {
-  const { dados: viagens, erro } = useDados(() => repo.listarViagens(), repo.espaco)
+  const { dados: viagens, erro, recarregar } = useDados(() => repo.listarViagens(), repo.espaco)
   const [falha, setFalha] = useState<string | null>(null)
+  const [opcoes, setOpcoes] = useState<Viagem | null>(null)
+  const [excluindo, setExcluindo] = useState<Viagem | null>(null)
 
   async function nova() {
     const viagem: Viagem = {
@@ -57,14 +54,40 @@ export function ListaViagens({ repo, demo, onAbrir, onEntrarNaDemonstracao, onMo
         {ordenarPor(viagens ?? [], (v) => v.dataSaida)
           .reverse()
           .map((v) => (
-            <button key={v.id} type="button" className="viagem-item" onClick={() => onAbrir(v)}>
-              <strong>{v.nome || 'Sem nome'}</strong>
-              <span>
-                {v.tipo === 'ida' ? 'Ida' : 'Volta'} · {dataBr(v.dataSaida)} · {STATUS[v.status]}
-              </span>
-            </button>
+            <div key={v.id} className="viagem-linha">
+              <button type="button" className="viagem-item" onClick={() => onAbrir(v)}>
+                <strong>{v.nome || 'Sem nome'}</strong>
+                <span>
+                  {v.tipo === 'ida' ? 'Ida' : 'Volta'} · {dataBr(v.dataSaida)} · {STATUS[v.status]}
+                </span>
+              </button>
+              <button type="button" className="viagem-opcoes" aria-label={`Opções de ${v.nome || 'Sem nome'}, ${dataBr(v.dataSaida)}`} onClick={() => setOpcoes(v)}>
+                <span aria-hidden="true">⋯</span>
+              </button>
+            </div>
           ))}
         {falha && <p className="msg-erro">{falha}</p>}
+        {opcoes && (
+          <OpcoesDaViagem
+            rotulo={rotuloDaViagem(opcoes)}
+            onFechar={() => setOpcoes(null)}
+            onExcluir={() => {
+              setExcluindo(opcoes)
+              setOpcoes(null)
+            }}
+          />
+        )}
+        {excluindo && (
+          <ExcluirViagem
+            repo={repo}
+            viagem={excluindo}
+            onCancelar={() => setExcluindo(null)}
+            onExcluida={() => {
+              setExcluindo(null)
+              recarregar()
+            }}
+          />
+        )}
         <button type="button" className="botao principal largo" onClick={nova}>
           Nova viagem
         </button>

@@ -678,7 +678,7 @@ Aprovadas em 23/10/2026. Só interface: nenhuma regra de cálculo, o núcleo e o
 
 **Roteiro.** Visão "Paradas": lista vertical com marcador (feita, estamos aqui, próxima, adiante, pulada), horário real ou previsto em mono e o atraso; as alternativas da próxima parada flexível aparecem abertas, com classificação e margem, e levam à tela de alternativas. Visão "Timeline": a de sempre. "Mapa" desligado, com a dica "chega na fase 9".
 
-**Locais.** Lista, novo, editar e excluir. A exclusão usa a trava do repositório (`LocalEmUso`): em uso, a tela diz em qual viagem e etapa o local está (preferido ou alternativa) e não exclui; livre, pede confirmação.
+**Locais.** Lista, novo, editar e excluir. A exclusão usa a trava do repositório (`LocalEmUso`): em uso, a tela diz em qual viagem (nome, data e status: "Teste (14/11/2026, Concluída): Almoço (preferido)") e etapa o local está e não exclui; livre, pede confirmação.
 
 **Mais.** Três grupos: Comunicação (Mensagem de atualização com "última gerada às", Modelos), Registros (imprevisto, observação, atualizar previsão, pular etapa, Relatório desligado: "chega na fase 10b") e Dados e aparelho (Backup com o último, Modo noite, Trocar de viagem, Demonstração).
 
@@ -756,3 +756,11 @@ Aprovadas em 25/10/2026, depois de uma viagem curta urbana testada no celular (I
 - Cada resultado mostra o que o ponto representa e se é **exato** ou **aproximado**: com número da casa = "Endereço com número · exato"; `house` de um estabelecimento nomeado (`osm_key` amenity, shop, tourism, leisure, office, building e semelhantes) = "Estabelecimento · exato"; `house` sem número nem estabelecimento, rua, bairro, cidade, município, estado e qualquer resultado sem tipo = "… · aproximado". Na dúvida, aproximado.
 - Ao escolher um aproximado, a tela avisa: "Resultado aproximado (rua): o ponto não é o lugar exato. Para ter precisão, cole as coordenadas do Google Maps no campo abaixo." O campo de busca diz que o número da casa nem sempre é encontrado.
 - **Preferência por perto:** a busca envia `lat` e `lon` (centro dos locais do catálogo que têm coordenadas, arredondado a 2 casas, cerca de 1 km). É só ranking do Photon (não filtra); sem local com coordenadas, nada é enviado. Aprovado em 25/10/2026. **Limitação:** o centro de locais muito distantes (Ipatinga e Ribeirão Preto) cai numa terceira região; testado: "Rua Sete de Setembro" com o centro dos dois trouxe ruas de Formiga, e com o ponto de uma das cidades, as ruas dela. Vale melhor para um catálogo de uma região só (ver `PENDENCIAS.md`).
+
+**Excluir viagem em qualquer status.** Antes só era possível em planejamento, com o botão escondido em Mais. Agora:
+- **Onde:** aba Mais de qualquer viagem (planejamento, em andamento ou concluída), grupo "Dados e aparelho", "Excluir viagem" em vermelho; e na lista de viagens, o botão "⋯" (48 px) de cada linha, separado do toque que abre a viagem, que abre uma folha com "Excluir viagem" e "Cancelar". Nunca há exclusão por um toque só.
+- **Confirmação:** em planejamento, a de sempre (nome, data e status, e o aviso). Iniciada ou concluída: a folha mostra nome, data e status, avisa que os registros, passageiros e consultas serão apagados e que não dá para desfazer, **sugere o backup** ali mesmo (COMPARTILHAR e BAIXAR, no espaço real) e só liga o botão depois de marcar "Entendo que os registros serão apagados". A caixa, e não digitar o nome, porque duas viagens podem ter o mesmo nome.
+- **O que apaga:** a viagem, etapas, trechos, eventos, passageiros e consultas, numa transação só, e a tira da lista "restaurada de um backup". Os locais do catálogo ficam, e os que só ela usava passam a poder ser excluídos (a trava olha só as etapas que existem). O backup guardado não é tocado.
+- **Depois:** volta à lista de viagens.
+- Ocultar um local sem excluí-lo ficou para depois (`PENDENCIAS.md`).
+- Testes: `src/data/__tests__/excluir-viagem.test.ts`, `usoDoLocal.test.ts`, `viagens.test.ts` e o fluxo `e2e/fluxos/correcoes-excluir-viagem.mjs`.

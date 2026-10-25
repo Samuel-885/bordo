@@ -29,6 +29,7 @@ import { paresDeTrechoDasAlternativas } from '../core/trechos'
 import { fatorSugeridoPeloRoteiro, locaisSemCoordenadas, paresParaCalcular, trechoDoPar, validarFatorOnibus, type FatorSugerido } from '../core/rotas'
 import { aplicarFatorOnibus } from '../core/trechos'
 import { CalculoDeRotas } from './CalculoDeRotas'
+import { ExcluirViagem } from './componentes/ExcluirViagem'
 import { descreverTrecho, formatarFator, lerFator } from './logica/trechoDescricao'
 import { textoTotalDePassageiros } from './logica/passageiros'
 import { useAgora } from './useAgora'
@@ -328,7 +329,7 @@ function Conteudo({ plano, passageiros, repo, falha, agir, recarregarPlano, onVo
             onTrocarViagem={onVoltar}
             onAbrirDemo={onAbrirDemo}
             onSairDaDemo={onSairDaDemo}
-            extra={planejando && <ItemDeMenu titulo="Excluir viagem" detalhe="apaga a viagem, as etapas e os tempos" perigo onClick={() => setConfirmarExclusao(true)} />}
+            extra={<ItemDeMenu titulo="Excluir viagem" detalhe="apaga a viagem, as etapas e os tempos" perigo onClick={() => setConfirmarExclusao(true)} />}
           />
         </main>
       )}
@@ -390,24 +391,17 @@ function Conteudo({ plano, passageiros, repo, falha, agir, recarregarPlano, onVo
         )}
       </Confirmar>
 
-      <Confirmar
-        aberto={confirmarExclusao}
-        titulo="Excluir a viagem?"
-        perigo
-        rotuloConfirmar="Excluir viagem"
-        onCancelar={() => setConfirmarExclusao(false)}
-        onConfirmar={() => {
-          setConfirmarExclusao(false)
-          void agir(async () => {
-            await repo.excluirViagem(viagem.id)
+      {confirmarExclusao && (
+        <ExcluirViagem
+          repo={repo}
+          viagem={viagem}
+          onCancelar={() => setConfirmarExclusao(false)}
+          onExcluida={() => {
+            setConfirmarExclusao(false)
             onViagemExcluida()
-          })
-        }}
-      >
-        <p>
-          A viagem “{viagem.nome || 'sem nome'}” será apagada com todas as etapas e tempos. Os locais do catálogo ficam.
-        </p>
-      </Confirmar>
+          }}
+        />
+      )}
     </>
   )
 }

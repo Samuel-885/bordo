@@ -190,7 +190,7 @@ function App() {
           viagemId={tela.viagemId}
           onVoltar={irParaLista}
           onEditarEtapa={(etapaId) => irPara({ nome: 'etapa', viagemId: tela.viagemId, etapaId })}
-          onViagemExcluida={() => irPara(LISTA, true)}
+          onViagemExcluida={irParaLista}
           onAbrirViagem={() => irPara({ nome: 'viagem', viagemId: tela.viagemId }, true)}
           aba={tela.aba ?? 'viagem'}
           onAba={(aba) => irPara({ nome: 'planejamento', viagemId: tela.viagemId, aba })}

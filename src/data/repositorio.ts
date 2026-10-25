@@ -143,11 +143,15 @@ export class Repositorio {
     })
   }
 
-  /** Remove a viagem com etapas, trechos, eventos e passageiros. Os locais (catálogo) ficam. */
+  /**
+   * Remove a viagem, em qualquer status (planejando, em andamento ou concluída), com etapas,
+   * trechos, eventos, passageiros e consultas, numa transação só. Os locais (catálogo) ficam, e
+   * os que só ela usava passam a poder ser excluídos. Quem confirma é a interface.
+   */
   async excluirViagem(id: string): Promise<void> {
     this.#exigirRelogioDoEspaco()
-    const { viagens, etapas, trechos, eventos, passageiros, consultas } = this.#db
-    await this.#db.transaction('rw', [viagens, etapas, trechos, eventos, passageiros, consultas], async () => {
+    const { viagens, etapas, trechos, eventos, passageiros, consultas, meta } = this.#db
+    await this.#db.transaction('rw', [viagens, etapas, trechos, eventos, passageiros, consultas, meta], async () => {
       const ids = (await etapas.where('viagemId').equals(id).primaryKeys()) as string[]
       await passageiros.where('viagemId').equals(id).delete()
       await consultas.where('viagemId').equals(id).delete()
@@ -156,6 +160,13 @@ export class Repositorio {
       await etapas.where('viagemId').equals(id).delete()
       await eventos.where('viagemId').equals(id).delete()
       await viagens.delete(id)
+      // A viagem some também da lista "restaurada de um backup".
+      const restaurada = await meta.get('restauradoDe')
+      if (restaurada?.chave === 'restauradoDe' && restaurada.valor.viagemIds.includes(id)) {
+        const viagemIds = restaurada.valor.viagemIds.filter((v) => v !== id)
+        if (viagemIds.length === 0) await meta.delete('restauradoDe')
+        else await meta.put({ chave: 'restauradoDe', valor: { ...restaurada.valor, viagemIds } })
+      }
     })
   }
 
