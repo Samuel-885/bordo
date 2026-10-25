@@ -1,6 +1,7 @@
+import type { ResultadoDeBusca } from '../../../core/rotas'
 import { describe, expect, it } from 'vitest'
 import { formularioDoLocal, formularioLocalVazio, localDoFormulario, validarLocal } from '../formLocal'
-import { formularioComResultado, localizacaoDoResultado, textoDoErroDeBusca } from '../servicos'
+import { dicaDePrecisao, formularioComResultado, localizacaoDoResultado, textoDaPrecisao, textoDoErroDeBusca } from '../servicos'
 
 describe('formulário de novo local', () => {
   it('nome e cidade são obrigatórios', () => {
@@ -68,7 +69,7 @@ describe('formulário de novo local', () => {
 })
 
 describe('busca de endereço no formulário (fase 8)', () => {
-  const resultado = { nome: 'Posto fictício', cidade: 'Cidade X', estado: 'Minas Gerais', lat: -19.8097, lng: -43.1733 }
+  const resultado: ResultadoDeBusca = { nome: 'Posto fictício', cidade: 'Cidade X', estado: 'Minas Gerais', lat: -19.8097, lng: -43.1733, precisao: 'exata', tipoDoLugar: 'Estabelecimento' }
 
   it('escolher um resultado preenche coordenadas e cidade, sem mexer no resto', () => {
     const f = { ...formularioLocalVazio(), nome: 'Meu nome', cidade: 'Outra', telefone: '(31) 0000-0000', abre: '06:00', fecha: '22:00' }
@@ -99,5 +100,21 @@ describe('busca de endereço no formulário (fase 8)', () => {
     expect(textoDoErroDeBusca('tempo_esgotado')).toMatch(/demorou/)
     expect(localizacaoDoResultado(resultado)).toBe('Cidade X, Minas Gerais')
     expect(localizacaoDoResultado({ ...resultado, cidade: '' })).toBe('Minas Gerais')
+  })
+})
+
+describe('precisão do resultado da busca', () => {
+  const base: ResultadoDeBusca = { nome: 'Lugar fictício', cidade: 'Cidade X', estado: 'Minas Gerais', lat: -19.8, lng: -43.1, precisao: 'exata', tipoDoLugar: 'Estabelecimento' }
+
+  it('o texto diz o que o ponto representa e se é exato ou aproximado', () => {
+    expect(textoDaPrecisao(base)).toBe('Estabelecimento · exato')
+    expect(textoDaPrecisao({ ...base, precisao: 'aproximada', tipoDoLugar: 'Rua' })).toBe('Rua · aproximado')
+  })
+
+  it('só o resultado aproximado leva a dica de colar as coordenadas do Google Maps', () => {
+    expect(dicaDePrecisao(base)).toBeNull()
+    expect(dicaDePrecisao({ ...base, precisao: 'aproximada', tipoDoLugar: 'Bairro' })).toBe(
+      'Resultado aproximado (bairro): o ponto não é o lugar exato. Para ter precisão, cole as coordenadas do Google Maps no campo abaixo.',
+    )
   })
 })

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Local } from '../core/tipos'
+import { centroDosLocais } from '../core/rotas'
 import { novoId } from '../data/repositorio'
 import { formularioDoLocal, formularioLocalVazio, localDoFormulario, validarLocal, type ErrosLocal, type FormLocal as Form } from './logica/formLocal'
 import { ONIBUS_PARA, TIPOS_DE_LOCAL } from './logica/rotulos'
@@ -7,17 +8,19 @@ import { Topo } from './componentes/Topo'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 import type { ResultadoDeBusca } from '../core/rotas'
 import { buscarEndereco, TAMANHO_MINIMO_DA_BUSCA } from '../servicos/busca'
-import { formularioComResultado, localizacaoDoResultado, textoDoErroDeBusca } from './logica/servicos'
+import { dicaDePrecisao, formularioComResultado, localizacaoDoResultado, textoDaPrecisao, textoDoErroDeBusca } from './logica/servicos'
 import { useOnline } from './useOnline'
 
 interface Props {
   /** O local a editar; vazio = novo local. */
   inicial?: Local
+  /** Os locais já cadastrados: a busca prefere resultados perto do centro dos que têm coordenadas. */
+  locaisDeReferencia?: readonly Local[]
   onSalvar: (local: Local) => Promise<void>
   onCancelar: () => void
 }
 
-export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
+export function FormLocal({ inicial, locaisDeReferencia = [], onSalvar, onCancelar }: Props) {
   const [f, setF] = useState<Form>(() => (inicial ? formularioDoLocal(inicial) : formularioLocalVazio()))
   const [erros, setErros] = useState<ErrosLocal>({})
   const [falha, setFalha] = useState<string | null>(null)
@@ -28,6 +31,7 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
   const [resultados, setResultados] = useState<ResultadoDeBusca[] | null>(null)
   const [avisoDaBusca, setAvisoDaBusca] = useState<string | null>(null)
   const [escolhido, setEscolhido] = useState<string | null>(null)
+  const [dicaDoEscolhido, setDicaDoEscolhido] = useState<string | null>(null)
   const pedido = useRef<AbortController | null>(null)
   useEffect(() => () => pedido.current?.abort(), [])
 
@@ -49,6 +53,7 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
   async function buscar() {
     const texto = consulta.trim()
     setEscolhido(null)
+    setDicaDoEscolhido(null)
     setResultados(null)
     if (texto.length < TAMANHO_MINIMO_DA_BUSCA) return setAvisoDaBusca(`Digite pelo menos ${TAMANHO_MINIMO_DA_BUSCA} letras para buscar.`)
     if (!navigator.onLine) return setAvisoDaBusca(textoDoErroDeBusca('sem_internet'))
@@ -58,7 +63,7 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
     setAvisoDaBusca(null)
     setBuscando(true)
     try {
-      const r = await buscarEndereco(texto, { sinal: controle.signal })
+      const r = await buscarEndereco(texto, { sinal: controle.signal, perto: centroDosLocais(locaisDeReferencia) })
       if (controle.signal.aborted) return
       if (!r.ok) setAvisoDaBusca(textoDoErroDeBusca(r.erro))
       else if (r.resultados.length === 0) setAvisoDaBusca(`Nada encontrado para "${texto}". Tente outro nome ou cole as coordenadas.`)
@@ -74,6 +79,7 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
     setF((atual) => formularioComResultado(atual, r))
     setErros((e) => ({ ...e, coordenadas: undefined, cidade: r.cidade ? undefined : e.cidade }))
     setEscolhido(`${r.nome}${localizacaoDoResultado(r) ? ` (${localizacaoDoResultado(r)})` : ''}`)
+    setDicaDoEscolhido(dicaDePrecisao(r))
     setResultados(null)
   }
 
@@ -127,6 +133,7 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
               </button>
             </div>
             <p className="dica">Nome ou endereço do estabelecimento. Não digite nomes de pessoas nem endereços residenciais.</p>
+            <p className="dica">O número da casa nem sempre é encontrado: cada resultado diz se o ponto é exato ou aproximado.</p>
             {!online && <p className="dica atencao-texto">{textoDoErroDeBusca('sem_internet')}</p>}
             {avisoDaBusca && (
               <p className="msg-erro" role="status">
@@ -138,6 +145,11 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
                 Coordenadas e cidade preenchidas com: {escolhido}. Confira e edite se precisar.
               </p>
             )}
+            {escolhido && dicaDoEscolhido && (
+              <p className="dica atencao-texto" role="status" data-teste="dica-aproximado">
+                {dicaDoEscolhido}
+              </p>
+            )}
             {resultados && (
               <ul className="resultados-busca" aria-label="Resultados da busca">
                 {resultados.map((r, i) => (
@@ -145,6 +157,7 @@ export function FormLocal({ inicial, onSalvar, onCancelar }: Props) {
                     <button type="button" onClick={() => escolher(r)}>
                       <strong>{r.nome}</strong>
                       <span>{localizacaoDoResultado(r) || 'cidade não informada'}</span>
+                      <span className={`precisao ${r.precisao}`}>{textoDaPrecisao(r)}</span>
                     </button>
                   </li>
                 ))}

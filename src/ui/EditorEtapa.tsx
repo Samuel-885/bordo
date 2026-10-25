@@ -171,7 +171,7 @@ function Formulario({ repo, plano, etapaId, locais, onLocais, onFechar }: Formul
     setNovoLocalPara(null)
   }
 
-  if (novoLocalPara) return <FormLocal onSalvar={salvarNovoLocal} onCancelar={() => setNovoLocalPara(null)} />
+  if (novoLocalPara) return <FormLocal locaisDeReferencia={locais} onSalvar={salvarNovoLocal} onCancelar={() => setNovoLocalPara(null)} />
 
   const ehOrigem = f.tipo === 'origem'
   const ehObrigatoria = f.tipo === 'obrigatoria'

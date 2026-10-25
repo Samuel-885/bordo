@@ -5,7 +5,7 @@
 import { CONFIG } from './config'
 import { aplicarFatorOnibus, duracaoTrecho, type ParDeTrecho } from './trechos'
 import { paresVizinhos } from './ordem'
-import type { DadosPlano, Etapa, Instante, RotaDoTrecho, Trecho } from './tipos'
+import type { DadosPlano, Etapa, Instante, Local, RotaDoTrecho, Trecho } from './tipos'
 
 // ---------- Resposta do serviço de rotas (OSRM) ----------
 
@@ -44,6 +44,9 @@ export function interpretarRotaOsrm(json: unknown): RotaCalculada | null {
 
 // ---------- Resposta da busca de endereço (Photon) ----------
 
+/** "exata": a casa (número) ou o estabelecimento; "aproximada": rua, bairro, cidade ou região. */
+export type PrecisaoDoResultado = 'exata' | 'aproximada'
+
 export interface ResultadoDeBusca {
   nome: string
   /** Cidade (ou, na falta, município ou bairro): o usuário pode editar depois. */
@@ -51,6 +54,41 @@ export interface ResultadoDeBusca {
   estado: string
   lat: number
   lng: number
+  precisao: PrecisaoDoResultado
+  /** "Endereço com número", "Estabelecimento", "Rua", "Bairro", "Cidade"...: o que o ponto representa. */
+  tipoDoLugar: string
+}
+
+/** Objetos do OpenStreetMap (osm_key) que são um estabelecimento, com ponto no próprio lugar. */
+const CHAVES_DE_ESTABELECIMENTO = new Set([
+  'amenity', 'shop', 'tourism', 'leisure', 'office', 'craft', 'healthcare', 'historic', 'aeroway', 'railway', 'public_transport', 'building', 'man_made',
+])
+
+/**
+ * O Photon responde `type: "house"` tanto para uma casa com número quanto para qualquer objeto
+ * com endereço (estádio, shopping); só rua, bairro, cidade e região são aproximados. Não dá para
+ * confiar no número digitado na busca: ele só vale se o objeto do OpenStreetMap tem `housenumber`.
+ */
+export function classificarResultadoPhoton(p: Record<string, unknown>): { precisao: PrecisaoDoResultado; tipoDoLugar: string } {
+  const tipo = texto(p.type)
+  if (texto(p.housenumber)) return { precisao: 'exata', tipoDoLugar: 'Endereço com número' }
+  if (tipo === 'house') {
+    if (texto(p.name) && CHAVES_DE_ESTABELECIMENTO.has(texto(p.osm_key))) return { precisao: 'exata', tipoDoLugar: 'Estabelecimento' }
+    return { precisao: 'aproximada', tipoDoLugar: 'Lugar sem número' }
+  }
+  const rotulos: Record<string, string> = { street: 'Rua', locality: 'Bairro ou localidade', district: 'Bairro', city: 'Cidade', county: 'Município', state: 'Estado', country: 'País' }
+  return { precisao: 'aproximada', tipoDoLugar: rotulos[tipo] ?? 'Região' }
+}
+
+/**
+ * Centro dos locais que têm coordenadas, arredondado a 2 casas (cerca de 1 km): só para o
+ * Photon preferir resultados por perto. Vazio sem nenhum local com coordenadas.
+ */
+export function centroDosLocais(locais: readonly Pick<Local, 'coordenadas'>[]): Ponto | null {
+  const pontos = locais.flatMap((l) => (l.coordenadas ? [l.coordenadas] : []))
+  if (pontos.length === 0) return null
+  const media = (v: number[]) => Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 100) / 100
+  return { lat: media(pontos.map((c) => c.lat)), lng: media(pontos.map((c) => c.lng)) }
 }
 
 const texto = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
@@ -72,7 +110,7 @@ export function interpretarBuscaPhoton(json: unknown, limite: number = CONFIG.bu
     const nome = texto(p.name) || rua
     if (!nome) continue
     const cidade = texto(p.city) || (p.type === 'city' ? texto(p.name) : '') || texto(p.county) || texto(p.district)
-    resultados.push({ nome, cidade, estado: texto(p.state), lat, lng })
+    resultados.push({ nome, cidade, estado: texto(p.state), lat, lng, ...classificarResultadoPhoton(p) })
   }
   return resultados
 }

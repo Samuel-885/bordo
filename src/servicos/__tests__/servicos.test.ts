@@ -193,11 +193,22 @@ describe('busca de endereço', () => {
     expect(urlDaBusca('  Posto Tal, João Monlevade ')).toBe('https://photon.komoot.io/api/?q=Posto%20Tal%2C%20Jo%C3%A3o%20Monlevade&limit=5')
   })
 
+  it('com o centro dos locais, pede ao Photon que prefira resultados por perto (só ranking)', () => {
+    expect(urlDaBusca('Posto Tal', { lat: -19.64, lng: -42.86 })).toBe('https://photon.komoot.io/api/?q=Posto%20Tal&limit=5&lat=-19.64&lon=-42.86')
+    expect(urlDaBusca('Posto Tal', null)).toBe('https://photon.komoot.io/api/?q=Posto%20Tal&limit=5')
+  })
+
+  it('o ponto de referência vai na URL e não em outro lugar', async () => {
+    let pedida = ''
+    await buscarEndereco('Posto Tal', { perto: { lat: -19.64, lng: -42.86 }, buscador: async (url) => ((pedida = String(url)), resposta({ features: [] })) })
+    expect(pedida).toBe('https://photon.komoot.io/api/?q=Posto%20Tal&limit=5&lat=-19.64&lon=-42.86')
+  })
+
   it('devolve até 5 resultados com as coordenadas', async () => {
     const features = Array.from({ length: 7 }, (_, i) => feature(`Lugar ${i}`))
     const r = await buscarEndereco('lugar', { buscador: async () => resposta({ features }) })
     expect(r.ok && r.resultados).toHaveLength(5)
-    expect(r.ok && r.resultados[0]).toEqual({ nome: 'Lugar 0', cidade: 'Cidade', estado: 'Minas Gerais', lat: -19.81, lng: -43.17 })
+    expect(r.ok && r.resultados[0]).toEqual({ nome: 'Lugar 0', cidade: 'Cidade', estado: 'Minas Gerais', lat: -19.81, lng: -43.17, precisao: 'aproximada', tipoDoLugar: 'Região' })
   })
 
   it('sem resultados é sucesso com lista vazia', async () => {

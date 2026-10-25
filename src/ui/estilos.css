@@ -263,6 +263,15 @@ button:focus-visible {
   font-size: 13px;
   color: var(--texto-suave);
 }
+.resultados-busca button .precisao {
+  font-weight: 600;
+}
+.resultados-busca button .precisao.exata {
+  color: var(--texto);
+}
+.resultados-busca button .precisao.aproximada {
+  color: var(--atencao-texto);
+}
 .calculo-andamento {
   display: flex;
   align-items: center;

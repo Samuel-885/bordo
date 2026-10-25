@@ -94,6 +94,53 @@ export const fluxo = {
       await ctxF.close()
     })
 
+    await passo('Busca de endereço: selo exato ou aproximado, dica ao escolher aproximado e preferência por resultados perto dos locais', async () => {
+      const { ctx: ctxG, page: g } = await h.novaPagina()
+      const pedidas = []
+      await ctxG.route('https://photon.komoot.io/**', (rota) => {
+        pedidas.push(rota.request().url())
+        const feature = (properties, lng, lat) => ({ type: 'Feature', properties: { city: 'Ipatinga', state: 'Minas Gerais', ...properties }, geometry: { type: 'Point', coordinates: [lng, lat] } })
+        return rota.fulfill({
+          status: 200,
+          headers: { 'access-control-allow-origin': '*' },
+          contentType: 'application/json',
+          body: JSON.stringify({
+            type: 'FeatureCollection',
+            features: [
+              feature({ name: 'Shopping Exemplo', type: 'house', osm_key: 'shop', osm_value: 'mall' }, -42.56, -19.49),
+              feature({ name: 'Prédio Exemplo', street: 'Rua Fictícia', housenumber: '120', type: 'house', osm_key: 'building' }, -42.55, -19.47),
+              feature({ name: 'Rua Fictícia', type: 'street', osm_key: 'highway' }, -42.54, -19.46),
+            ],
+          }),
+        })
+      })
+      await abrirDemo(g)
+      // Dois locais com coordenadas: o centro é (-20.32, -45.17).
+      const locais = await h.lerBanco(g, 'locais')
+      await h.escreverBanco(g, 'locais', { ...locais.find((l) => l.id === 'demo-l-saida'), coordenadas: { lat: -19.4687, lng: -42.5367 } })
+      await h.escreverBanco(g, 'locais', { ...locais.find((l) => l.id === 'demo-l-chegada'), coordenadas: { lat: -21.1775, lng: -47.8103 } })
+      await irParaAba(g, 'locais')
+      await botao(g, 'Novo local').click()
+      await g.locator('#l-busca').fill('rua ficticia 120')
+      await botao(g, 'Buscar', { exact: true }).click()
+      const lista = g.getByRole('list', { name: 'Resultados da busca' })
+      await lista.waitFor()
+      igual(pedidas[0], 'https://photon.komoot.io/api/?q=rua%20ficticia%20120&limit=5&lat=-20.32&lon=-45.17', 'URL com o viés de proximidade')
+      const botoes = lista.getByRole('button')
+      igual((await botoes.nth(0).innerText()).replace(/\s+/g, ' '), 'Shopping Exemplo Ipatinga, Minas Gerais Estabelecimento · exato', 'estabelecimento')
+      igual((await botoes.nth(1).innerText()).replace(/\s+/g, ' '), 'Prédio Exemplo Ipatinga, Minas Gerais Endereço com número · exato', 'endereço com número')
+      igual((await botoes.nth(2).innerText()).replace(/\s+/g, ' '), 'Rua Fictícia Ipatinga, Minas Gerais Rua · aproximado', 'rua')
+      await botoes.nth(0).click()
+      esperar(!(await g.locator('[data-teste="dica-aproximado"]').isVisible()), 'resultado exato não mostra a dica')
+      await g.locator('#l-busca').fill('rua ficticia')
+      await botao(g, 'Buscar', { exact: true }).click()
+      await lista.waitFor()
+      await botoes.nth(2).click()
+      const dica = await g.locator('[data-teste="dica-aproximado"]').innerText()
+      esperar(dica.includes('aproximado') && dica.includes('coordenadas do Google Maps'), `dica: ${dica}`)
+      await ctxG.close()
+    })
+
     await passo('Parado no jantar (etapa anterior ao destino): Mais › Atualizar previsão aceita a chegada no destino', async () => {
       const { ctx: ctxE, page: e } = await h.novaPagina()
       await abrirDemo(e)

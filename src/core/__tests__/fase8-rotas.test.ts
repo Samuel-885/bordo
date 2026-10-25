@@ -9,6 +9,8 @@ import {
   compararManualComRota,
   fatorImplicito,
   fatorSugeridoPeloRoteiro,
+  centroDosLocais,
+  classificarResultadoPhoton,
   interpretarBuscaPhoton,
   interpretarRotaOsrm,
   manterManual,
@@ -76,7 +78,37 @@ describe('fase 8: resposta do Photon', () => {
 
   it('devolve latitude e longitude na ordem certa, com cidade e estado', () => {
     const [r] = interpretarBuscaPhoton({ features: [f({ name: 'Rua das Flores', city: 'Ipatinga', state: 'Minas Gerais' }, ponto(-42.5586, -19.4608))] })
-    expect(r).toEqual({ nome: 'Rua das Flores', cidade: 'Ipatinga', estado: 'Minas Gerais', lat: -19.4608, lng: -42.5586 })
+    expect(r).toEqual({ nome: 'Rua das Flores', cidade: 'Ipatinga', estado: 'Minas Gerais', lat: -19.4608, lng: -42.5586, precisao: 'aproximada', tipoDoLugar: 'Região' })
+  })
+
+  describe('exato × aproximado (respostas reais do Photon, dados fictícios)', () => {
+    const classe = (p: Record<string, unknown>) => classificarResultadoPhoton(p)
+    it('número da casa ou estabelecimento nomeado: exato', () => {
+      expect(classe({ type: 'house', street: 'Rua Exemplo', housenumber: '100', name: 'Prédio' })).toEqual({ precisao: 'exata', tipoDoLugar: 'Endereço com número' })
+      expect(classe({ type: 'house', osm_key: 'shop', osm_value: 'mall', name: 'Shopping Exemplo' })).toEqual({ precisao: 'exata', tipoDoLugar: 'Estabelecimento' })
+      expect(classe({ type: 'house', osm_key: 'amenity', name: 'Rodoviária Exemplo' }).precisao).toBe('exata')
+    })
+    it('rua, bairro, cidade e região: aproximado, com o rótulo do que o ponto representa', () => {
+      expect(classe({ type: 'street', name: 'Avenida Exemplo' })).toEqual({ precisao: 'aproximada', tipoDoLugar: 'Rua' })
+      expect(classe({ type: 'locality', name: 'Bairro Exemplo' })).toEqual({ precisao: 'aproximada', tipoDoLugar: 'Bairro ou localidade' })
+      expect(classe({ type: 'district', name: 'Centro' })).toEqual({ precisao: 'aproximada', tipoDoLugar: 'Bairro' })
+      expect(classe({ type: 'city', name: 'Cidade Exemplo' })).toEqual({ precisao: 'aproximada', tipoDoLugar: 'Cidade' })
+      expect(classe({ type: 'state', name: 'Minas Gerais' }).precisao).toBe('aproximada')
+    })
+    it('"house" sem número nem estabelecimento (ou sem tipo algum) não é tratado como exato', () => {
+      expect(classe({ type: 'house', osm_key: 'landuse', name: 'Área' })).toEqual({ precisao: 'aproximada', tipoDoLugar: 'Lugar sem número' })
+      expect(classe({ name: 'Sem tipo' }).precisao).toBe('aproximada')
+    })
+  })
+
+  describe('centro dos locais para preferir resultados por perto', () => {
+    it('média das coordenadas, arredondada a 2 casas; locais sem coordenadas não contam', () => {
+      expect(centroDosLocais([{ coordenadas: { lat: -19.4687, lng: -42.5367 } }, { coordenadas: { lat: -19.8097, lng: -43.1833 } }, {}])).toEqual({ lat: -19.64, lng: -42.86 })
+    })
+    it('sem nenhum local com coordenadas, vazio', () => {
+      expect(centroDosLocais([{}, {}])).toBeNull()
+      expect(centroDosLocais([])).toBeNull()
+    })
   })
 
   it('limita a 5 resultados', () => {

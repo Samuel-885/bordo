@@ -37,6 +37,17 @@ export function localizacaoDoResultado(r: ResultadoDeBusca): string {
   return [r.cidade, r.estado].filter(Boolean).join(', ')
 }
 
+/** "Estabelecimento · exato" ou "Rua · aproximado": o que o ponto representa e se é o lugar mesmo. */
+export function textoDaPrecisao(r: ResultadoDeBusca): string {
+  return `${r.tipoDoLugar} · ${r.precisao === 'exata' ? 'exato' : 'aproximado'}`
+}
+
+/** Dica ao escolher um resultado aproximado; vazio no exato. */
+export function dicaDePrecisao(r: ResultadoDeBusca): string | null {
+  if (r.precisao === 'exata') return null
+  return `Resultado aproximado (${r.tipoDoLugar.toLowerCase()}): o ponto não é o lugar exato. Para ter precisão, cole as coordenadas do Google Maps no campo abaixo.`
+}
+
 /**
  * O formulário depois de escolher um resultado: coordenadas e cidade preenchidas (a cidade só se o
  * serviço trouxe uma). Os dois continuam editáveis, e nome, horários e o resto não mudam.

@@ -147,6 +147,7 @@ export function EditorDeLocal({ repo, localId, onFechar }: { repo: Repositorio; 
     <FormLocal
       key={localId ?? 'novo'}
       inicial={inicial}
+      locaisDeReferencia={locais}
       onSalvar={async (local) => {
         await repo.salvarLocal(local)
         onFechar()
