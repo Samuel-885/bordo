@@ -105,6 +105,12 @@ export const ev = {
   pular: (etapaId: string, horario: Instante) => criar(horario, { tipo: 'pular_etapa', etapaId }),
   troca: (etapaId: string, localId: string, horario: Instante) =>
     criar(horario, { tipo: 'troca_local', etapaId, dados: { localId } }),
+  incluirParada: (etapaId: string, dados: Extract<ConteudoEvento, { tipo: 'parada_incluida' }>['dados'], horario: Instante) =>
+    criar(horario, { tipo: 'parada_incluida', etapaId, dados }),
+  localIncluido: (etapaId: string, dados: { localId: string; trechos: Trecho[] }, horario: Instante) =>
+    criar(horario, { tipo: 'local_incluido', etapaId, dados }),
+  cancelarInclusao: (etapaId: string, eventoId: string, horario: Instante) =>
+    criar(horario, { tipo: 'inclusao_cancelada', etapaId, dados: { eventoId } }),
   recalibracao: (etapaId: string, informado: Instante, horario: Instante) =>
     criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado } }),
   parada: (

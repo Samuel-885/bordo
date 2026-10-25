@@ -9,7 +9,7 @@ import type { Conferencia, DadosPlano, DuracaoTrecho, Etapa, Evento, HorarioPrev
 import { formatarDuracao } from './duracao'
 import { formatarHora } from './horarios'
 import { textoDeQuemFalta } from './passageiros'
-import { MOTIVOS_DE_PARADA, STATUS_DE_PASSAGEIRO, TIPOS_DE_IMPREVISTO, rotuloDe, CATEGORIAS } from './rotulos'
+import { MOTIVOS_DE_PARADA, STATUS_DE_PASSAGEIRO, TIPOS_DE_IMPREVISTO, rotuloDe, TODAS_AS_CATEGORIAS } from './rotulos'
 
 /** "no horário", "+17 min" ou "−5 min" (sinal de menos de verdade). */
 export function textoDoAtraso(minutos: number): string {
@@ -97,7 +97,7 @@ export interface ItemTimeline {
 function nomeCompleto(etapa: Etapa | undefined, locais: readonly Local[], localId: string | null): string {
   if (!etapa) return 'etapa'
   const local = locais.find((l) => l.id === localId)?.nome
-  const categoria = etapa.categoria ? rotuloDe(CATEGORIAS, etapa.categoria) : null
+  const categoria = etapa.categoria ? rotuloDe(TODAS_AS_CATEGORIAS, etapa.categoria) : null
   switch (etapa.tipo) {
     case 'origem':
       return local ? `Origem (${local})` : 'Origem'
@@ -159,6 +159,26 @@ export function montarTimeline(
       case 'troca_local': {
         const novo = locais.find((l) => l.id === e.dados.localId)?.nome ?? 'outro local'
         return { ...item, titulo: `Trocamos o local para ${novo}`, detalhe: nome(e.etapaId) }
+      }
+      case 'parada_incluida': {
+        const local = locais.find((l) => l.id === e.dados.localId)?.nome ?? 'outro local'
+        const apos = e.dados.apos
+        const detalhe = [
+          `depois de ${nomeDaEtapaEmUso(etapaDe(apos), locais, eventos)}`,
+          rotuloDe(TODAS_AS_CATEGORIAS, e.dados.categoria),
+          formatarDuracaoCurta(e.dados.permanenciaMin),
+          e.dados.motivo ?? null,
+        ]
+        return { ...item, titulo: `Parada incluída: ${local}`, detalhe: detalhe.filter(Boolean).join(' · ') }
+      }
+      case 'local_incluido': {
+        const novo = locais.find((l) => l.id === e.dados.localId)?.nome ?? 'outro local'
+        return { ...item, titulo: `Local incluído em ${nome(e.etapaId)}: ${novo}`, detalhe: null }
+      }
+      case 'inclusao_cancelada': {
+        const origem = eventos.find((x) => x.id === e.dados.eventoId)
+        const local = origem?.tipo === 'parada_incluida' ? locais.find((l) => l.id === origem.dados.localId)?.nome : undefined
+        return { ...item, titulo: `Parada incluída cancelada: ${local ?? 'parada'}`, riscado: true }
       }
       case 'parada_nao_planejada':
         if (e.dados.fase === 'fim') return { ...item, titulo: 'VOLTAMOS para a estrada' }

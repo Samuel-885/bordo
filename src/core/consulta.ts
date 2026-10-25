@@ -9,7 +9,7 @@ import type { Consulta, DadosPlano, Evento, Instante, PlanoOriginal } from './ti
 import { calcularEstado } from './previsao'
 
 /** Eventos que mudam a situação: uma consulta feita antes deles já não vale. */
-const MUDAM_A_SITUACAO = new Set<Evento['tipo']>(['saida', 'chegada', 'troca_local', 'pular_etapa'])
+const MUDAM_A_SITUACAO = new Set<Evento['tipo']>(['saida', 'chegada', 'troca_local', 'pular_etapa', 'local_incluido', 'parada_incluida', 'inclusao_cancelada'])
 
 /** Maior sequência de saída, chegada, troca de local e pulo (0 se não houver). */
 export function baseDaSituacao(eventos: readonly Evento[]): number {

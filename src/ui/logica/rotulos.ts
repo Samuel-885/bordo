@@ -23,6 +23,22 @@ export const CATEGORIAS = [
   { valor: 'descanso', rotulo: 'Descanso' },
 ] as const
 
+/** Categorias da parada incluída em viagem (mudança de roteiro). `cafe` é a mesma do roteiro. */
+export const CATEGORIAS_DA_PARADA_INCLUIDA = [
+  { valor: 'visita', rotulo: 'Visita / passeio' },
+  { valor: 'refeicao', rotulo: 'Refeição' },
+  { valor: 'cafe', rotulo: 'Café / lanche' },
+  { valor: 'banheiro', rotulo: 'Banheiro' },
+  { valor: 'abastecimento', rotulo: 'Abastecimento' },
+  { valor: 'outro', rotulo: 'Outro' },
+] as const
+
+/** Todos os rótulos de categoria, para mostrar etapas do roteiro e paradas incluídas. */
+export const TODAS_AS_CATEGORIAS = [
+  ...CATEGORIAS,
+  ...CATEGORIAS_DA_PARADA_INCLUIDA.filter((c) => !CATEGORIAS.some((x) => x.valor === c.valor)),
+] as const
+
 export const PERMANENCIAS_MIN = [5, 10, 15, 20, 30, 45, 60, 90] as const
 
 export const TIPOS_DE_LOCAL = [

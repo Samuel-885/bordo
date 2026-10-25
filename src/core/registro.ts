@@ -5,6 +5,7 @@ import { contextoDeDescidaNaEtapa, contextoDeDescidaNaoPlanejada, validarConfere
 import { passageirosEmTransito, passageirosEsperados } from './passageiros'
 import { calcularEstado, validarPulo } from './previsao'
 import { validarTroca } from './viabilidade'
+import { validarCancelamento, validarInclusao, validarLocalNovo } from './inclusao'
 import { validarRecalibracao } from './recalibracao'
 import { antes, mesmoInstante, naHoraDoDia, ordenarPor, truncarMinuto } from './tempo'
 import { ordenarEtapas } from './trechos'
@@ -357,6 +358,21 @@ export function validarRegistro(
       const antesDoHorario = naoDepoisDeAgora()
       if (!antesDoHorario.ok) return antesDoHorario
       return validarTroca(d, original, eventos, agora, conteudo.etapaId, conteudo.dados.localId)
+    }
+    case 'parada_incluida': {
+      const antesDoHorario = naoDepoisDeAgora()
+      if (!antesDoHorario.ok) return antesDoHorario
+      return validarInclusao(d, original, eventos, agora, conteudo.etapaId, conteudo.dados)
+    }
+    case 'local_incluido': {
+      const antesDoHorario = naoDepoisDeAgora()
+      if (!antesDoHorario.ok) return antesDoHorario
+      return validarLocalNovo(d, original, eventos, agora, conteudo.etapaId, conteudo.dados)
+    }
+    case 'inclusao_cancelada': {
+      const antesDoHorario = naoDepoisDeAgora()
+      if (!antesDoHorario.ok) return antesDoHorario
+      return validarCancelamento(d, original, eventos, agora, conteudo.dados.eventoId)
     }
     case 'conferencia': {
       const antesDoHorario = naoDepoisDeAgora()

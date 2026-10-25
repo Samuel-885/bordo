@@ -178,6 +178,27 @@ export type Evento = EventoBase &
     | { tipo: 'pular_etapa'; etapaId: string }
     | { tipo: 'recalibracao'; etapaId: string; dados: { horario: Instante } }
     | { tipo: 'troca_local'; etapaId: string; dados: { localId: string } }
+    /**
+     * Mudança de roteiro em viagem: um local novo vira candidato da etapa (flexível, ainda não
+     * alcançada), com os trechos novos. A troca em si é o `troca_local`, gravado junto.
+     */
+    | { tipo: 'local_incluido'; etapaId: string; dados: { localId: string; trechos: Trecho[] } }
+    /** Mudança de roteiro em viagem: etapa nova (sempre flexível), no id `etapaId`, depois de `apos`. */
+    | {
+        tipo: 'parada_incluida'
+        etapaId: string
+        dados: {
+          apos: string
+          localId: string
+          /** Texto livre curto (até 60 caracteres). Nunca nomes de passageiros. */
+          motivo?: string
+          categoria: string
+          permanenciaMin: number
+          trechos: Trecho[]
+        }
+      }
+    /** Cancela uma parada incluída antes de chegar nela: `aplicarInclusoes` passa a ignorá-la. */
+    | { tipo: 'inclusao_cancelada'; etapaId: string; dados: { eventoId: string } }
     | {
         tipo: 'parada_nao_planejada'
         /** A próxima etapa: a parada acontece no trecho que chega nela. */

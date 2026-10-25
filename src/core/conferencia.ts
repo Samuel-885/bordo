@@ -53,6 +53,10 @@ const MODO_POR_CATEGORIA: Record<string, ModoConferencia> = {
   almoco: 'todos_desceram',
   cafe: 'todos_desceram',
   jantar: 'todos_desceram',
+  visita: 'todos_desceram',
+  refeicao: 'todos_desceram',
+  abastecimento: 'so_alguns',
+  outro: 'so_alguns',
   banheiro: 'so_alguns',
   descanso: 'so_alguns',
 }
