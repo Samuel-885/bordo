@@ -261,6 +261,15 @@ const TRECHO: [Campos, Campos] = [
   },
 ]
 
+const listaDeTrechos: Verificador = (v) => {
+  if (!Array.isArray(v)) return 'deveria ser lista de trechos'
+  for (const t of v) {
+    const erro = conferir(t, ...TRECHO)
+    if (erro) return `trecho: ${erro}`
+  }
+  return null
+}
+
 const PASSAGEIRO: [Campos, Campos] = [
   { id: texto, viagemId: texto, nome: texto, etapaEmbarqueId: texto, etapaDesembarqueId: ouNulo(texto), status: um(...STATUS_PASSAGEIRO) },
   {},
@@ -276,6 +285,9 @@ const EVENTO_BASE: [Campos, Campos] = [
 const DADOS_DO_EVENTO: Record<string, [Campos, Campos]> = {
   recalibracao: [{ horario }, {}],
   troca_local: [{ localId: texto }, {}],
+  local_incluido: [{ localId: texto, trechos: listaDeTrechos }, {}],
+  parada_incluida: [{ apos: texto, localId: texto, categoria: texto, permanenciaMin: numero, trechos: listaDeTrechos }, { motivo: texto }],
+  inclusao_cancelada: [{ eventoId: texto }, {}],
   parada_nao_planejada: [{ fase: um('inicio', 'fim', 'previsao') }, { motivo: um(...MOTIVOS_PARADA), onde: texto, tempoPrevistoMin: numero }],
   imprevisto: [{ categoria: um(...IMPREVISTOS) }, {}],
   conferencia: [
@@ -294,6 +306,9 @@ const EVENTOS_COM_ETAPA = [
   'pular_etapa',
   'recalibracao',
   'troca_local',
+  'local_incluido',
+  'parada_incluida',
+  'inclusao_cancelada',
   'parada_nao_planejada',
   'conferencia',
   'desceram',
@@ -373,9 +388,28 @@ function erroDoConteudo(c: unknown): string | null {
       return 'um passageiro aponta para uma etapa que não é da viagem dele'
     }
   }
+  // Etapas criadas em viagem (parada incluída): valem como etapas da viagem do evento.
+  const incluidas = new Set(x.eventos.flatMap((e) => (e.tipo === 'parada_incluida' ? [`${e.viagemId}|${e.etapaId}`] : [])))
+  const daViagemOuIncluida = (etapaId: string, viagemId: string) => daViagem(etapaId, viagemId) || incluidas.has(`${viagemId}|${etapaId}`)
+  const idsDeEventos = new Map(x.eventos.map((e) => [e.id, e]))
   for (const e of x.eventos) {
     if (!viagens.has(e.viagemId)) return 'um evento aponta para uma viagem que não está no arquivo'
-    if ('etapaId' in e && !daViagem(e.etapaId, e.viagemId)) return 'um evento aponta para uma etapa que não é da viagem dele'
+    if ('etapaId' in e && !daViagemOuIncluida(e.etapaId, e.viagemId)) return 'um evento aponta para uma etapa que não é da viagem dele'
+    if (e.tipo === 'parada_incluida' && daViagem(e.etapaId, e.viagemId)) return 'uma parada incluída repete o id de uma etapa do plano'
+    if (e.tipo === 'parada_incluida' && !daViagemOuIncluida(e.dados.apos, e.viagemId)) return 'uma parada incluída aponta para uma etapa que não é da viagem dela'
+    if (e.tipo === 'parada_incluida' || e.tipo === 'local_incluido') {
+      if (!locais.has(e.dados.localId)) return 'uma inclusão em viagem aponta para um local que não está no arquivo'
+      for (const t of e.dados.trechos) {
+        if (!daViagemOuIncluida(t.etapaOrigemId, e.viagemId) || !daViagemOuIncluida(t.etapaDestinoId, e.viagemId)) {
+          return 'um trecho de inclusão aponta para uma etapa que não é da viagem dele'
+        }
+        if (!locais.has(t.localOrigemId) || !locais.has(t.localDestinoId)) return 'um trecho de inclusão aponta para um local que não está no arquivo'
+      }
+    }
+    if (e.tipo === 'inclusao_cancelada') {
+      const alvo = idsDeEventos.get(e.dados.eventoId)
+      if (alvo?.tipo !== 'parada_incluida' || alvo.viagemId !== e.viagemId) return 'um cancelamento aponta para uma parada incluída que não está no arquivo'
+    }
   }
   return null
 }
