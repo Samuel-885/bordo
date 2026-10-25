@@ -1485,7 +1485,11 @@ dialog.folha-mensagem textarea {
   border-top-color: var(--destaque);
 }
 .conteudo.viagem {
-  padding-bottom: calc(var(--rodape, 0px) + 16px);
+  padding-bottom: calc(var(--rodape, 0px) + var(--aviso, 0px) + 16px);
+}
+/* Rolar até um campo ou cartão nunca o deixa atrás do rodapé nem do aviso DESFAZER. */
+html {
+  scroll-padding-bottom: calc(var(--rodape, 0px) + var(--aviso, 0px) + 16px);
 }
 .aviso-desfazer {
   bottom: calc(var(--rodape, 0px) + 12px);

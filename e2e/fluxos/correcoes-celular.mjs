@@ -3,7 +3,7 @@
 export const fluxo = {
   nome: 'Correções do teste no celular: trocar de viagem, encerrada, espaço do rodapé',
   async executar(h) {
-    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, irParaAba, abrirItemDeMais } = h
+    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, irParaAba, copiarDemoParaReal, dialogoAberto } = h
     const { ctx, page } = await h.novaPagina()
 
     const naLista = async () => {
@@ -49,5 +49,36 @@ export const fluxo = {
     })
 
     await ctx.close()
+
+    await passo('o cartão de sugestão de backup, no fim da aba Viagem, fica acima do rodapé e do aviso DESFAZER', async () => {
+      const { ctx: ctxB, page: b } = await h.novaPagina({ relogioReal: '2026-11-14T10:05:00-03:00' })
+      await abrirDemo(b)
+      await escolherCenario(b, 'Saída atrasada', 2)
+      await copiarDemoParaReal(b)
+      await b.goto(b.url())
+      const sugestao = b.locator('[data-teste="sugestao-backup"]')
+      await sugestao.waitFor()
+      // Distância do fim do cartão ao que está fixo por cima dele (rodapé e, quando aparece, o aviso).
+      const folga = () =>
+        b.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight)
+          const fim = document.querySelector('[data-teste="sugestao-backup"]').getBoundingClientRect().bottom
+          const topo = Math.min(
+            document.querySelector('.rodape-fixo').getBoundingClientRect().top,
+            document.querySelector('.aviso-desfazer')?.getBoundingClientRect().top ?? Infinity,
+          )
+          return topo - fim
+        })
+      await b.waitForTimeout(200)
+      esperar((await folga()) >= 8, `folga sem aviso: ${await folga()} px`)
+      // Um registro mostra o aviso DESFAZER por 8 s; a sugestão continua na tela (em viagem, depois da saída).
+      await botao(b, 'Previsão', { exact: true }).click()
+      await b.locator('#recalibracao-hora').fill('11:00')
+      await dialogoAberto(b).getByRole('button', { name: 'Atualizar', exact: true }).click()
+      await b.locator('.aviso-desfazer').waitFor()
+      await b.waitForTimeout(200)
+      esperar((await folga()) >= 8, `folga com o aviso DESFAZER: ${await folga()} px`)
+      await ctxB.close()
+    })
   },
 }
