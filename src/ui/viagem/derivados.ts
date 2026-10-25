@@ -5,7 +5,7 @@ import { deveSugerirBackup, estadoDoBackup, momentoDeSugerirBackup } from '../..
 import { resumoABordo } from '../../core/conferencia'
 import { posicoesParaIncluir } from '../../core/inclusao'
 import { pendenciasDeRegistro, validarPulo } from '../../core/previsao'
-import { validarRecalibracao } from '../../core/recalibracao'
+import { modoDaRecalibracao, validarRecalibracao } from '../../core/recalibracao'
 import { situacaoDaViagem } from '../../core/registro'
 import { ordenarEtapas } from '../../core/trechos'
 import type { Local } from '../../core/tipos'
@@ -46,6 +46,13 @@ export function derivarViagem(c: ContextoDaViagem) {
     mapa: linkGoogleMaps(localDe(proxima)),
     podeRecalibrar:
       proxima !== null && s.situacao !== 'chegamos' && validarRecalibracao(plano, original, eventos, proxima, agora, agora).ok,
+    /** Só em trânsito para a próxima etapa, e com coordenadas no local dela (a posição do GPS é o ponto de partida). */
+    podeAtualizarPelaLocalizacao:
+      proxima !== null &&
+      s.situacao !== 'chegamos' &&
+      localDe(proxima)?.coordenadas !== undefined &&
+      modoDaRecalibracao(plano, original, eventos, proxima, agora) === 'em_transito' &&
+      validarRecalibracao(plano, original, eventos, proxima, agora, agora).ok,
     podeIncluir: posicoesParaIncluir(plano, original, eventos, agora).length > 0,
     podePular: proxima !== null && proximaEtapa?.tipo === 'flexivel' && validarPulo(plano, s.estado, proxima).ok,
     pendencia: pendenciasDeRegistro(plano, eventos)[0] ?? null,

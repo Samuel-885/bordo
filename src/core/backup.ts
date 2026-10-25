@@ -283,7 +283,7 @@ const EVENTO_BASE: [Campos, Campos] = [
 ]
 
 const DADOS_DO_EVENTO: Record<string, [Campos, Campos]> = {
-  recalibracao: [{ horario }, {}],
+  recalibracao: [{ horario }, { origem: um('localizacao'), calculadoEm: horario }],
   troca_local: [{ localId: texto }, {}],
   local_incluido: [{ localId: texto, trechos: listaDeTrechos }, {}],
   parada_incluida: [{ apos: texto, localId: texto, categoria: texto, permanenciaMin: numero, trechos: listaDeTrechos }, { motivo: texto }],

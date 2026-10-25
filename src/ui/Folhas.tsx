@@ -143,7 +143,7 @@ export function FolhaImprevisto({
 }
 
 export function FolhaRecalibracao({
-  aberta, ocupado, erro, agora, linkMapa, nomeEtapa, titulo = 'Atualizar previsão', rotuloConfirmar = 'Atualizar', dica, onConfirmar, onCancelar,
+  aberta, ocupado, erro, agora, linkMapa, nomeEtapa, titulo = 'Atualizar previsão', rotuloConfirmar = 'Atualizar', dica, onLocalizacao, onConfirmar, onCancelar,
 }: Comum & {
   linkMapa: string | null
   nomeEtapa: string
@@ -151,6 +151,8 @@ export function FolhaRecalibracao({
   titulo?: string
   rotuloConfirmar?: string
   dica?: string
+  /** Oferece "Atualizar pela minha localização" (só em trânsito, com coordenadas). */
+  onLocalizacao?: () => void
   onConfirmar: (horario: Instante) => void
 }) {
   const [hora, setHora] = useState('')
@@ -171,6 +173,11 @@ export function FolhaRecalibracao({
         <a className="botao largo link-botao" href={linkMapa} target="_blank" rel="noopener noreferrer">
           ABRIR NO GOOGLE MAPS
         </a>
+      )}
+      {onLocalizacao && (
+        <button type="button" className="botao largo" data-teste="atualizar-localizacao" onClick={onLocalizacao}>
+          Atualizar pela minha localização
+        </button>
       )}
       <CampoHora id="recalibracao-hora" rotulo="Chegada informada pelo Google Maps" valor={hora} onMudar={setHora} resolvido={resolvido} agora={agora} />
     </Folha>

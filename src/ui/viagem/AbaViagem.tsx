@@ -197,6 +197,12 @@ export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
               <span aria-hidden="true"> ›</span>
             </button>
           )}
+          {d.podeAtualizarPelaLocalizacao && (
+            <button type="button" className="atalho" disabled={ocupado} data-teste="atualizar-localizacao" onClick={() => abrir('localizacao')}>
+              Atualizar pela minha localização
+              <span aria-hidden="true"> ›</span>
+            </button>
+          )}
           {nAlternativas > 0 && (
             <button type="button" className="atalho" onClick={() => onAba('roteiro')}>
               {textoDoAtalhoDeAlternativas(nAlternativas)}

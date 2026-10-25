@@ -113,6 +113,8 @@ export const ev = {
     criar(horario, { tipo: 'inclusao_cancelada', etapaId, dados: { eventoId } }),
   recalibracao: (etapaId: string, informado: Instante, horario: Instante) =>
     criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado } }),
+  recalibracaoPelaLocalizacao: (etapaId: string, informado: Instante, calculadoEm: Instante, horario: Instante) =>
+    criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado, origem: 'localizacao', calculadoEm } }),
   parada: (
     etapaId: string,
     fase: 'inicio' | 'fim' | 'previsao',

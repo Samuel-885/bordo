@@ -130,7 +130,7 @@ Regras:
 - A previsão mostra a origem: "Google Maps, informado às 11:40".
 - Pode ser desfeita, voltando ao cálculo pelo trecho.
 
-O Google Maps é aberto por um link comum com as coordenadas do destino. Não há chamada de API nem cobrança.
+O Google Maps é aberto por um link comum com as coordenadas do destino. Não há chamada de API nem cobrança. Alternativa sem digitar: "Atualizar pela localização" (ver a seção própria).
 
 ## Alternativas e viabilidade
 
@@ -764,6 +764,19 @@ Aprovadas em 25/10/2026, depois de uma viagem curta urbana testada no celular (I
 - **Depois:** volta à lista de viagens.
 - Ocultar um local sem excluí-lo ficou para depois (`PENDENCIAS.md`).
 - Testes: `src/data/__tests__/excluir-viagem.test.ts`, `usoDoLocal.test.ts`, `viagens.test.ts` e o fluxo `e2e/fluxos/correcoes-excluir-viagem.mjs`.
+
+## Atualizar pela localização
+
+Aprovada em 25/10/2026, depois de um teste real em trânsito: a chegada informada pelo Google Maps (08:27) ficou para trás enquanto o ônibus estava parado e o Maps já mostrava 08:39. Nenhuma regra de cálculo muda: o resultado é uma recalibração comum.
+
+- **Botão "Atualizar pela minha localização"** no cartão "Próxima parada" e na folha "Previsão". Só aparece **em trânsito** para a próxima etapa (inclusive o destino) e quando o local dela tem coordenadas; parado na etapa anterior a posição do GPS não é o ponto de partida do trecho. A folha de digitar o horário do Google Maps continua ao lado, e é oferecida em toda falha.
+- **Exceção à regra "na viagem nada depende de rede":** a atualização usa o OSRM público (o mesmo da fase 8, sem trânsito) e só roda quando a pessoa toca. Sem internet, ou com o serviço fora, a mensagem é clara, nada é gravado e o resto do app segue igual. O recálculo da previsão continua 100% local.
+- **GPS.** Uma leitura só, no toque (`navigator.geolocation`, sem cache, tempo limite de 15 s, `gpsTempoLimiteMs`). Mensagens próprias: permissão negada, sem sinal, tempo esgotado e aparelho sem localização.
+- **Prévia antes de gravar:** "Chegada em X às 08:39 · sem trânsito · calculado às 08:20", com o tempo de carro, o fator e a distância. A chegada é o minuto do cálculo (arredondado para baixo) + o tempo da rota. O **fator ônibus** da viagem vem aplicado por padrão, com o interruptor "Aplicar fator ônibus": desligado vale o tempo de carro, e o horário muda na hora. A prévia vale por 2 minutos (`previaLocalizacaoValidaMin`); depois pede para ler a posição de novo, para o horário gravado não ficar no passado.
+- **Precisão.** Se o raio de incerteza informado pelo GPS passa de 1 km (`gpsPrecisaoRuimM`), a prévia avisa "posição aproximada (±X km)". O aviso não bloqueia.
+- **Gravação.** Só ao confirmar, como a recalibração comum: mesmas travas (`validarRecalibracao`), DESFAZER de 8 s e timeline ("Pela localização, sem trânsito"). O evento `recalibracao` ganha dois campos **opcionais e aditivos** em `dados`: `origem: 'localizacao'` e `calculadoEm` (horário do cálculo). O backup formato 1 aceita e lê os arquivos antigos; versões antigas ignoram os campos. A previsão mostra a origem: "Pela localização, sem trânsito, calculado às 08:20". Uma recalibração comum depois, ou a regra do relógio, substitui a marca.
+- **Privacidade (LGPD).** Só as coordenadas da posição e do destino vão ao OSRM, só no toque. A posição fica na memória da folha aberta: não é gravada (evento, banco, backup), não entra em mensagens e nada de passageiros é enviado. A folha diz isso.
+- **Testes.** Núcleo (`localizacao.test.ts`: prévia, fator, precisão, validade, travas, evento e backup), serviço com GPS e OSRM simulados (`src/servicos/__tests__/localizacao.test.ts`) e o fluxo `e2e/fluxos/atualizar-localizacao.mjs` (atualizar, fator, precisão ruim, confirmar, timeline, desfazer, permissão negada, serviço fora e sem internet).
 
 ## Mudança de roteiro em viagem
 

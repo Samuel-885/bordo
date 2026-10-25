@@ -30,6 +30,7 @@ import type {
 interface Recalibracao {
   horario: Instante
   informadoEm: Instante
+  pelaLocalizacaoEm?: Instante
   /** Ordem de gravação (desempata o mesmo minuto). */
   ordem: number
 }
@@ -86,6 +87,7 @@ function indexarEventos(eventos: readonly Evento[]): Fatos {
         fatos.recalibracao.set(e.etapaId, {
           horario: e.dados.horario,
           informadoEm: e.horarioFato,
+          ...(e.dados.origem === 'localizacao' && e.dados.calculadoEm ? { pelaLocalizacaoEm: e.dados.calculadoEm } : {}),
           ordem: ordemDeGravacao(e, posicao.get(e)!),
         })
         break
@@ -213,18 +215,21 @@ function percorrer(p: Percurso): EstadoEtapa[] {
     valor: Instante | null,
     origem: OrigemHorario,
     recalibradoEm?: Instante,
+    pelaLocalizacaoEm?: Instante,
   ): HorarioPrevisto | null => {
     if (valor === null) return null
     if (agora && chave(etapa, m) === chaveRelogio && antes(valor, agora)) {
       valor = agora
       origem = 'relogio'
       recalibradoEm = undefined
+      pelaLocalizacaoEm = undefined
     }
     const orig = original?.etapas.find((o) => o.etapaId === etapa.id)?.[m] ?? null
     return {
       instante: valor,
       origem,
       ...(recalibradoEm ? { recalibradoEm } : {}),
+      ...(pelaLocalizacaoEm ? { pelaLocalizacaoEm } : {}),
       atrasoMin: orig ? atrasoMin(valor, orig) : null,
     }
   }
@@ -273,7 +278,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
           valor = somarMinutos(valor, tempoParadoMin(fatos, etapa.id, agora, recal?.informadoEm ?? null))
         }
         chegada = recal
-          ? horario(etapa, 'chegada', valor, 'recalibracao', recal.informadoEm)
+          ? horario(etapa, 'chegada', valor, 'recalibracao', recal.informadoEm, recal.pelaLocalizacaoEm)
           : horario(etapa, 'chegada', valor, 'calculado')
       }
     }

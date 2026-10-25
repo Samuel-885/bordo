@@ -169,6 +169,16 @@ export interface EventoBase {
   observacao?: string
 }
 
+/**
+ * `origem` e `calculadoEm` são opcionais e aditivos: "localizacao" marca a previsão calculada
+ * pela posição do GPS no OSRM (sem trânsito), no horário `calculadoEm`. A posição em si nunca é guardada.
+ */
+export interface DadosDaRecalibracao {
+  horario: Instante
+  origem?: 'localizacao'
+  calculadoEm?: Instante
+}
+
 export type Evento = EventoBase &
   (
     | { tipo: 'inicio' }
@@ -176,7 +186,7 @@ export type Evento = EventoBase &
     | { tipo: 'saida'; etapaId: string }
     | { tipo: 'chegada'; etapaId: string }
     | { tipo: 'pular_etapa'; etapaId: string }
-    | { tipo: 'recalibracao'; etapaId: string; dados: { horario: Instante } }
+    | { tipo: 'recalibracao'; etapaId: string; dados: DadosDaRecalibracao }
     | { tipo: 'troca_local'; etapaId: string; dados: { localId: string } }
     /**
      * Mudança de roteiro em viagem: um local novo vira candidato da etapa (flexível, ainda não
@@ -342,6 +352,8 @@ export interface HorarioPrevisto {
   origem: OrigemHorario
   /** Na origem "recalibracao": quando o horário foi informado. */
   recalibradoEm?: Instante
+  /** Na origem "recalibracao" feita pela localização: quando foi calculada (sem trânsito). */
+  pelaLocalizacaoEm?: Instante
   /** Horário − original do mesmo evento. Vazio se não houver original. */
   atrasoMin: number | null
 }

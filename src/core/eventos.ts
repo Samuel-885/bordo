@@ -10,7 +10,11 @@ export type ConteudoEvento = SemBase<Evento>
 
 function truncarDados(conteudo: ConteudoEvento): ConteudoEvento {
   if (conteudo.tipo === 'recalibracao') {
-    return { ...conteudo, dados: { ...conteudo.dados, horario: truncarMinuto(conteudo.dados.horario) } }
+    const { calculadoEm } = conteudo.dados
+    return {
+      ...conteudo,
+      dados: { ...conteudo.dados, horario: truncarMinuto(conteudo.dados.horario), ...(calculadoEm ? { calculadoEm: truncarMinuto(calculadoEm) } : {}) },
+    }
   }
   return conteudo
 }

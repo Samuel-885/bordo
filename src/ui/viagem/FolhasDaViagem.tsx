@@ -7,6 +7,7 @@ import { AvisoDesfazer } from '../componentes/AvisoDesfazer'
 import { Confirmar } from '../componentes/Confirmar'
 import { FolhaDadosDaViagem } from '../componentes/FolhaDadosDaViagem'
 import { FolhaMensagem } from '../componentes/FolhaMensagem'
+import { FolhaLocalizacao } from '../FolhaLocalizacao'
 import { FolhaQuemDesceu } from '../FolhaQuemDesceu'
 import { FolhaAjusteDaParada, FolhaHorario, FolhaImprevisto, FolhaObservacao, FolhaParada, FolhaRecalibracao, type DadosDaParada } from '../Folhas'
 import { formatarHora } from '../logica/horarios'
@@ -152,6 +153,7 @@ export function FolhasDaViagem({ c, d, r, onModelos }: Props) {
           agora={agora}
           linkMapa={mapa}
           nomeEtapa={nome(proxima)}
+          onLocalizacao={d.podeAtualizarPelaLocalizacao ? () => r.abrir('localizacao') : undefined}
           onCancelar={r.fechar}
           onConfirmar={async (horario: Instante) => {
             const ok = await r.registrarConteudo(
@@ -162,6 +164,30 @@ export function FolhasDaViagem({ c, d, r, onModelos }: Props) {
           }}
         />
       )}
+
+      {acao === 'localizacao' && proxima && d.podeAtualizarPelaLocalizacao && (() => {
+        const destino = d.localDe(proxima)?.coordenadas
+        if (!destino) return null
+        return (
+          <FolhaLocalizacao
+            ocupado={ocupado}
+            erro={erro}
+            agora={agora}
+            nomeEtapa={nome(proxima)}
+            destino={destino}
+            fator={viagem.fatorOnibus}
+            onCancelar={r.fechar}
+            onDigitar={() => r.abrir('recalibracao')}
+            onConfirmar={async ({ horario, calculadoEm }) => {
+              const ok = await r.registrarConteudo(
+                { tipo: 'recalibracao', etapaId: proxima, dados: { horario, origem: 'localizacao', calculadoEm } },
+                `Previsão atualizada para ${formatarHora(horario)} (pela localização).`,
+              )
+              if (ok) r.fechar()
+            }}
+          />
+        )
+      })()}
 
       {acao === 'volta' && proxima && (
         <FolhaHorario

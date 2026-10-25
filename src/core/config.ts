@@ -30,4 +30,10 @@ export const CONFIG = {
   rotasIntervaloMs: 1100,
   servicoTempoLimiteMs: 10000,
   buscaMaxResultados: 5,
+  /** Atualizar pela localização (GPS): tempo limite da leitura da posição. */
+  gpsTempoLimiteMs: 15000,
+  /** Precisão do GPS (raio, em metros) acima da qual a prévia avisa "posição aproximada". */
+  gpsPrecisaoRuimM: 1000,
+  /** Depois de quantos minutos a prévia pela localização deixa de valer e pede novo cálculo. */
+  previaLocalizacaoValidaMin: 2,
 } as const

@@ -41,6 +41,7 @@ export const textoDaSituacao = (s: Situacao, nomeLocal: string | null): string =
 /** "Google Maps, informado às 11:40" quando a previsão veio de recalibração. */
 export function textoDaOrigemDaPrevisao(h: HorarioPrevisto | null | undefined): string | null {
   if (h?.origem !== 'recalibracao' || !h.recalibradoEm) return null
+  if (h.pelaLocalizacaoEm) return `Pela localização, sem trânsito, calculado às ${formatarHora(h.pelaLocalizacaoEm)}`
   return `Google Maps, informado às ${formatarHora(h.recalibradoEm)}`
 }
 
@@ -155,7 +156,7 @@ export function montarTimeline(
       case 'pular_etapa':
         return { ...item, titulo: `Pulamos ${nome(e.etapaId)}`, riscado: true }
       case 'recalibracao':
-        return { ...item, titulo: `Previsão atualizada para ${formatarHora(e.dados.horario)}`, detalhe: `Google Maps · ${nome(e.etapaId)}` }
+        return { ...item, titulo: `Previsão atualizada para ${formatarHora(e.dados.horario)}`, detalhe: `${e.dados.origem === 'localizacao' ? 'Pela localização, sem trânsito' : 'Google Maps'} · ${nome(e.etapaId)}` }
       case 'troca_local': {
         const novo = locais.find((l) => l.id === e.dados.localId)?.nome ?? 'outro local'
         return { ...item, titulo: `Trocamos o local para ${novo}`, detalhe: nome(e.etapaId) }

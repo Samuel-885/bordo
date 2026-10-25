@@ -26,7 +26,7 @@ import type { Derivados } from './derivados'
 
 const JANELA_DESFAZER_MS = 8000
 
-export type Acao = 'cancelar_inclusao' | 'parada' | 'ajuste_parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | 'observacao' | null
+export type Acao = 'cancelar_inclusao' | 'parada' | 'ajuste_parada' | 'imprevisto' | 'recalibracao' | 'localizacao' | 'volta' | 'pular' | 'oferta' | 'observacao' | null
 
 export function useRegistros(c: ContextoDaViagem, d: Derivados, aoRegistrar?: () => void) {
   const { repo, plano, eventos, passageiros, agora, recarregar } = c
