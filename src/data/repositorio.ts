@@ -22,8 +22,11 @@ import { eventosDaConferencia, type ContextoConferencia, type DecisaoDePendente,
 import { validarCadastro, validarExclusao, type DadosPassageiro } from '../core/passageiros'
 import { validarModelo, type IdModelo } from '../core/modelos'
 import { montarBackup, resumirViagens, type Backup, type ConteudoBackup, type ResumoViagem } from '../core/backup'
-import type { Consulta, DadosPlano, Etapa, Evento, Instante, Local, Passageiro, RestauradoDe, Trecho, UltimoBackup, Viagem } from '../core/tipos'
+import type { Consulta, DadosDaRecalibracao, DadosPlano, Etapa, Evento, Instante, Local, Passageiro, RestauradoDe, Trecho, UltimoBackup, Viagem } from '../core/tipos'
 import type { BancoBordo, Espaco } from './banco'
+
+/** Marca da chegada calculada pela posição do GPS (campos aditivos da recalibração). */
+export type OrigemDaChegada = Pick<DadosDaRecalibracao, 'origem' | 'calculadoEm'>
 
 export type ResultadoInicio =
   | { ok: true; viagem: Viagem }
@@ -661,16 +664,23 @@ export class Repositorio {
 
   /**
    * Incluir uma parada nova (flexível) depois de `dados.apos`. Com `chegadaPeloMaps`, grava junto a
-   * recalibração da parada nova (trecho em curso). O DESFAZER retira os eventos juntos. Quem chama
+   * recalibração da parada nova (trecho em curso); `origemDaChegada` marca a chegada calculada pela
+   * localização (como em "Atualizar pela minha localização"). O DESFAZER retira os eventos juntos. Quem chama
    * gera o `etapaId` (`novoId()`) antes, porque os trechos novos apontam para ele.
    */
-  async registrarInclusao(viagemId: string, etapaId: string, dados: DadosDaInclusao, chegadaPeloMaps?: Instante): Promise<ResultadoRegistro> {
+  async registrarInclusao(
+    viagemId: string,
+    etapaId: string,
+    dados: DadosDaInclusao,
+    chegadaPeloMaps?: Instante,
+    origemDaChegada?: OrigemDaChegada,
+  ): Promise<ResultadoRegistro> {
     return this.#registrar(viagemId, [
       {
         conteudo: { tipo: 'parada_incluida', etapaId, dados },
         validar: (d, original, lista, momento) => validarInclusao(d, original, lista, momento, etapaId, dados, chegadaPeloMaps),
       },
-      ...(chegadaPeloMaps ? [{ conteudo: { tipo: 'recalibracao' as const, etapaId, dados: { horario: chegadaPeloMaps } } }] : []),
+      ...(chegadaPeloMaps ? [{ conteudo: { tipo: 'recalibracao' as const, etapaId, dados: { horario: chegadaPeloMaps, ...origemDaChegada } } }] : []),
     ])
   }
 
@@ -678,7 +688,13 @@ export class Repositorio {
    * Trocar o local de uma parada flexível por um local novo: o local vira candidato, a troca é
    * feita e, se a chegada vier do Google Maps, a recalibração da etapa vai junto.
    */
-  async registrarLocalNovo(viagemId: string, etapaId: string, dados: DadosDoLocalNovo, chegadaPeloMaps?: Instante): Promise<ResultadoRegistro> {
+  async registrarLocalNovo(
+    viagemId: string,
+    etapaId: string,
+    dados: DadosDoLocalNovo,
+    chegadaPeloMaps?: Instante,
+    origemDaChegada?: OrigemDaChegada,
+  ): Promise<ResultadoRegistro> {
     return this.#registrar(viagemId, [
       {
         conteudo: { tipo: 'local_incluido', etapaId, dados },
@@ -691,7 +707,7 @@ export class Repositorio {
             ? validarTrocaComChegada(d, original, lista, momento, etapaId, dados.localId, chegadaPeloMaps)
             : validarTroca(d, original, lista, momento, etapaId, dados.localId),
       },
-      ...(chegadaPeloMaps ? [{ conteudo: { tipo: 'recalibracao' as const, etapaId, dados: { horario: chegadaPeloMaps } } }] : []),
+      ...(chegadaPeloMaps ? [{ conteudo: { tipo: 'recalibracao' as const, etapaId, dados: { horario: chegadaPeloMaps, ...origemDaChegada } } }] : []),
     ])
   }
 

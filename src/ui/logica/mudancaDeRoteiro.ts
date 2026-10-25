@@ -5,6 +5,7 @@ import { aplicarFatorOnibus } from '../../core/trechos'
 import type { ParDeTrecho } from '../../core/trechos'
 import type { Instante, Trecho } from '../../core/tipos'
 import { formatarDuracao, minutosDeHorasEMinutos } from './duracao'
+import { formatarHora } from './horarios'
 
 /** O tempo de um trecho novo: digitado (minutos de ônibus) ou calculado pela rota (minutos de carro). */
 export type Perna =
@@ -22,11 +23,20 @@ export function trechoDaPerna(par: ParDeTrecho, perna: Perna): Trecho | null {
   return minutos === null ? null : { ...par, duracaoMin: minutos, fonte: 'manual' }
 }
 
-/** "carro 1h40 × fator 1,15 = 1h55 · 90 km · estimativa sem trânsito". */
-export function textoDaRotaDaPerna(perna: Extract<Perna, { tipo: 'rota' }>, fator: number): string {
-  const onibus = aplicarFatorOnibus(perna.minutosCarro, fator)
-  const km = perna.distanciaKm.toLocaleString('pt-BR', { maximumFractionDigits: 1 })
-  return `carro ${formatarDuracao(perna.minutosCarro)} × fator ${fator.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} = ${formatarDuracao(onibus)} · ${km} km · estimativa sem trânsito`
+const formatarFator = (f: number) => f.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+
+/** Minutos de ônibus de um trecho calculado pela rota (carro × fator, para cima). */
+export const minutosDeOnibusDaRota = (perna: Extract<Perna, { tipo: 'rota' }>, fator: number): number =>
+  aplicarFatorOnibus(perna.minutosCarro, fator)
+
+/** "De Mirante até Sogra: 7 min · pela rota (carro 6 min × 1,15)". */
+export function textoDoTrechoPelaRota(titulo: string, perna: Extract<Perna, { tipo: 'rota' }>, fator: number): string {
+  return `${titulo}: ${formatarDuracao(minutosDeOnibusDaRota(perna, fator))} · pela rota (carro ${formatarDuracao(perna.minutosCarro)} × ${formatarFator(fator)})`
+}
+
+/** "Até Mirante: 20 min · pela sua localização, sem trânsito, calculado às 09:29". */
+export function textoDoTrechoPelaLocalizacao(titulo: string, minutosOnibus: number, calculadoEm: Instante): string {
+  return `${titulo}: ${formatarDuracao(minutosOnibus)} · pela sua localização, sem trânsito, calculado às ${formatarHora(calculadoEm)}`
 }
 
 /** Explica o que a mudança custa: "+50 min no destino", "sem efeito no destino", "−5 min no destino". */

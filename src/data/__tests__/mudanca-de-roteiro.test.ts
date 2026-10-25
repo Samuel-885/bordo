@@ -91,6 +91,21 @@ describe('parada incluída pelo repositório', () => {
     expect((await repo.desfazerRegistro(V, r.eventos.map((e) => e.id))).ok).toBe(true)
   })
 
+  it('a chegada calculada pela localização grava origem e calculadoEm na recalibração (inclusão e local novo)', async () => {
+    const n1 = novoId()
+    const so = { ...dadosDaParada(n1), trechos: [dadosDaParada(n1).trechos[1]!] }
+    const origem = { origem: 'localizacao', calculadoEm: horaDemo('08:30') } as const
+    const r = await repo.registrarInclusao(V, n1, so, horaDemo('09:50'), origem)
+    if (!r.ok) throw new Error(r.motivo)
+    expect(r.eventos[1]).toMatchObject({ tipo: 'recalibracao', dados: { horario: horaDemo('09:50'), origem: 'localizacao', calculadoEm: horaDemo('08:30') } })
+    // Sem a marca (chegada pelo Maps), os campos não existem.
+    await repo.desfazerRegistro(V, r.eventos.map((e) => e.id))
+    const n2 = novoId()
+    const r2 = await repo.registrarInclusao(V, n2, { ...so, trechos: [dadosDaParada(n2).trechos[1]!] }, horaDemo('09:50'))
+    if (!r2.ok) throw new Error(r2.motivo)
+    expect((r2.eventos[1] as { dados: object }).dados).toEqual({ horario: horaDemo('09:50') })
+  })
+
   it('cancelar a parada antes de chegar: ela some e o roteiro entre as vizinhas volta', async () => {
     const n1 = novoId()
     const r = await repo.registrarInclusao(V, n1, dadosDaParada(n1))

@@ -2,7 +2,7 @@
 // por um local novo. Tela cheia, aberta por cima da viagem. O núcleo (`core/inclusao.ts`) valida e
 // calcula a prévia; aqui só há o formulário. Nada é estimado: sem tempo, não inclui.
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   CATEGORIAS_DA_INCLUSAO,
   MAX_MOTIVO_INCLUSAO,
@@ -17,21 +17,35 @@ import {
   type AlvoDaMudanca,
   type DadosDaInclusao,
 } from '../core/inclusao'
+import {
+  chegadaDaPrevia,
+  criarPrevia,
+  minutosDaPrevia,
+  previaVencida,
+  textoDaPrecisaoDoGps,
+  textoDoErroDeGps,
+  ehErroDeGps,
+  type PreviaPorLocalizacao,
+} from '../core/localizacao'
+import { agora as relogio } from '../core/relogio'
 import type { DadosPlano, Evento, Instante, Local, Trecho } from '../core/tipos'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 import { novoId, type Repositorio } from '../data/repositorio'
+import { rotaDaPosicaoAtual } from '../servicos/localizacao'
 import { calcularRota } from '../servicos/rotas'
 import { CampoHora } from './componentes/CampoHora'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
 import { FormLocal } from './FormLocal'
+import { formatarDuracao, horasEMinutosDe } from './logica/duracao'
 import { resolverHorarioProximo } from './logica/horarioDigitado'
 import { formatarHora } from './logica/horarios'
 import { linkGoogleMaps } from './logica/linkMaps'
 import {
-  pernaVazia,
-  textoDaRotaDaPerna,
+  minutosDeOnibusDaRota,
   textoDoImpactoNoDestino,
+  textoDoTrechoPelaLocalizacao,
+  textoDoTrechoPelaRota,
   trechoDaPerna,
   type Perna,
 } from './logica/mudancaDeRoteiro'
@@ -54,53 +68,96 @@ interface Props {
 
 type Vista = 'formulario' | 'novo_local'
 
-function CampoDeTempo({
-  id, titulo, perna, onMudar, podeCalcular, motivoSemRota, calculando, aoCalcular, fator,
+type Lado = 'ate' | 'de'
+interface Situacao {
+  lendo: boolean
+  erro: string | null
+}
+const formatarFator = (f: number) => f.toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+const SEM_SITUACAO: Situacao = { lendo: false, erro: null }
+
+/**
+ * Um dos dois trechos novos. O tempo calculado aparece só como texto; os campos para digitar ficam
+ * fechados e só abrem com "Usar outro tempo" (ou quando não há tempo calculado). Em cada momento a
+ * tela diz qual tempo vale: o calculado ou o digitado.
+ */
+function BlocoDoTrecho({
+  id, titulo, textoCalculado, detalhe, aviso, lendo, mensagem, manual, temCalculado, textoDoValor, vencida,
+  onUsarOutro, onVoltar, onRecalcular, podeRecalcular, children,
 }: {
   id: string
   titulo: string
-  perna: Perna
-  onMudar: (p: Perna) => void
-  podeCalcular: boolean
-  motivoSemRota: string | null
-  calculando: boolean
-  aoCalcular: () => void
-  fator: number
+  /** O tempo calculado, já em texto. Vazio se ainda não há. */
+  textoCalculado: string | null
+  detalhe?: string | null
+  aviso?: string | null
+  lendo: boolean
+  /** Por que o trecho não foi calculado (falha ou impossibilidade). */
+  mensagem: string | null
+  manual: boolean
+  temCalculado: boolean
+  /** "20 min" etc., do tempo calculado que deixou de valer. */
+  textoDoValor: string | null
+  vencida: boolean
+  onUsarOutro: () => void
+  onVoltar: () => void
+  onRecalcular: () => void
+  podeRecalcular: boolean
+  children: ReactNode
 }) {
   return (
     <div className="campo" data-teste={id}>
       <span className="rotulo">{titulo}</span>
-      <div className="linha-campos">
-        <div className="campo">
-          <label htmlFor={`${id}-h`}>Horas</label>
-          <input
-            id={`${id}-h`}
-            inputMode="numeric"
-            value={perna.tipo === 'manual' ? perna.horas : ''}
-            onChange={(e) => onMudar({ tipo: 'manual', horas: e.target.value, minutos: perna.tipo === 'manual' ? perna.minutos : '' })}
-            autoComplete="off"
-          />
-        </div>
-        <div className="campo">
-          <label htmlFor={`${id}-m`}>Minutos</label>
-          <input
-            id={`${id}-m`}
-            inputMode="numeric"
-            value={perna.tipo === 'manual' ? perna.minutos : ''}
-            onChange={(e) => onMudar({ tipo: 'manual', horas: perna.tipo === 'manual' ? perna.horas : '', minutos: e.target.value })}
-            autoComplete="off"
-          />
-        </div>
-      </div>
-      <button type="button" className="botao pequeno" disabled={!podeCalcular || calculando} onClick={aoCalcular}>
-        {calculando ? 'Calculando…' : 'Calcular pela rota'}
-      </button>
-      {motivoSemRota && <p className="dica">{motivoSemRota}</p>}
-      {perna.tipo === 'rota' && (
-        <p className="dica" role="status" data-teste={`${id}-rota`}>
-          Pela rota: {textoDaRotaDaPerna(perna, fator)}. Digite um tempo para usar o seu.
-        </p>
+      {lendo && <p className="dica" role="status" data-teste={`${id}-lendo`}>Calculando…</p>}
+      {!lendo && !manual && textoCalculado && (
+        <>
+          <p className="linha-grande" data-teste={`${id}-calculado`}>{textoCalculado}</p>
+          {detalhe && <p className="dica">{detalhe}</p>}
+        </>
       )}
+      {!lendo && aviso && <p className="atencao-texto" role="alert" data-teste={`${id}-precisao`}>Atenção: {aviso}. O tempo pode estar errado.</p>}
+      {!lendo && vencida && !manual && (
+        <p className="atencao-texto" role="alert" data-teste={`${id}-vencida`}>Este tempo ficou antigo: a posição mudou. Calcule de novo.</p>
+      )}
+      {!lendo && mensagem && <p className="msg-erro" role="status" data-teste={`${id}-erro`}>{mensagem}</p>}
+      {!lendo && manual && (
+        <>
+          <p className={temCalculado ? 'atencao-texto' : 'dica'} data-teste={`${id}-valendo`}>
+            {temCalculado
+              ? `Vale o tempo digitado, não o calculado${textoDoValor ? ` (${textoDoValor})` : ''}.`
+              : 'Vale o tempo que você digitar.'}
+          </p>
+          {children}
+        </>
+      )}
+      <div className="linha-campos">
+        {!lendo && !manual && temCalculado && (
+          <button type="button" className="botao pequeno" onClick={onUsarOutro} data-teste={`${id}-outro`}>Usar outro tempo</button>
+        )}
+        {!lendo && manual && temCalculado && (
+          <button type="button" className="botao pequeno" onClick={onVoltar} data-teste={`${id}-voltar`}>Voltar ao calculado</button>
+        )}
+        {podeRecalcular && (
+          <button type="button" className="botao pequeno" disabled={lendo} onClick={onRecalcular} data-teste={`${id}-recalcular`}>
+            {lendo ? 'Calculando…' : 'Recalcular'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CamposDeHorasEMinutos({ id, valor, onMudar }: { id: string; valor: { horas: string; minutos: string }; onMudar: (v: { horas: string; minutos: string }) => void }) {
+  return (
+    <div className="linha-campos">
+      <div className="campo">
+        <label htmlFor={`${id}-h`}>Horas</label>
+        <input id={`${id}-h`} inputMode="numeric" value={valor.horas} onChange={(e) => onMudar({ ...valor, horas: e.target.value })} autoComplete="off" />
+      </div>
+      <div className="campo">
+        <label htmlFor={`${id}-m`}>Minutos</label>
+        <input id={`${id}-m`} inputMode="numeric" value={valor.minutos} onChange={(e) => onMudar({ ...valor, minutos: e.target.value })} autoComplete="off" />
+      </div>
     </div>
   )
 }
@@ -121,16 +178,39 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
   const [categoria, setCategoria] = useState('visita')
   const [motivo, setMotivo] = useState('')
   const [permanencia, setPermanencia] = useState('30')
-  const [ate, setAte] = useState<Perna>(pernaVazia())
-  const [de, setDe] = useState<Perna>(pernaVazia())
+  // Tempo calculado de cada trecho: pela rota (`Perna` do tipo rota) ou, no trecho em curso, pela localização.
+  const [ateRota, setAteRota] = useState<Extract<Perna, { tipo: 'rota' }> | null>(null)
+  const [deRota, setDeRota] = useState<Extract<Perna, { tipo: 'rota' }> | null>(null)
+  const [previaLoc, setPreviaLoc] = useState<PreviaPorLocalizacao | null>(null)
+  const [situacao, setSituacao] = useState<Record<Lado, Situacao>>({ ate: SEM_SITUACAO, de: SEM_SITUACAO })
+  // "Usar outro tempo": o que vale é o digitado.
+  const [outro, setOutro] = useState<Record<Lado, boolean>>({ ate: false, de: false })
+  const [manualAte, setManualAte] = useState({ horas: '', minutos: '' })
+  const [manualDe, setManualDe] = useState({ horas: '', minutos: '' })
   const [usarMaps, setUsarMaps] = useState(false)
   const [horaMaps, setHoraMaps] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [calculando, setCalculando] = useState<'ate' | 'de' | null>(null)
-  const [avisoDeRota, setAvisoDeRota] = useState<string | null>(null)
-  const pedido = useRef<AbortController | null>(null)
-  useEffect(() => () => pedido.current?.abort(), [])
+  const pedidos = useRef<Record<Lado, AbortController | null>>({ ate: null, de: null })
+  const versao = useRef<Record<Lado, number>>({ ate: 0, de: 0 })
+  useEffect(() => () => { pedidos.current.ate?.abort(); pedidos.current.de?.abort() }, [])
+
+  /** Troca de local ou de posição: nada do que foi calculado vale mais. */
+  function limpar() {
+    for (const lado of ['ate', 'de'] as const) {
+      pedidos.current[lado]?.abort()
+      versao.current[lado]++
+    }
+    setAteRota(null)
+    setDeRota(null)
+    setPreviaLoc(null)
+    setSituacao({ ate: SEM_SITUACAO, de: SEM_SITUACAO })
+    setOutro({ ate: false, de: false })
+    setManualAte({ horas: '', minutos: '' })
+    setManualDe({ horas: '', minutos: '' })
+    setUsarMaps(false)
+    setHoraMaps('')
+  }
 
   const incluir = alvo.tipo === 'incluir'
   const etapaDoLocalNovo = alvo.tipo === 'local_novo' ? plano.etapas.find((e) => e.id === alvo.etapaId) : undefined
@@ -139,8 +219,6 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
   const nome = (id: string) => nomeDaEtapaEmUso(plano.etapas.find((e) => e.id === id), plano.locais, eventos)
   const pernas = apos || !incluir ? pernasDaMudanca(plano, original, eventos, agora, alvoAtual) : null
   const emCurso = pernas?.ateOLocalEmCurso ?? false
-  const mapsObrigatorio = emCurso
-  const comMaps = mapsObrigatorio || usarMaps
   const localNovo = locais.find((l) => l.id === localId)
   const localAnterior = locais.find((l) => l.id === pernas?.anterior.localId)
   const localSeguinte = locais.find((l) => l.id === pernas?.seguinte.localId)
@@ -156,10 +234,51 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
   const parDe = pernas && localId && pernas.seguinte.localId
     ? { etapaOrigemId: etapaDeId, localOrigemId: localId, etapaDestinoId: pernas.seguinte.etapaId, localDestinoId: pernas.seguinte.localId }
     : null
-  const trechoAte = parAte && !comMaps ? trechoDaPerna(parAte, ate) : null
-  const trechoDe = parDe ? trechoDaPerna(parDe, de) : null
+
+  const nomeNovo = localNovo?.nome ?? 'o local novo'
+  const titulo_ = (lado: Lado) =>
+    lado === 'de'
+      ? `De ${nomeNovo} até ${localSeguinte?.nome ?? 'a etapa seguinte'}`
+      : emCurso ? `Até ${nomeNovo}` : `De ${localAnterior?.nome ?? 'a etapa anterior'} até ${nomeNovo}`
+  const aoInformar = (lado: Lado) => (lado === 'ate' && emCurso ? 'Informe o horário do Google Maps.' : 'Digite o tempo.')
+
+  /** Por que o trecho não pode ser calculado agora (sem coordenadas, sem internet); vazio se pode. */
+  function impedimento(lado: Lado): string | null {
+    if (!localNovo) return null
+    const emTransito = lado === 'ate' && emCurso
+    const origem = lado === 'de' ? localNovo : localAnterior
+    const destino = lado === 'de' ? localSeguinte : localNovo
+    // Em trânsito a origem é a posição do GPS: só o local novo precisa de coordenadas.
+    const sem = (emTransito ? [destino] : [origem, destino]).find((l) => l && !l.coordenadas)
+    const base = `${titulo_(lado)}: não foi calculado.`
+    if (sem) return `${base} Sem coordenadas em ${sem.nome}. ${aoInformar(lado)}`
+    if (!online) return `${base} Sem internet: a rota não está disponível. ${aoInformar(lado)}`
+    return null
+  }
+
+  // Trecho até o local novo. Em trânsito vale a chegada (pela localização ou pelo Google Maps);
+  // parado, o tempo do trecho (pela rota ou digitado).
+  const pronto = { ate: emCurso ? previaLoc !== null : ateRota !== null, de: deRota !== null }
+  const calculavel = (lado: Lado) =>
+    !situacao[lado].erro && !impedimento(lado) && !!localNovo?.coordenadas &&
+    (lado === 'de' ? !!localSeguinte?.coordenadas : emCurso || !!localAnterior?.coordenadas)
+  // Os campos de digitar abrem quando a pessoa pede, ou quando não há tempo calculado nem está a caminho.
+  const aberto = (lado: Lado) => outro[lado] || (!pronto[lado] && !situacao[lado].lendo && !calculavel(lado))
+  const viaLocalizacao = emCurso && !aberto('ate')
+  const viaMaps = (emCurso && aberto('ate')) || (!emCurso && usarMaps)
+  const comMaps = emCurso || usarMaps
+  const vencida = viaLocalizacao && previaLoc !== null && previaVencida(previaLoc, agora)
+  const chegada = viaMaps ? resolverHorarioProximo(horaMaps, agora) : viaLocalizacao && previaLoc ? chegadaDaPrevia(previaLoc, fator, true) : null
+  const perna = (lado: Lado): Perna | null => {
+    const manual = lado === 'ate' ? manualAte : manualDe
+    return aberto(lado) ? { tipo: 'manual', ...manual } : lado === 'ate' ? ateRota : deRota
+  }
+  const pernaAte = perna('ate')
+  const pernaDe = perna('de')
+  const trechoAte = parAte && !comMaps && pernaAte ? trechoDaPerna(parAte, pernaAte) : null
+  const trechoDe = parDe && pernaDe ? trechoDaPerna(parDe, pernaDe) : null
   const trechos: Trecho[] = [trechoAte, trechoDe].filter((t): t is Trecho => t !== null)
-  const chegada = comMaps ? resolverHorarioProximo(horaMaps, agora) : null
+  const origemDaChegada = viaLocalizacao && previaLoc ? ({ origem: 'localizacao', calculadoEm: previaLoc.calculadoEm } as const) : undefined
   const permanenciaMin = Number(permanencia)
   const motivoAparado = motivo.trim()
 
@@ -173,7 +292,7 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
   }
   const faltaPreencher =
     !localId || !pernas || !trechoDe || (comMaps ? chegada === null : !trechoAte) || (incluir && permanencia.trim() === '')
-  const validacao = faltaPreencher
+  const validacao = faltaPreencher || vencida
     ? null
     : incluir
       ? validarInclusao(plano, original, eventos, agora, etapaNovaId, dadosDaParada, chegada ?? undefined)
@@ -185,35 +304,64 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
         : preverLocalNovo(plano, original, eventos, agora, alvo.etapaId, { localId, trechos }, chegada ?? undefined)
       : null
 
-  async function calcular(perna: 'ate' | 'de') {
-    const origem = perna === 'ate' ? localAnterior : localNovo
-    const destino = perna === 'ate' ? localNovo : localSeguinte
-    const par = perna === 'ate' ? parAte : parDe
-    if (!origem?.coordenadas || !destino?.coordenadas || !par) return
-    pedido.current?.abort()
+  async function calcular(lado: Lado) {
+    if (impedimento(lado) || !localNovo?.coordenadas) return
+    const origem = lado === 'de' ? localNovo : localAnterior
+    const destino = lado === 'de' ? localSeguinte : localNovo
+    if (!destino?.coordenadas) return
+    const emTransito = lado === 'ate' && emCurso
+    if (!emTransito && !origem?.coordenadas) return
+    pedidos.current[lado]?.abort()
     const controle = new AbortController()
-    pedido.current = controle
-    setAvisoDeRota(null)
-    setCalculando(perna)
+    pedidos.current[lado] = controle
+    const minha = ++versao.current[lado]
+    setSituacao((x) => ({ ...x, [lado]: { lendo: true, erro: null } }))
+    const falhou = (texto: string) => setSituacao((x) => ({ ...x, [lado]: { lendo: false, erro: `${titulo_(lado)}: não foi calculado. ${texto} ${aoInformar(lado)}` } }))
     try {
-      const r = await calcularRota(origem.coordenadas, destino.coordenadas, { sinal: controle.signal })
-      if (controle.signal.aborted) return
-      if (!r.ok) return setAvisoDeRota(r.erro === 'sem_rota' ? 'Sem rota encontrada entre os dois locais. Digite o tempo.' : `${textoDoErroDeRota(r.erro)} Digite o tempo.`)
-      const nova: Perna = { tipo: 'rota', minutosCarro: r.rota.minutosCarro, distanciaKm: r.rota.distanciaKm, calculadoEm: agora }
-      if (perna === 'ate') setAte(nova)
-      else setDe(nova)
+      if (emTransito) {
+        const r = await rotaDaPosicaoAtual(destino.coordenadas, { sinal: controle.signal })
+        if (minha !== versao.current[lado]) return
+        if (!r.ok) {
+          // O texto do GPS já manda informar o horário do Google Maps.
+          const e = r.erro
+          if (ehErroDeGps(e)) return setSituacao((x) => ({ ...x, [lado]: { lendo: false, erro: `${titulo_(lado)}: não foi calculado. ${textoDoErroDeGps(e)}` } }))
+          return falhou(e === 'sem_rota' ? 'O serviço não achou rota da sua posição até lá.' : textoDoErroDeRota(e))
+        }
+        setPreviaLoc(criarPrevia(r.rota, r.posicao.precisaoM, relogio()))
+        setOutro((x) => ({ ...x, ate: false }))
+      } else {
+        const r = await calcularRota(origem!.coordenadas!, destino.coordenadas, { sinal: controle.signal })
+        if (minha !== versao.current[lado]) return
+        if (!r.ok) return falhou(r.erro === 'sem_rota' ? 'Sem rota encontrada entre os dois locais.' : textoDoErroDeRota(r.erro))
+        const nova = { tipo: 'rota' as const, minutosCarro: r.rota.minutosCarro, distanciaKm: r.rota.distanciaKm, calculadoEm: relogio() }
+        if (lado === 'ate') setAteRota(nova)
+        else setDeRota(nova)
+        setOutro((x) => ({ ...x, [lado]: false }))
+      }
+      setSituacao((x) => ({ ...x, [lado]: SEM_SITUACAO }))
     } catch {
-      // Cancelado: a tela foi fechada.
-    } finally {
-      if (pedido.current === controle) setCalculando(null)
+      // Cancelado: a tela foi fechada ou o local mudou.
     }
   }
 
-  const motivoSemRota = (a: Local | undefined, b: Local | undefined): string | null => {
-    if (!a || !b) return null
-    if (!a.coordenadas || !b.coordenadas) return `Sem coordenadas em ${!a.coordenadas ? a.nome : b.nome}: sem rota. Digite o tempo.`
-    if (!online) return 'Sem internet: a rota não está disponível. Digite o tempo.'
-    return null
+  // Ao escolher o local (e ao voltar a internet), calcula sozinho o que ainda não tem tempo calculado.
+  useEffect(() => {
+    if (!localId || !pernas) return
+    for (const lado of ['ate', 'de'] as const) {
+      if (!pronto[lado] && !outro[lado] && !situacao[lado].lendo) void calcular(lado)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localId, apos, online, emCurso, !!pernas, localNovo?.coordenadas?.lat])
+
+  /** Abre os campos já com o tempo calculado, em minutos de ônibus, para ajustar. */
+  function usarOutroTempo(lado: Lado) {
+    if (lado === 'ate' && emCurso) {
+      if (chegada) setHoraMaps(formatarHora(chegada))
+    } else {
+      const calculada = lado === 'ate' ? ateRota : deRota
+      if (calculada) (lado === 'ate' ? setManualAte : setManualDe)(horasEMinutosDe(minutosDeOnibusDaRota(calculada, fator)))
+    }
+    setOutro((x) => ({ ...x, [lado]: true }))
   }
 
   async function confirmar() {
@@ -222,8 +370,8 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
     setErro(null)
     try {
       const r = incluir
-        ? await repo.registrarInclusao(plano.viagem.id, etapaNovaId, dadosDaParada, chegada ?? undefined)
-        : await repo.registrarLocalNovo(plano.viagem.id, alvo.etapaId, { localId, trechos }, chegada ?? undefined)
+        ? await repo.registrarInclusao(plano.viagem.id, etapaNovaId, dadosDaParada, chegada ?? undefined, origemDaChegada)
+        : await repo.registrarLocalNovo(plano.viagem.id, alvo.etapaId, { localId, trechos }, chegada ?? undefined, origemDaChegada)
       if (!r.ok) return setErro(r.motivo)
       const nomeLocal = localNovo?.nome ?? 'local'
       onFeito(r.eventos, incluir ? `Parada incluída: ${nomeLocal}.` : `Local trocado para ${nomeLocal}.`)
@@ -242,9 +390,8 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
         onSalvar={async (local) => {
           await repo.salvarLocal(local)
           setLocais(await repo.listarLocais())
+          limpar()
           setLocalId(local.id)
-          setAte(pernaVazia())
-          setDe(pernaVazia())
           setVista('formulario')
         }}
       />
@@ -272,7 +419,7 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
                 <select
                   id="mr-apos"
                   value={apos}
-                  onChange={(e) => { setApos(e.target.value); setAte(pernaVazia()); setDe(pernaVazia()) }}
+                  onChange={(e) => { limpar(); setApos(e.target.value) }}
                 >
                   {posicoes.map((id, i) => (
                     <option key={id} value={id}>
@@ -285,7 +432,7 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
           )}
           <div className="campo">
             <label htmlFor="mr-local">Local</label>
-            <select id="mr-local" value={localId} onChange={(e) => { setLocalId(e.target.value); setAte(pernaVazia()); setDe(pernaVazia()) }}>
+            <select id="mr-local" value={localId} onChange={(e) => { limpar(); setLocalId(e.target.value) }}>
               <option value="">Escolha um local do catálogo</option>
               {opcoesDeLocal.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -334,57 +481,94 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
             <h2>Tempos</h2>
             <p className="dica">Nada é estimado: sem o tempo, a mudança não é registrada.</p>
 
-            {comMaps ? (
-              <div className="campo">
-                <p className="dica">
-                  {mapsObrigatorio
-                    ? `Em trânsito, o trecho até ${localNovo?.nome ?? 'o local novo'} está em curso: informe a chegada pelo Google Maps.`
-                    : `Chegada em ${localNovo?.nome ?? 'o local novo'} pelo Google Maps, no lugar do tempo do trecho.`}
-                </p>
+            {!emCurso && usarMaps ? (
+              <div className="campo" data-teste="mr-ate">
+                <span className="rotulo">{titulo_('ate')}</span>
+                <p className="dica">{`Chegada em ${nomeNovo} pelo Google Maps, no lugar do tempo do trecho. Vale o horário que você digitar.`}</p>
                 {linkMaps && (
                   <a className="botao largo link-botao" href={linkMaps} target="_blank" rel="noopener noreferrer">
                     ABRIR NO GOOGLE MAPS
                   </a>
                 )}
                 <CampoHora id="mr-chegada" rotulo="Chegada informada pelo Google Maps" valor={horaMaps} onMudar={setHoraMaps} resolvido={chegada} agora={agora} />
-                {!mapsObrigatorio && (
-                  <button type="button" className="botao pequeno" onClick={() => setUsarMaps(false)}>
-                    Prefiro informar o tempo do trecho
-                  </button>
-                )}
+                <button type="button" className="botao pequeno" onClick={() => setUsarMaps(false)}>
+                  Prefiro informar o tempo do trecho
+                </button>
               </div>
             ) : (
-              <>
-                <CampoDeTempo
-                  id="mr-ate"
-                  titulo={`De ${localAnterior?.nome ?? 'a etapa anterior'} até ${localNovo?.nome ?? 'o local novo'}`}
-                  perna={ate}
-                  onMudar={setAte}
-                  podeCalcular={!!(localAnterior?.coordenadas && localNovo?.coordenadas) && online}
-                  motivoSemRota={motivoSemRota(localAnterior, localNovo)}
-                  calculando={calculando === 'ate'}
-                  aoCalcular={() => void calcular('ate')}
-                  fator={fator}
-                />
-                <button type="button" className="botao pequeno" onClick={() => setUsarMaps(true)}>
-                  Prefiro informar a chegada pelo Google Maps
-                </button>
-              </>
+              <BlocoDoTrecho
+                id="mr-ate"
+                titulo={titulo_('ate')}
+                textoCalculado={
+                  emCurso
+                    ? previaLoc && textoDoTrechoPelaLocalizacao(titulo_('ate'), minutosDaPrevia(previaLoc, fator, true), previaLoc.calculadoEm)
+                    : ateRota && textoDoTrechoPelaRota(titulo_('ate'), ateRota, fator)
+                }
+                detalhe={
+                  emCurso && previaLoc
+                    ? `Da sua posição: carro ${formatarDuracao(previaLoc.minutosCarro)} × fator ${formatarFator(fator)} · ${previaLoc.distanciaKm.toLocaleString('pt-BR')} km`
+                    : ateRota && `${ateRota.distanciaKm.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km · estimativa sem trânsito`
+                }
+                aviso={emCurso && previaLoc ? textoDaPrecisaoDoGps(previaLoc.precisaoRuimM) : null}
+                lendo={situacao.ate.lendo}
+                mensagem={situacao.ate.erro ?? (pronto.ate ? null : impedimento('ate'))}
+                manual={aberto('ate')}
+                temCalculado={pronto.ate}
+                textoDoValor={
+                  emCurso
+                    ? previaLoc ? formatarDuracao(minutosDaPrevia(previaLoc, fator, true)) : null
+                    : ateRota ? formatarDuracao(minutosDeOnibusDaRota(ateRota, fator)) : null
+                }
+                vencida={vencida}
+                onUsarOutro={() => usarOutroTempo('ate')}
+                onVoltar={() => setOutro((x) => ({ ...x, ate: false }))}
+                onRecalcular={() => void calcular('ate')}
+                podeRecalcular={!!localNovo?.coordenadas && online}
+              >
+                {emCurso ? (
+                  <>
+                    <p className="dica">
+                      {`Em trânsito, o trecho até ${nomeNovo} está em curso: informe a chegada pelo Google Maps.`}
+                    </p>
+                    {linkMaps && (
+                      <a className="botao largo link-botao" href={linkMaps} target="_blank" rel="noopener noreferrer">
+                        ABRIR NO GOOGLE MAPS
+                      </a>
+                    )}
+                    <CampoHora id="mr-chegada" rotulo="Chegada informada pelo Google Maps" valor={horaMaps} onMudar={setHoraMaps} resolvido={chegada} agora={agora} />
+                  </>
+                ) : (
+                  <>
+                    <CamposDeHorasEMinutos id="mr-ate" valor={manualAte} onMudar={setManualAte} />
+                    <button type="button" className="botao pequeno" onClick={() => setUsarMaps(true)}>
+                      Prefiro informar a chegada pelo Google Maps
+                    </button>
+                  </>
+                )}
+              </BlocoDoTrecho>
             )}
 
-            <CampoDeTempo
+            <BlocoDoTrecho
               id="mr-de"
-              titulo={`De ${localNovo?.nome ?? 'o local novo'} até ${localSeguinte?.nome ?? 'a etapa seguinte'}`}
-              perna={de}
-              onMudar={setDe}
-              podeCalcular={!!(localNovo?.coordenadas && localSeguinte?.coordenadas) && online}
-              motivoSemRota={motivoSemRota(localNovo, localSeguinte)}
-              calculando={calculando === 'de'}
-              aoCalcular={() => void calcular('de')}
-              fator={fator}
-            />
-            {avisoDeRota && <p className="msg-erro" role="status">{avisoDeRota}</p>}
-            <p className="dica">Rota: serviço gratuito do OpenStreetMap, só com as coordenadas dos dois locais. É opcional: nada depende dela.</p>
+              titulo={titulo_('de')}
+              textoCalculado={deRota && textoDoTrechoPelaRota(titulo_('de'), deRota, fator)}
+              detalhe={deRota && `${deRota.distanciaKm.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km · estimativa sem trânsito`}
+              lendo={situacao.de.lendo}
+              mensagem={situacao.de.erro ?? (pronto.de ? null : impedimento('de'))}
+              manual={aberto('de')}
+              temCalculado={pronto.de}
+              textoDoValor={deRota ? formatarDuracao(minutosDeOnibusDaRota(deRota, fator)) : null}
+              vencida={false}
+              onUsarOutro={() => usarOutroTempo('de')}
+              onVoltar={() => setOutro((x) => ({ ...x, de: false }))}
+              onRecalcular={() => void calcular('de')}
+              podeRecalcular={!!(localNovo?.coordenadas && localSeguinte?.coordenadas) && online}
+            >
+              <CamposDeHorasEMinutos id="mr-de" valor={manualDe} onMudar={setManualDe} />
+            </BlocoDoTrecho>
+            <p className="dica">
+              Rota: serviço gratuito do OpenStreetMap, sem trânsito. Só as coordenadas vão ao serviço, agora; a sua posição não é guardada.
+            </p>
             {incluir && (plano.etapas.find((e) => e.id === pernas.seguinte.etapaId)?.alternativas.length ?? 0) > 0 && (
               <p className="dica">
                 As alternativas de {nome(pernas.seguinte.etapaId)} ficam sem tempo até informar o tempo de {localNovo?.nome ?? 'a parada nova'} até elas.
@@ -415,9 +599,15 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
         {validacao && !validacao.ok && <p className="msg-erro" role="alert" data-teste="mudanca-recusa">{validacao.motivo}</p>}
         {erro && <p className="msg-erro" role="alert">{erro}</p>}
         <div className="acoes">
-          <button type="button" className="botao principal" disabled={!validacao?.ok || ocupado} onClick={() => void confirmar()}>
-            {incluir ? 'INCLUIR PARADA' : 'TROCAR PARA ESTE LOCAL'}
-          </button>
+          {vencida ? (
+            <button type="button" className="botao principal" disabled={ocupado || situacao.ate.lendo} onClick={() => void calcular('ate')} data-teste="mr-recalcular-revisar">
+              Recalcular e revisar
+            </button>
+          ) : (
+            <button type="button" className="botao principal" disabled={!validacao?.ok || ocupado} onClick={() => void confirmar()}>
+              {incluir ? 'INCLUIR PARADA' : 'TROCAR PARA ESTE LOCAL'}
+            </button>
+          )}
           <button type="button" className="botao" onClick={onFechar}>
             Cancelar
           </button>
