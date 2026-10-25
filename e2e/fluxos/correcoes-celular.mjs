@@ -29,13 +29,23 @@ export const fluxo = {
       await trocarDeViagemAposAbas()
     })
 
-    await passo('Trocar de viagem em viagem concluída volta à lista, e o voltar do navegador sai da lista sem voltar às abas', async () => {
+    await passo('Viagem encerrada: o cartão mostra quantos chegaram, nas abas Viagem e Pessoas', async () => {
+      await abrirDemo(page)
+      await escolherCenario(page, 'Chegada ao destino')
+      const cartao = page.locator('[data-teste="cartao-a-bordo"]')
+      igual((await cartao.locator('h2').innerText()).trim().toLowerCase(), 'chegaram', 'título do cartão')
+      esperar(/^\d+ passageiros$/.test((await cartao.locator('.valor').innerText()).trim()), 'o valor é "N passageiros", não "—"')
+      await irParaAba(page, 'pessoas')
+      const resumo = page.locator('[aria-label="A bordo"]')
+      esperar(/chegaram/i.test(await resumo.innerText()) && /\d+ passageiros/.test(await resumo.innerText()), 'a aba Pessoas também mostra quantos chegaram')
+      await irParaAba(page, 'viagem')
+    })
+
+    await passo('Trocar de viagem em viagem concluída volta à lista, e a lista fica na primeira entrada do histórico', async () => {
       await abrirDemo(page)
       await escolherCenario(page, 'Chegada ao destino')
       await trocarDeViagemAposAbas()
-      await page.goBack().catch(() => {})
-      await page.waitForTimeout(200)
-      esperar(!(await page.locator('.barra-abas').isVisible()), 'depois do voltar do navegador, as abas não reaparecem')
+      igual(String(await page.evaluate(() => history.state?.indice)), '0', 'a lista é a primeira entrada do histórico (as abas não ficam atrás dela)')
     })
 
     await ctx.close()

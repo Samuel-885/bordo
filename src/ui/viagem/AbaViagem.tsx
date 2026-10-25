@@ -14,6 +14,7 @@ import { nomeDaEtapa } from '../logica/textos'
 import {
   formatarDuracaoCurta,
   textoABordo,
+  tituloDoABordo,
   textoDaOrigemDaPrevisao,
   textoDaSituacao,
   textoDoAtalhoDeAlternativas,
@@ -194,7 +195,7 @@ export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
 
       <div className="cartoes-pequenos">
         <button type="button" className="cartao pequeno" onClick={() => onAba('pessoas')} data-teste="cartao-a-bordo">
-          <h2>{aBordo?.tipo === 'esperados' ? 'Esperados na saída' : 'A bordo'}</h2>
+          <h2>{tituloDoABordo(aBordo)}</h2>
           <span className="valor">{aBordo ? textoABordo(aBordo) : passageiros.length === 0 ? 'Sem passageiros cadastrados' : '—'}</span>
         </button>
         {estadoBackup && (

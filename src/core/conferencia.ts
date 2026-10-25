@@ -272,6 +272,8 @@ export type ABordo =
   | { tipo: 'conferido'; total: number; conferidoEm: Instante | null }
   /** Parado ou aguardando a saída: ninguém foi conferido ainda. */
   | { tipo: 'esperados'; total: number }
+  /** Viagem concluída: quem chegou ao destino, pelo que foi registrado (descidas e mudanças de status), não por contagem. */
+  | { tipo: 'chegaram'; total: number }
 
 /**
  * O que a tela principal mostra. Sem passageiros cadastrados, nada. A conferência considerada
@@ -283,7 +285,11 @@ export function resumoABordo(
   eventos: readonly Evento[],
   situacao: { situacao: string; etapaAtualId: string | null; proximaEtapaId: string | null },
 ): ABordo | null {
-  if (passageiros.length === 0 || situacao.situacao === 'chegamos') return null
+  if (passageiros.length === 0) return null
+  if (situacao.situacao === 'chegamos') {
+    const destino = ordenarEtapas(d.etapas).findLast((e) => e.tipo === 'destino')
+    return destino ? { tipo: 'chegaram', total: passageirosEmTransito(destino.id, d.etapas, passageiros, eventos).length } : null
+  }
   if (situacao.etapaAtualId) {
     return { tipo: 'esperados', total: passageirosEsperados(situacao.etapaAtualId, d.etapas, passageiros, eventos).length }
   }

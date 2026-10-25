@@ -60,8 +60,14 @@ export const textoDoCronometroDeSaida = (c: { faltaMin: number; excedeuMin: numb
 /** "N alternativas · ver no Roteiro" (ou "1 alternativa"). */
 export const textoDoAtalhoDeAlternativas = (n: number): string => `${n} ${n === 1 ? 'alternativa' : 'alternativas'} · ver no Roteiro`
 
-/** "38/38 a bordo · conferido às 06:30", "38/38 a bordo · sem conferência" ou "35 esperados na saída". */
+/** Título do cartão de passageiros: "Esperados na saída", "A bordo" ou, com a viagem encerrada, "Chegaram". */
+export function tituloDoABordo(a: ABordo | null): string {
+  return a?.tipo === 'esperados' ? 'Esperados na saída' : a?.tipo === 'chegaram' ? 'Chegaram' : 'A bordo'
+}
+
+/** "38/38 a bordo · conferido às 06:30", "38/38 a bordo · sem conferência", "35 esperados na saída" ou, encerrada, "38 passageiros". */
 export function textoABordo(a: ABordo): string {
+  if (a.tipo === 'chegaram') return `${a.total} ${a.total === 1 ? 'passageiro' : 'passageiros'}`
   if (a.tipo === 'esperados') return `${a.total} esperados na saída`
   return `${a.total}/${a.total} a bordo · ${a.conferidoEm ? `conferido às ${formatarHora(a.conferidoEm)}` : 'sem conferência'}`
 }

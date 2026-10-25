@@ -258,8 +258,16 @@ describe('a bordo na tela principal', () => {
     expect(resumo(eventos)).toEqual({ tipo: 'conferido', total: 35, conferidoEm: h('07:20') })
   })
 
-  it('viagem concluída: nada', () => {
+  it('viagem concluída: quantos chegaram ao destino, sem contar quem saiu da viagem', () => {
     const s = { situacao: 'chegamos', etapaAtualId: null, proximaEtapaId: null }
-    expect(resumoABordo(PLANO, PASSAGEIROS, [], s)).toBeNull()
+    const total = resumoABordo(PLANO, PASSAGEIROS, [], s)
+    expect(total?.tipo).toBe('chegaram')
+    const chegaram = total?.tipo === 'chegaram' ? total.total : -1
+    expect(chegaram).toBeGreaterThan(0)
+    expect(resumoABordo(PLANO, [], [], s)).toBeNull()
+    // Quem saiu da viagem no caminho não chega.
+    const saiu = [ev.inicio(h('06:00')), ev.status('monlevade', 'p-01', 'saiu_da_viagem', 'Foi de carro', h('07:30'))]
+    const menos = resumoABordo(PLANO, PASSAGEIROS, saiu, s)
+    expect(menos).toEqual({ tipo: 'chegaram', total: chegaram - 1 })
   })
 })
