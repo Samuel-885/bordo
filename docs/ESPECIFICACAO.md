@@ -126,7 +126,7 @@ Regras:
 - Vale só durante o trecho atual. Quando a chegada é registrada, a recalibração deixa de existir (a chegada real a substitui).
 - Uma nova recalibração no mesmo trecho substitui a anterior.
 - Horário anterior ao atual é recusado, com aviso.
-- Só pode ser feita em trânsito ou parado na etapa anterior (aguardando a saída da origem conta como parado). Não existe recalibração direta do destino. Veja "Decisões da fase 1" para o efeito em cada caso.
+- Só pode ser feita em trânsito ou parado na etapa anterior (aguardando a saída da origem conta como parado), e vale para qualquer etapa que ainda não foi alcançada, **inclusive o destino** quando ele é a próxima etapa (liberado em 25/10/2026, depois de um teste real: informar a chegada pelo Google Maps é mais necessário justamente no último trecho). Veja "Decisões da fase 1" para o efeito em cada caso.
 - A previsão mostra a origem: "Google Maps, informado às 11:40".
 - Pode ser desfeita, voltando ao cálculo pelo trecho.
 
@@ -742,3 +742,5 @@ Aprovadas em 25/10/2026, depois de uma viagem curta urbana testada no celular (I
 **Viagem encerrada, "A bordo".** O cartão (aba Viagem e aba Pessoas) deixa de mostrar "—": passa a se chamar "Chegaram" e mostra quantos passageiros chegaram ao destino ("38 passageiros"). Conta, pelo que foi registrado, quem embarcou antes do destino e não desceu, não deixou de embarcar nem saiu da viagem (a mesma regra de quem está em trânsito para uma etapa, aplicada ao destino). Não é uma contagem feita no destino. Sem passageiros cadastrados, continua "Sem passageiros cadastrados". A variável `{passageiros}` da mensagem continua vazia ao chegar.
 
 **Espaço no fim da aba Viagem.** O aviso DESFAZER (fixo, 8 s depois de cada registro) cobria o fim do conteúdo, e a sugestão de backup aparece justamente logo depois do SAÍMOS. O aviso passa a publicar a altura em `--aviso`, e o conteúdo reserva rodapé + aviso + 16 px; o `scroll-padding-bottom` também. Sem aviso, nada muda (16 px acima do rodapé). Teste e2e mede a folga com e sem o aviso (sem a correção, o aviso cobria 55 px do cartão).
+
+**Recalibração do destino.** Em trânsito para o destino, o horário informado é a chegada prevista no destino; parado na etapa anterior (ou aguardando a saída, numa viagem só de origem e destino), vira a duração do trecho, a partir da saída prevista ou real, como em qualquer etapa. Horário no passado, destino já alcançado e a regra do relógio valem como nas outras etapas. O botão Previsão do rodapé e "Atualizar previsão" em Mais funcionam no último trecho. A conta da previsão não mudou: `previsao.ts` já tratava a recalibração de qualquer etapa; só a trava de `validarRecalibracao` foi removida. Testes: `regras-adicionais.test.ts` ("recalibração do destino") e o fluxo `correcoes-celular.mjs`.

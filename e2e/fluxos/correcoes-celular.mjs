@@ -50,6 +50,41 @@ export const fluxo = {
 
     await ctx.close()
 
+    await passo('Previsão no último trecho: em trânsito para o destino o botão está ligado e o horário vira a chegada prevista', async () => {
+      const { ctx: ctxD, page: d } = await h.novaPagina()
+      await abrirDemo(d)
+      // Até o SAÍMOS do jantar (21:37): em viagem, e a próxima parada é o destino.
+      await escolherCenario(d, 'Chegada ao destino', 18)
+      await d.getByText('Próxima parada').first().waitFor()
+      const previsao = botao(d, 'Previsão', { exact: true })
+      esperar(await previsao.isEnabled(), 'o botão Previsão deve estar ligado quando o destino é a próxima etapa')
+      await previsao.click()
+      await d.locator('#recalibracao-hora').fill('23:55')
+      await dialogoAberto(d).getByRole('button', { name: 'Atualizar', exact: true }).click()
+      await d.getByText('Google Maps, informado às 21:37').first().waitFor()
+      const destaque = (await d.locator('[aria-label="Previsão no destino"]').innerText()).replace(/\s+/g, ' ')
+      esperar(destaque.includes('23:55'), `chegada no destino: ${destaque}`)
+      const eventos = (await h.lerBanco(d, 'eventos')).filter((e) => e.tipo === 'recalibracao')
+      igual(eventos.map((e) => e.etapaId).join(','), 'demo-destino', 'a recalibração é do destino')
+      await ctxD.close()
+    })
+
+    await passo('Parado no jantar (etapa anterior ao destino): Mais › Atualizar previsão aceita a chegada no destino', async () => {
+      const { ctx: ctxE, page: e } = await h.novaPagina()
+      await abrirDemo(e)
+      await escolherCenario(e, 'Chegada ao destino', 17)
+      await e.getByText('Parados em').first().waitFor()
+      // Parado, a ação fica em Mais › Registros (o rodapé de parada não tem o botão Previsão).
+      await irParaAba(e, 'mais')
+      await e.locator('.item-menu', { hasText: 'Atualizar previsão' }).click()
+      await e.locator('#recalibracao-hora').fill('23:59')
+      await dialogoAberto(e).getByRole('button', { name: 'Atualizar', exact: true }).click()
+      await e.getByText(/Previsão atualizada para 23:59/).waitFor()
+      const eventos = (await h.lerBanco(e, 'eventos')).filter((x) => x.tipo === 'recalibracao')
+      igual(eventos.map((x) => x.etapaId).join(','), 'demo-destino', 'a recalibração é do destino')
+      await ctxE.close()
+    })
+
     await passo('o cartão de sugestão de backup, no fim da aba Viagem, fica acima do rodapé e do aviso DESFAZER', async () => {
       const { ctx: ctxB, page: b } = await h.novaPagina({ relogioReal: '2026-11-14T10:05:00-03:00' })
       await abrirDemo(b)

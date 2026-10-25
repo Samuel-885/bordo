@@ -40,7 +40,6 @@ export function validarRecalibracao(
   const agora = truncarMinuto(agoraDoRelogio)
   const etapa = d.etapas.find((e) => e.id === etapaId)
   if (!etapa) return { ok: false, motivo: 'Etapa não encontrada.' }
-  if (etapa.tipo === 'destino') return { ok: false, motivo: 'Não existe recalibração direta do destino.' }
 
   const estado = calcularEstado(d, original, eventos, agora)
   if (estado.etapas.find((e) => e.etapaId === etapaId)?.estado !== 'pendente') {

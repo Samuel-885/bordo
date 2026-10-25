@@ -58,8 +58,59 @@ describe('recalibração feita em trânsito', () => {
     expect(chegada?.origem).toBe('relogio')
   })
 
-  it('não existe recalibração direta do destino', () => {
+  it('o destino só aceita recalibração quando é a próxima etapa (antes disso, não)', () => {
     expect(validarRecalibracao(PLANO, original, EVENTOS_CASO_3, 'destino', h('23:59'), h('11:40')).ok).toBe(false)
+  })
+})
+
+describe('recalibração do destino (liberada em 25/10/2026)', () => {
+  const original = congelar()
+  // Tudo no horário do plano até o jantar: chegada 20:30, saída 21:20.
+  const NO_JANTAR = [
+    ev.inicio(h('06:00')),
+    ev.saida('origem', h('06:30')),
+    ev.chegada('monlevade', h('08:25')),
+    ev.saida('monlevade', h('08:40')),
+    ev.chegada('almoco', h('12:00')),
+    ev.saida('almoco', h('13:00')),
+    ev.chegada('cafe', h('16:00')),
+    ev.saida('cafe', h('16:30')),
+    ev.chegada('jantar', h('20:30')),
+  ]
+  const EM_TRANSITO = [...NO_JANTAR, ev.saida('jantar', h('21:20'))]
+
+  it('em trânsito para o destino: o horário informado é a chegada prevista (origem Google Maps)', () => {
+    expect(validarRecalibracao(PLANO, original, EM_TRANSITO, 'destino', h('23:50'), h('21:30'))).toEqual({ ok: true })
+    const estado = calcularEstado(PLANO, original, [...EM_TRANSITO, ev.recalibracao('destino', h('23:50'), h('21:30'))], h('21:30'))
+    const chegada = etapaDe(estado, 'destino').chegada
+    esperarHorario(chegada?.instante, h('23:50'))
+    expect(chegada?.origem).toBe('recalibracao')
+    esperarHorario(estado.chegadaDestino?.instante, h('23:50'))
+    expect(estado.atrasoDestinoMin).toBe(20)
+  })
+
+  it('parado no jantar (etapa anterior): vira duração do trecho, a partir da saída prevista', () => {
+    // Parados no jantar desde 20:30 (saída prevista 21:20). Às 20:40 o Maps diz 2h30 até o destino (23:10).
+    expect(validarRecalibracao(PLANO, original, NO_JANTAR, 'destino', h('23:10'), h('20:40'))).toEqual({ ok: true })
+    const eventos = [...NO_JANTAR, ev.recalibracao('destino', h('23:10'), h('20:40'))]
+    const parado = calcularEstado(PLANO, original, eventos, h('20:40'))
+    esperarHorario(etapaDe(parado, 'destino').chegada?.instante, h('23:50'))
+    // Se a saída atrasar, a chegada atrasa junto.
+    const saiu = calcularEstado(PLANO, original, [...eventos, ev.saida('jantar', h('21:40'))], h('21:40'))
+    esperarHorario(etapaDe(saiu, 'destino').chegada?.instante, h('00:10', 1))
+  })
+
+  it('o horário no passado continua recusado, e o destino já alcançado também', () => {
+    expect(validarRecalibracao(PLANO, original, EM_TRANSITO, 'destino', h('21:00'), h('21:30')).ok).toBe(false)
+    const chegou = [...EM_TRANSITO, ev.chegada('destino', h('23:40'))]
+    expect(validarRecalibracao(PLANO, original, chegou, 'destino', h('23:59'), h('23:45')).ok).toBe(false)
+  })
+
+  it('a regra do relógio continua valendo por cima', () => {
+    const eventos = [...EM_TRANSITO, ev.recalibracao('destino', h('23:50'), h('21:30'))]
+    const chegada = etapaDe(calcularEstado(PLANO, original, eventos, h('23:55')), 'destino').chegada
+    esperarHorario(chegada?.instante, h('23:55'))
+    expect(chegada?.origem).toBe('relogio')
   })
 })
 
