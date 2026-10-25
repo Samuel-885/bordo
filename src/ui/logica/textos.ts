@@ -5,12 +5,12 @@ import type { BloqueioInicio } from '../../core/previsao'
 import type { Etapa, FonteTrecho, Local } from '../../core/tipos'
 import { formatarDuracao } from './duracao'
 import { formatarHora } from './horarios'
-import { CATEGORIAS, MOTIVOS, rotuloDe } from './rotulos'
+import { MOTIVOS, TODAS_AS_CATEGORIAS, rotuloDe } from './rotulos'
 
 export function nomeDaEtapa(etapa: Etapa | undefined, locais: readonly Local[]): string {
   if (!etapa) return 'etapa'
   const local = locais.find((l) => l.id === etapa.localId)
-  const categoria = etapa.categoria ? rotuloDe(CATEGORIAS, etapa.categoria) : null
+  const categoria = etapa.categoria ? rotuloDe(TODAS_AS_CATEGORIAS, etapa.categoria) : null
   if (etapa.tipo === 'origem') return `Origem${local ? ` (${local.nome})` : ''}`
   if (etapa.tipo === 'destino') return `Destino${local ? ` (${local.nome})` : ''}`
   return categoria ?? local?.nome ?? 'Ponto obrigatório'

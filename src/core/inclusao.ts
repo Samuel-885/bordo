@@ -172,6 +172,32 @@ function conferirTempos(
 }
 
 /**
+ * As etapas depois das quais uma parada nova pode entrar: a etapa em que estamos, a última deixada
+ * (em trânsito) e as pendentes adiante, nunca o destino. Vazio se a viagem não está em andamento.
+ */
+export function posicoesParaIncluir(
+  d: DadosPlano,
+  original: PlanoOriginal,
+  eventos: readonly Evento[],
+  agoraDoRelogio: Instante,
+): string[] {
+  if (d.viagem.status !== 'em_andamento') return []
+  const atual = calcularEstado(d, original, eventos, truncarMinuto(agoraDoRelogio))
+  if (atual.chegadaDestino?.origem === 'real') return []
+  const ordenadas = ordenarEtapas(d.etapas)
+  const estadoDe = (id: string) => atual.etapas.find((e) => e.etapaId === id)?.estado
+  return ordenadas
+    .filter((apos, i) => {
+      if (apos.tipo === 'destino') return false
+      const est = estadoDe(apos.id)
+      if (est === 'pendente' || est === 'em_parada') return true
+      const seguinte = ordenadas.slice(i + 1).find((e) => estadoDe(e.id) !== 'pulada')
+      return est === 'concluida' && !!seguinte && estadoDe(seguinte.id) === 'pendente'
+    })
+    .map((e) => e.id)
+}
+
+/**
  * Incluir uma parada nova (flexível) depois de `dados.apos`: entre a posição atual e o destino,
  * com a viagem em andamento. O trecho dela até a etapa seguinte é obrigatório. O trecho até ela
  * precisa de tempo, ou de `chegadaPeloMaps` (obrigatória quando o trecho está em curso).
@@ -209,8 +235,9 @@ export function validarInclusao(
   const estadoDe = (id: string) => atual.etapas.find((e) => e.etapaId === id)?.estado
   const seguinte = ordenadas.slice(i + 1).find((e) => estadoDe(e.id) !== 'pulada')
   const est = estadoDe(apos.id)
-  const posicaoValida = est === 'pendente' || est === 'em_parada' || (est === 'concluida' && !!seguinte && estadoDe(seguinte.id) === 'pendente')
-  if (!posicaoValida) return { ok: false, motivo: 'A parada nova só entra depois da posição atual, antes do destino.' }
+  if (!posicoesParaIncluir(d, original, eventos, agora).includes(apos.id)) {
+    return { ok: false, motivo: 'A parada nova só entra depois da posição atual, antes do destino.' }
+  }
   if (paradaAberta(eventos)) return { ok: false, motivo: 'Há uma parada não planejada aberta: registre o VOLTAMOS antes de incluir uma parada.' }
   if (est === 'concluida' && seguinte) {
     const comParadas = eventos.some((e) => e.tipo === 'parada_nao_planejada' && e.etapaId === seguinte.id)
@@ -300,4 +327,116 @@ export function validarCancelamento(
     return { ok: false, motivo: 'Já chegamos nesta parada: não dá para cancelar.' }
   }
   return { ok: true }
+}
+
+// ---------- Para a tela: trechos que a mudança pede e pré-visualização ----------
+
+export type AlvoDaMudanca = { tipo: 'incluir'; apos: string } | { tipo: 'local_novo'; etapaId: string }
+
+export interface PernasDaMudanca {
+  /** A etapa antes do local novo (a "depois de" da inclusão) e o local em uso nela. */
+  anterior: { etapaId: string; localId: string | null }
+  /** A etapa logo depois e o local em uso nela. */
+  seguinte: { etapaId: string; localId: string | null }
+  /** O trecho até o local novo é o que está em curso (a etapa anterior já foi deixada): só a chegada pelo Maps. */
+  ateOLocalEmCurso: boolean
+}
+
+/** Os vizinhos do local novo ou da parada nova, para a tela pedir os dois tempos. */
+export function pernasDaMudanca(
+  d: DadosPlano,
+  original: PlanoOriginal,
+  eventos: readonly Evento[],
+  agoraDoRelogio: Instante,
+  alvo: AlvoDaMudanca,
+): PernasDaMudanca | null {
+  const ordenadas = ordenarEtapas(d.etapas)
+  const i = ordenadas.findIndex((e) => e.id === (alvo.tipo === 'incluir' ? alvo.apos : alvo.etapaId))
+  if (i < 0) return null
+  const anterior = ordenadas[alvo.tipo === 'incluir' ? i : i - 1]
+  const seguinte = ordenadas[i + 1]
+  if (!anterior || !seguinte) return null
+  const estado = calcularEstado(d, original, eventos, truncarMinuto(agoraDoRelogio))
+  const doEstado = (id: string) => estado.etapas.find((e) => e.etapaId === id)
+  return {
+    anterior: { etapaId: anterior.id, localId: doEstado(anterior.id)?.localId ?? null },
+    seguinte: { etapaId: seguinte.id, localId: doEstado(seguinte.id)?.localId ?? null },
+    ateOLocalEmCurso: doEstado(anterior.id)?.estado === 'concluida',
+  }
+}
+
+export interface PrevisaoDaMudanca {
+  chegadaNaParada: Instante | null
+  chegadaDestino: Instante | null
+  /** Chegada no destino com a mudança − sem ela. */
+  impactoDestinoMin: number | null
+  atrasoDestinoMin: number | null
+}
+
+function prever(
+  d: DadosPlano,
+  original: PlanoOriginal,
+  eventos: readonly Evento[],
+  agora: Instante,
+  extras: readonly Evento[],
+  etapaId: string,
+): PrevisaoDaMudanca {
+  const antes = calcularEstado(d, original, eventos, agora)
+  const comMudanca = [...eventos, ...extras]
+  const d2 = aplicarInclusoes(d, comMudanca)
+  const depois = calcularEstado(d2, original, comMudanca, agora)
+  const destinoDepois = depois.chegadaDestino?.instante ?? null
+  const destinoAntes = antes.chegadaDestino?.instante ?? null
+  return {
+    chegadaNaParada: depois.etapas.find((e) => e.etapaId === etapaId)?.chegada?.instante ?? null,
+    chegadaDestino: destinoDepois,
+    impactoDestinoMin: destinoDepois && destinoAntes ? Math.round((Date.parse(destinoDepois) - Date.parse(destinoAntes)) / 60_000) : null,
+    atrasoDestinoMin: depois.atrasoDestinoMin,
+  }
+}
+
+const recalibracaoSimulada = (d: DadosPlano, agora: Instante, etapaId: string, horario: Instante): Evento =>
+  simulada(d, agora, 'simulacao-chegada', { tipo: 'recalibracao', etapaId, dados: { horario } })
+
+/** Chegada na parada nova, no destino e o impacto, antes de confirmar (mesmo cálculo do registro). */
+export function preverInclusao(
+  d: DadosPlano,
+  original: PlanoOriginal,
+  eventos: readonly Evento[],
+  agoraDoRelogio: Instante,
+  etapaId: string,
+  dados: DadosDaInclusao,
+  chegadaPeloMaps?: Instante,
+): PrevisaoDaMudanca {
+  const agora = truncarMinuto(agoraDoRelogio)
+  return prever(
+    d, original, eventos, agora,
+    [
+      simulada(d, agora, 'simulacao-inclusao', { tipo: 'parada_incluida', etapaId, dados: { ...dados } }),
+      ...(chegadaPeloMaps ? [recalibracaoSimulada(d, agora, etapaId, chegadaPeloMaps)] : []),
+    ],
+    etapaId,
+  )
+}
+
+/** Chegada na parada com o local novo, no destino e o impacto, antes de confirmar. */
+export function preverLocalNovo(
+  d: DadosPlano,
+  original: PlanoOriginal,
+  eventos: readonly Evento[],
+  agoraDoRelogio: Instante,
+  etapaId: string,
+  dados: DadosDoLocalNovo,
+  chegadaPeloMaps?: Instante,
+): PrevisaoDaMudanca {
+  const agora = truncarMinuto(agoraDoRelogio)
+  return prever(
+    d, original, eventos, agora,
+    [
+      simulada(d, agora, 'simulacao-local', { tipo: 'local_incluido', etapaId, dados: { ...dados } }),
+      simulada(d, agora, 'simulacao-troca', { tipo: 'troca_local', etapaId, dados: { localId: dados.localId } }),
+      ...(chegadaPeloMaps ? [recalibracaoSimulada(d, agora, etapaId, chegadaPeloMaps)] : []),
+    ],
+    etapaId,
+  )
 }

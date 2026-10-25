@@ -5,6 +5,7 @@
 import { descidaParaConferencia, contextoDeSaida, contextoDeVolta } from '../../core/conferencia'
 import type { Repositorio } from '../../data/repositorio'
 import { Conferencia } from '../Conferencia'
+import { MudancaDeRoteiro } from '../MudancaDeRoteiro'
 import { BarraDeAbas, type Aba } from '../componentes/BarraDeAbas'
 import { BarraDeAcao } from '../componentes/BarraDeAcao'
 import { Hora } from '../componentes/Hora'
@@ -96,6 +97,20 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
     )
   }
 
+  if (r.mudanca) {
+    return (
+      <MudancaDeRoteiro
+        repo={c.repo}
+        plano={c.plano}
+        eventos={c.eventos}
+        agora={c.agora}
+        alvo={r.mudanca}
+        onFeito={r.registroFeito}
+        onFechar={() => r.setMudanca(null)}
+      />
+    )
+  }
+
   const { viagem } = c.plano
   const acoes = acoesDoRodape(c, d, r)
   const folhaAberta = r.acao !== null || r.descida !== null || r.previa || r.dadosAbertos
@@ -105,7 +120,7 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
       {aba === 'viagem' ? (
         <AbaViagem c={c} d={d} r={r} onAba={onAba} onBackup={onBackup} />
       ) : aba === 'roteiro' ? (
-        <AbaRoteiro c={c} d={d} visaoInicial={visao} onAlternativas={onAlternativas} />
+        <AbaRoteiro c={c} d={d} r={r} visaoInicial={visao} onAlternativas={onAlternativas} />
       ) : aba === 'pessoas' ? (
         <AbaPessoas c={c} d={d} />
       ) : aba === 'locais' ? (

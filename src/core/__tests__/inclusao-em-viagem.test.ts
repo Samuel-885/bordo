@@ -2,7 +2,18 @@
 // Parte do caso 2: parados em Monlevade (chegada 08:55), saída prevista 09:10, almoço 12:30, destino 00:00, +30.
 
 import { describe, expect, it } from 'vitest'
-import { aplicarInclusoes, inclusaoDaEtapa, validarCancelamento, validarInclusao, validarLocalNovo, type DadosDaInclusao } from '../inclusao'
+import {
+  aplicarInclusoes,
+  inclusaoDaEtapa,
+  pernasDaMudanca,
+  posicoesParaIncluir,
+  preverInclusao,
+  preverLocalNovo,
+  validarCancelamento,
+  validarInclusao,
+  validarLocalNovo,
+  type DadosDaInclusao,
+} from '../inclusao'
 import { passageirosEsperados } from '../passageiros'
 import { calcularEstado } from '../previsao'
 import { validarRegistro } from '../registro'
@@ -369,5 +380,46 @@ describe('inclusão: passageiros (P1)', () => {
     expect(passageirosEsperados('n1', d.etapas, PASSAGEIROS, inclui())).toHaveLength(38)
     expect(passageirosEsperados('monlevade', d.etapas, PASSAGEIROS, inclui())).toHaveLength(38)
     expect(PASSAGEIROS.some((p) => p.etapaEmbarqueId === 'n1' || p.etapaDesembarqueId === 'n1')).toBe(false)
+  })
+})
+
+describe('inclusão: apoio à tela', () => {
+  it('posições: parado em Monlevade, a própria e as adiante (nunca o destino)', () => {
+    expect(posicoesParaIncluir(D, ORIGINAL, EVENTOS_CASO_2, AGORA_PARADOS)).toEqual(['monlevade', 'almoco', 'cafe', 'jantar'])
+  })
+
+  it('posições: em trânsito, a última deixada e as pendentes; sem posição na viagem concluída ou em planejamento', () => {
+    expect(posicoesParaIncluir(D, ORIGINAL, EVENTOS_CASO_3, h('10:00'))).toEqual(['monlevade', 'almoco', 'cafe', 'jantar'])
+    expect(posicoesParaIncluir({ ...D, viagem: { ...D.viagem, status: 'planejando' } }, ORIGINAL, EVENTOS_CASO_2, AGORA_PARADOS)).toEqual([])
+  })
+
+  it('pernas: vizinhos da parada nova e do local novo, e se o trecho até ela está em curso', () => {
+    expect(pernasDaMudanca(D, ORIGINAL, EVENTOS_CASO_2, AGORA_PARADOS, { tipo: 'incluir', apos: 'monlevade' })).toEqual({
+      anterior: { etapaId: 'monlevade', localId: 'l-monlevade' },
+      seguinte: { etapaId: 'almoco', localId: 'l-rest-a' },
+      ateOLocalEmCurso: false,
+    })
+    expect(pernasDaMudanca(D, ORIGINAL, EVENTOS_CASO_3, h('10:00'), { tipo: 'incluir', apos: 'monlevade' })?.ateOLocalEmCurso).toBe(true)
+    expect(pernasDaMudanca(D, ORIGINAL, EVENTOS_CASO_3, h('10:00'), { tipo: 'local_novo', etapaId: 'almoco' })).toEqual({
+      anterior: { etapaId: 'monlevade', localId: 'l-monlevade' },
+      seguinte: { etapaId: 'cafe', localId: 'l-cafe' },
+      ateOLocalEmCurso: true,
+    })
+    expect(pernasDaMudanca(D, ORIGINAL, EVENTOS_CASO_2, AGORA_PARADOS, { tipo: 'local_novo', etapaId: 'cafe' })?.ateOLocalEmCurso).toBe(false)
+  })
+
+  it('prévia da inclusão: chegada na parada, destino e impacto (o mesmo cálculo do registro)', () => {
+    const p = preverInclusao(D, ORIGINAL, EVENTOS_CASO_2, AGORA_PARADOS, 'n1', INCLUSAO)
+    expect(p.chegadaNaParada).toBe(h('09:40'))
+    expect(p.chegadaDestino).toBe(h('00:50', 1))
+    expect(p.impactoDestinoMin).toBe(50)
+    expect(p.atrasoDestinoMin).toBe(80)
+  })
+
+  it('prévia do local novo, com a chegada pelo Maps', () => {
+    const dados = { localId: 'l-novo', trechos: [tr('almoco', 'l-novo', 'cafe', 'l-cafe', 170)] }
+    const p = preverLocalNovo(D, ORIGINAL, EVENTOS_CASO_3, h('10:00'), 'almoco', dados, h('12:40'))
+    expect(p.chegadaNaParada).toBe(h('12:40'))
+    expect(p.impactoDestinoMin).not.toBeNull()
   })
 })

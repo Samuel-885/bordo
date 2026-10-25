@@ -8,17 +8,19 @@ import { useDados } from '../useDados'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
 import { ListaDeParadas } from './ListaDeParadas'
+import type { Registros } from './useRegistros'
 
 export type VisaoDoRoteiro = 'paradas' | 'timeline'
 
 interface Props {
   c: ContextoDaViagem
   d: Derivados
+  r: Registros
   visaoInicial?: VisaoDoRoteiro
   onAlternativas: () => void
 }
 
-export function AbaRoteiro({ c, d, visaoInicial = 'paradas', onAlternativas }: Props) {
+export function AbaRoteiro({ c, d, r, visaoInicial = 'paradas', onAlternativas }: Props) {
   const [visao, setVisao] = useState<VisaoDoRoteiro>(visaoInicial)
   const { dados: consultas, recarregar } = useDados(() => c.repo.listarConsultas(c.plano.viagem.id), `consultas:${c.repo.espaco}:${c.plano.viagem.id}`)
   useAoMudar(recarregar)
@@ -40,7 +42,7 @@ export function AbaRoteiro({ c, d, visaoInicial = 'paradas', onAlternativas }: P
       <p className="dica dica-mapa" id="dica-mapa">Mapa: chega na fase 9.</p>
 
       {visao === 'paradas' ? (
-        <ListaDeParadas c={c} d={d} consultas={consultas ?? []} onAlternativas={onAlternativas} />
+        <ListaDeParadas c={c} d={d} r={r} consultas={consultas ?? []} onAlternativas={onAlternativas} />
       ) : (
         <Timeline repo={c.repo} viagemId={c.plano.viagem.id} incorporada />
       )}

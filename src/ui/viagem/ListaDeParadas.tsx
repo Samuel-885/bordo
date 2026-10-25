@@ -3,6 +3,7 @@
 // alternativas abertas, com a classificação e a margem. Nenhuma regra: tudo vem do núcleo.
 
 import { classificarAtraso } from '../../core/atraso'
+import { inclusaoDaEtapa } from '../../core/inclusao'
 import { paradasFlexiveisPendentes } from '../../core/viabilidade'
 import { avaliarAlternativas } from '../../core/viabilidade'
 import type { Consulta, EstadoEtapa, Etapa, HorarioPrevisto } from '../../core/tipos'
@@ -13,12 +14,14 @@ import { nomeDaEtapa } from '../logica/textos'
 import { textoDoAtraso } from '../logica/textosViagem'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
+import type { Registros } from './useRegistros'
 
 type Marcador = 'feita' | 'aqui' | 'proxima' | 'futura' | 'pulada'
 
 interface Props {
   c: ContextoDaViagem
   d: Derivados
+  r: Registros
   consultas: Consulta[]
   onAlternativas: () => void
 }
@@ -40,13 +43,14 @@ const ROTULO_MARCADOR: Record<Marcador, string> = {
   pulada: 'Pulada',
 }
 
-export function ListaDeParadas({ c, d, consultas, onAlternativas }: Props) {
+export function ListaDeParadas({ c, d, r, consultas, onAlternativas }: Props) {
   const { plano, eventos, agora } = c
   const { locais } = plano
   const proximaFlexivel = paradasFlexiveisPendentes(plano, d.s.estado).find((e) => e.alternativas.length > 0) ?? null
   const avaliacoes = proximaFlexivel ? avaliarAlternativas(plano, d.original, eventos, agora, proximaFlexivel.id, consultas) : []
 
   return (
+    <>
     <ol className="paradas" aria-label="Paradas da viagem">
       {d.ordenadas.map((etapa) => {
         const estado = d.estadoDe(etapa.id)
@@ -70,6 +74,7 @@ export function ListaDeParadas({ c, d, consultas, onAlternativas }: Props) {
               </div>
               <p className="parada-detalhe">
                 <span className={`parada-estado ${marcador}`}>{ROTULO_MARCADOR[marcador]}</span>
+                {inclusaoDaEtapa(eventos, etapa.id) && <span className="aviso-chip" data-teste="parada-incluida"> · incluída, sem original</span>}
                 {local && local !== titulo && <span> · {local}</span>}
                 {horario && marcador !== 'pulada' && (
                   <span>
@@ -81,6 +86,16 @@ export function ListaDeParadas({ c, d, consultas, onAlternativas }: Props) {
                   <span className={`parada-atraso ${classe.situacao}`}> · {textoDoAtraso(classe.minutos)}</span>
                 )}
               </p>
+              {inclusaoDaEtapa(eventos, etapa.id) && estado?.estado === 'pendente' && (
+                <button
+                  type="button"
+                  className="atalho"
+                  data-teste="cancelar-inclusao"
+                  onClick={() => { r.setErro(null); r.setCancelando({ eventoId: inclusaoDaEtapa(eventos, etapa.id)!.id, nome: local ?? titulo }) }}
+                >
+                  Cancelar parada incluída
+                </button>
+              )}
               {proximaFlexivel?.id === etapa.id && avaliacoes.length > 0 && (
                 <div className="parada-alternativas" aria-label={`Alternativas de ${titulo}`}>
                   <ul>
@@ -107,5 +122,11 @@ export function ListaDeParadas({ c, d, consultas, onAlternativas }: Props) {
         )
       })}
     </ol>
+      {d.podeIncluir && (
+        <button type="button" className="botao largo" data-teste="incluir-parada" onClick={() => { r.setErro(null); r.setMudanca({ tipo: 'incluir', apos: '' }) }}>
+          + Incluir parada
+        </button>
+      )}
+    </>
   )
 }

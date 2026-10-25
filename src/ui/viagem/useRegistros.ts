@@ -14,6 +14,8 @@ import {
   type EstadoConferencia,
 } from '../../core/conferencia'
 import type { ConteudoEvento } from '../../core/eventos'
+import type { AlvoDaMudanca } from '../../core/inclusao'
+import type { Evento } from '../../core/tipos'
 import { mensagemDeErroDoBanco } from '../../data/avisoBanco'
 import type { Repositorio, ResultadoRegistro } from '../../data/repositorio'
 import { formatarHora } from '../logica/horarios'
@@ -24,7 +26,7 @@ import type { Derivados } from './derivados'
 
 const JANELA_DESFAZER_MS = 8000
 
-export type Acao = 'parada' | 'ajuste_parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | 'observacao' | null
+export type Acao = 'cancelar_inclusao' | 'parada' | 'ajuste_parada' | 'imprevisto' | 'recalibracao' | 'volta' | 'pular' | 'oferta' | 'observacao' | null
 
 export function useRegistros(c: ContextoDaViagem, d: Derivados, aoRegistrar?: () => void) {
   const { repo, plano, eventos, passageiros, agora, recarregar } = c
@@ -43,6 +45,10 @@ export function useRegistros(c: ContextoDaViagem, d: Derivados, aoRegistrar?: ()
   /** A prévia da mensagem de atualização e a folha de identificação e equipe. */
   const [previa, setPrevia] = useState(false)
   const [dadosAbertos, setDadosAbertos] = useState(false)
+  /** Mudança de roteiro (parada incluída ou local novo) aberta por cima da viagem. */
+  const [mudanca, setMudanca] = useState<AlvoDaMudanca | null>(null)
+  /** Parada incluída que a pessoa quer cancelar (pede confirmação). */
+  const [cancelando, setCancelando] = useState<{ eventoId: string; nome: string } | null>(null)
 
   useEffect(() => {
     if (!desfazer) return
@@ -83,6 +89,21 @@ export function useRegistros(c: ContextoDaViagem, d: Derivados, aoRegistrar?: ()
 
   const registrarConteudo = (conteudo: ConteudoEvento, texto: string, opcoes?: Parameters<Repositorio['registrarEvento']>[2]) =>
     registrar(() => repo.registrarEvento(viagem.id, conteudo, opcoes), texto)
+
+  /** Um registro feito fora daqui (a tela de mudança de roteiro): mostra o DESFAZER e recarrega. */
+  function registroFeito(eventosCriados: Evento[], texto: string) {
+    aoRegistrar?.()
+    setMudanca(null)
+    setDesfazer({ ids: eventosCriados.map((e) => e.id), texto })
+    recarregar()
+  }
+
+  async function cancelarInclusao() {
+    if (!cancelando) return
+    const { eventoId, nome } = cancelando
+    const ok = await registrar(() => repo.cancelarInclusao(viagem.id, eventoId), `Parada incluída cancelada: ${nome}.`)
+    if (ok) setCancelando(null)
+  }
 
   async function desfazerUltimo() {
     if (!desfazer) return
@@ -200,6 +221,8 @@ export function useRegistros(c: ContextoDaViagem, d: Derivados, aoRegistrar?: ()
     descida, setDescida, salvarDescida, contextoDeDescida,
     previa, setPrevia,
     dadosAbertos, setDadosAbertos,
+    mudanca, setMudanca, registroFeito,
+    cancelando, setCancelando, cancelarInclusao,
     registrar, registrarConteudo, registrarAtualizacaoGerada, salvarDados,
     aoSair, aoVoltar, aoChegar, oferecerDescida,
   }

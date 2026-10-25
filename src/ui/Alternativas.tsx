@@ -25,6 +25,7 @@ import { Folha } from './componentes/Folha'
 import { FolhaRecalibracao } from './Folhas'
 import { Hora } from './componentes/Hora'
 import { Topo } from './componentes/Topo'
+import { MudancaDeRoteiro } from './MudancaDeRoteiro'
 import {
   linkTelefone,
   rotuloDaClasse,
@@ -136,6 +137,8 @@ function Conteudo({ repo, plano, eventos, consultas, passageiros, modelos, agora
   const [previaRestaurante, setPreviaRestaurante] = useState<{ etapaId: string; localId: string; chegada: Instante } | null>(null)
   const [retornoMensagem, setRetornoMensagem] = useState<{ chave: string; texto: string } | null>(null)
   const [dadosAbertos, setDadosAbertos] = useState(false)
+  /** "Outro local…": a tela de mudança de roteiro para a parada. */
+  const [outroLocal, setOutroLocal] = useState<string | null>(null)
   const [horas, setHoras] = useState('')
   const [minutos, setMinutos] = useState('')
 
@@ -303,6 +306,25 @@ function Conteudo({ repo, plano, eventos, consultas, passageiros, modelos, agora
     } finally {
       setOcupado(false)
     }
+  }
+
+  if (outroLocal) {
+    return (
+      <MudancaDeRoteiro
+        repo={repo}
+        plano={plano}
+        eventos={eventos}
+        agora={agora}
+        alvo={{ tipo: 'local_novo', etapaId: outroLocal }}
+        onFeito={(criados, texto) => {
+          aoRegistrar?.()
+          setOutroLocal(null)
+          setDesfazer({ ids: criados.map((e) => e.id), texto })
+          recarregar()
+        }}
+        onFechar={() => setOutroLocal(null)}
+      />
+    )
   }
 
   return (
@@ -482,6 +504,17 @@ function Conteudo({ repo, plano, eventos, consultas, passageiros, modelos, agora
                 })}
               </ul>
 
+              {viagem.status === 'em_andamento' && (
+                <button
+                  type="button"
+                  className="botao largo"
+                  data-teste="outro-local"
+                  disabled={ocupado}
+                  onClick={() => { setErro(null); setOutroLocal(etapa.id) }}
+                >
+                  Outro local…
+                </button>
+              )}
               {validarPulo(plano, estado, etapa.id).ok && (
                 <button type="button" className="botao largo" disabled={ocupado} onClick={() => { setErro(null); setPulando(etapa) }}>
                   PULAR ESTA PARADA

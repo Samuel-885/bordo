@@ -25,7 +25,7 @@ interface Props {
 export function AbaMais({ c, d, r, onModelos, onBackup, onTrocarViagem, onAbrirDemo, onSairDaDemo }: Props) {
   const { eventos, agora } = c
   const demo = c.repo.espaco === 'demo'
-  const { concluida, podeRecalibrar, podePular, estadoBackup } = d
+  const { concluida, podeRecalibrar, podePular, podeIncluir, estadoBackup } = d
   const [excluindo, setExcluindo] = useState(false)
 
   const ultimaAtualizacao = ordenarPor(
@@ -50,6 +50,12 @@ export function AbaMais({ c, d, r, onModelos, onBackup, onTrocarViagem, onAbrirD
         <Item titulo="Observação" detalhe="fica só no celular" desligado={concluida} onClick={() => r.abrir('observacao')} />
         {podeRecalibrar && <Item titulo="Atualizar previsão" detalhe="com o horário do Google Maps" onClick={() => r.abrir('recalibracao')} />}
         {podePular && <Item titulo="Pular etapa" detalhe={d.proxima ? d.nome(d.proxima) : undefined} onClick={() => r.abrir('pular')} />}
+        <Item
+          titulo="Incluir parada"
+          detalhe="uma parada nova entre agora e o destino"
+          desligado={concluida || !podeIncluir}
+          onClick={() => { r.setErro(null); r.setMudanca({ tipo: 'incluir', apos: '' }) }}
+        />
         <Item titulo="Relatório" detalhe="chega na fase 10b" desligado />
       </GrupoDeMenu>
 

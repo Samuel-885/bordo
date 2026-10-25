@@ -68,7 +68,7 @@ export function etiquetaDaEtapa(tipo: TipoEtapa, categoria: string | undefined):
     case 'destino':
       return 'DESTINO'
     case 'flexivel':
-      return `${categoria ? rotuloDe(CATEGORIAS, categoria).toUpperCase() : 'PARADA'} · FLEXÍVEL`
+      return `${categoria ? rotuloDe(TODAS_AS_CATEGORIAS, categoria).toUpperCase() : 'PARADA'} · FLEXÍVEL`
   }
 }
 

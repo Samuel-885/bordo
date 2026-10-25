@@ -188,6 +188,21 @@ export function FolhasDaViagem({ c, d, r, onModelos }: Props) {
       )}
 
       <Confirmar
+        aberto={r.cancelando !== null}
+        titulo="Cancelar parada incluída?"
+        rotuloConfirmar="Cancelar parada"
+        perigo
+        onConfirmar={() => void r.cancelarInclusao()}
+        onCancelar={() => { r.setErro(null); r.setCancelando(null) }}
+      >
+        <p>
+          {r.cancelando?.nome ?? 'A parada'} deixa de existir no percurso e a previsão volta ao cálculo sem ela. Só vale antes de chegar
+          nela. Dá para desfazer logo depois.
+        </p>
+        {erro && r.cancelando && <p className="msg-erro">{erro}</p>}
+      </Confirmar>
+
+      <Confirmar
         aberto={acao === 'pular'}
         titulo="Pular etapa?"
         rotuloConfirmar="Pular"
