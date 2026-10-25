@@ -26,7 +26,7 @@ São oito entidades. O registro de eventos é a fonte da verdade: o estado da vi
 | Etapa | id, viagem, ordem, tipo, local, motivo, categoria, janela início/fim, permanência (min), chegada do roteiro, alternativas, modo de conferência | Tipos: origem, obrigatória, flexível, destino. Na origem, o horário do roteiro é a saída. O local é o preferido (o do roteiro); as alternativas são os outros candidatos. Parada não planejada não é etapa: é um par de eventos. |
 | Local | id, nome, cidade, tipo, coordenadas, abre, fecha, telefone, ônibus para (sim, não, não sei), observações, marcação (favorito, evitar) | Catálogo reutilizado entre viagens e anos. Abre e fecha são "HH:MM", um único horário por local, resolvidos pela data da chegada (única exceção à regra dos horários completos). |
 | Trecho | etapa de origem, local de origem, etapa de destino, local de destino, duração (min), fonte, distância (km), calculado em | Fonte: roteiro, rota, manual, estimado. Um trecho por par de locais candidatos. Só rota e manual são guardados; roteiro e estimado são derivados no cálculo. Na rota, a duração guardada é a de carro, sem o fator ônibus. Um trecho manual pode guardar ao lado a rota calculada (`rota`: duração de carro, distância e data), que nunca entra no cálculo (ver "Decisões da fase 8"). |
-| Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, pular etapa, parada não planejada (fase início, fim ou previsão), imprevisto, conferência, status do passageiro, atualização gerada, observação, fim. Todo horário de evento é arredondado para baixo, para o minuto. |
+| Evento | id, viagem, tipo, horário do fato, registrado em, etapa, dados, observação | Tipos: início, saída, chegada, recalibração, troca de local, local incluído, parada incluída, inclusão cancelada, pular etapa, parada não planejada (fase início, fim ou previsão), imprevisto, conferência, status do passageiro, atualização gerada, observação, fim. Todo horário de evento é arredondado para baixo, para o minuto. |
 | Passageiro | id, nome, etapa de embarque, etapa de desembarque, status | Desembarque vazio = destino. Status: ativo, não embarcou, saiu da viagem. |
 | Conferência | etapa, modo, confirmados, pendentes, resultado, motivo | Resultado: completa ou incompleta. |
 | Feedback | local, viagem, etapa, nota (1 a 5), voltaria (sim, não), critérios, observação | Critérios opcionais: comida, banheiro, atendimento, rapidez, estacionamento. |
@@ -206,7 +206,7 @@ A timeline é a lista de eventos ordenada pelo horário do fato. Ela é gerada, 
 
 ## Rotas automáticas e fallback
 
-Rotas são calculadas só no planejamento, com internet, e guardadas. Durante a viagem o app nunca depende delas.
+Rotas são calculadas no planejamento, com internet, e guardadas. Durante a viagem o app nunca depende delas. **Exceção (ajuda opcional):** ao incluir uma parada ou um local novo em viagem (ver "Mudança de roteiro em viagem"), o app pode calcular a rota dos trechos novos se houver internet e coordenadas; nunca bloqueia, e sem rota o tempo é digitado ou informado pelo Google Maps.
 
 - Exigem coordenadas nos dois locais. Sem coordenadas, o trecho fica "sem tempo".
 - O serviço usa dados do OpenStreetMap e é gratuito: o OSRM público do FOSSGIS (perfil de carro), sem chave. A escolha, os limites e o plano B estão em "Decisões da fase 8".
@@ -276,7 +276,7 @@ O Bordo é um app web instalável (PWA) que guarda tudo no próprio celular e fu
 | Copiar mensagem | Funciona |
 | Compartilhar no WhatsApp | Abre, mas a mensagem só sai quando houver sinal |
 | Editar modelos de mensagem, registrar observação | Funciona |
-| Calcular rotas | Não funciona (só no planejamento) |
+| Calcular rotas | Não funciona no planejamento; na viagem é só ajuda opcional ao incluir parada ou local novo |
 | Buscar endereço no cadastro de local | Não funciona (avisa; o resto do formulário funciona) |
 | Mapa | Só as áreas já carregadas antes |
 | Abrir no Google Maps | Depende do próprio Google Maps |
@@ -764,3 +764,64 @@ Aprovadas em 25/10/2026, depois de uma viagem curta urbana testada no celular (I
 - **Depois:** volta à lista de viagens.
 - Ocultar um local sem excluí-lo ficou para depois (`PENDENCIAS.md`).
 - Testes: `src/data/__tests__/excluir-viagem.test.ts`, `usoDoLocal.test.ts`, `viagens.test.ts` e o fluxo `e2e/fluxos/correcoes-excluir-viagem.mjs`.
+
+## Mudança de roteiro em viagem
+
+Aprovada em 25/10/2026, antes da fase 9. Cobre dois casos durante a viagem: (1) trocar o local de uma parada flexível ainda não alcançada por um local novo, que não era alternativa; (2) incluir uma parada nova entre a posição atual e o destino. Nenhuma regra de cálculo da previsão muda: a etapa nova e o local novo são vistos pelo cálculo como etapa e candidato comuns. Complementa as seções anteriores.
+
+**Eventos (aditivos; sem mudança de esquema do banco nem do formato 1 do backup)**
+
+- `local_incluido` (`etapaId` = a etapa que ganha o local): `localId` e `trechos` (os pares de trecho novos, no tipo `Trecho`, fonte `rota` ou `manual`). O local passa a ser candidato da etapa. A troca em si é o `troca_local` de sempre, gravado na mesma transação.
+- `parada_incluida` (`etapaId` = id da etapa nova): `apos` (a etapa depois da qual entra), `localId`, `motivo` (texto livre opcional, até 60 caracteres, dica "Sem nomes de passageiros"), `categoria`, `permanenciaMin` (inteiro de 1 a 600) e `trechos`. A etapa nova é sempre do tipo flexível.
+- `inclusao_cancelada` (`etapaId` = a etapa incluída): `dados.eventoId` = id do evento `parada_incluida`. Só antes da chegada nela.
+- **Plano efetivo.** `aplicarInclusoes(plano, eventos)` (núcleo, pura, idempotente) devolve o plano com as etapas incluídas (inseridas depois de `apos`, ordem renumerada só na cópia), os locais novos em `alternativas` e os trechos dos eventos somados. Ignora a inclusão cancelada, e com ela as recalibrações e consultas daquela etapa. Nada derivado é guardado. O repositório aplica essa função ao carregar o plano de uma viagem iniciada.
+- O plano original não muda: a parada incluída não consta nele, e o atraso no destino continua medido contra o original.
+
+**Regras**
+
+- Só parada flexível ainda não alcançada troca de local por um local novo. Ponto obrigatório não troca de local nem recebe inclusão no lugar dele. A inclusão só vale depois da posição atual e antes do destino (`apos` = etapa em que estamos, a última deixada ou uma pendente que não seja o destino), com a viagem em andamento.
+- **Tempos (nada inventado).** O trecho do local novo até a etapa seguinte é obrigatório: rota ou digitado. O trecho até o local novo: rota, digitado ou chegada pelo Google Maps; **em trânsito** (trecho em curso), só a chegada pelo Google Maps, gravada como recalibração da etapa na mesma transação (mesmas travas da recalibração). A rota calculada parte do local da etapa anterior, por isso não vale no trecho em curso. Faltando tempo, a inclusão é recusada com "Falta o tempo de X até Y". Sem internet, a rota não está disponível; digitar e o Maps continuam.
+- A tela mostra, antes de confirmar, a chegada prevista na parada, a previsão no destino e o impacto.
+- **Comparação original × real.** A parada incluída aparece marcada "incluída" e sem original (sem atraso próprio); o destino segue medido contra o original e já embute o tempo dela. No local trocado, a comparação continua pela etapa. No relatório (fase 10b), todo o tempo da parada incluída conta como variação.
+- **Registros.** Todos têm DESFAZER e linha na timeline ("Parada incluída: Mirante, depois de Café"; "Local incluído em Almoço: Restaurante Novo"; "Parada incluída cancelada: Mirante").
+- **Cancelar parada incluída.** Só antes de chegar nela (chegada registrada: não cancela). A parada deixa de existir, as etapas vizinhas voltam a ser vizinhas e o roteiro entre elas volta a valer pela regra de sempre. `pular_etapa` continua disponível como hoje (trecho "estimado").
+- **Passageiros.** Embarque e desembarque só aceitam origem, obrigatória e destino: nenhum passageiro fica ligado à parada incluída, e trocar o local de uma flexível não toca em ninguém. Quem ficar na parada nova usa o status "saiu da viagem". A conferência, "quem desceu" e as mensagens usam a etapa nova como qualquer parada flexível; as mensagens nunca levam nomes.
+- **Categorias da parada incluída:** Visita/passeio (`visita`) e Refeição (`refeicao`), "todos desceram"; Café / lanche (`cafe`), "todos desceram" (como o café do roteiro); Banheiro (`banheiro`) e Abastecimento (`abastecimento`), "só alguns"; Outro (`outro`), "só alguns".
+- **Alternativas da etapa seguinte.** Com a parada nova entre A e B, os pares de trecho de A com as alternativas de B deixam de valer; as alternativas de B ficam "sem tempo" até informar o tempo da parada nova até elas.
+- **Local.** O local novo é cadastrado no catálogo (busca de endereço ou coordenadas coladas, como no cadastro). Excluir um local usado só por um evento de inclusão é barrado (`LocalEmUso`).
+- **Rota na viagem.** Mesmo serviço, termos e privacidade da fase 8 (só coordenadas dos dois locais na rede). Falha ou ausência de rota nunca impede nada além do que a falta de tempo já impede.
+
+**Backup (formato 1).** Os eventos novos entram como qualquer evento. A restauração aceita os três tipos, confere a estrutura (reaproveitando a de `Trecho`), aceita como etapa válida o id criado por `parada_incluida` da mesma viagem e exige que o `localId` esteja no catálogo. Um app antigo recusa um arquivo com esses eventos ("tipo de evento desconhecido"); o arquivo antigo no app novo restaura sem mudança.
+
+**Interface.** Aba Roteiro, visão Paradas: "+ Incluir parada" no fim das paradas adiante; em "Comparar e escolher", "Outro local…" na parada flexível pendente; Mais › Registros: "Incluir parada". Nada novo na aba Viagem. Cancelar parada incluída fica no item da parada na aba Roteiro.
+
+**Casos de teste** (`inclusao-em-viagem.test.ts`, a partir do caso 2: chegada em Monlevade 08:55, saída prevista 09:10, almoço 12:30, destino 00:00, +30)
+
+| # | Situação | Resultado esperado |
+|---|---|---|
+| I1 | Parada depois de Monlevade, trecho até ela 30 min, permanência 40, dela até o almoço 3h00 | Chegada 09:40, saída 10:20, almoço 13:20, destino 00:50, +80 |
+| I2 | Plano original depois de I1 | Idêntico ao do início |
+| I3 | Atraso da parada incluída | Sem atraso próprio; destino medido contra o original |
+| I4 | Sem o tempo do trecho dela até a etapa seguinte | Recusado: "Falta o tempo de X até Y" |
+| I5 | Em trânsito, sem o trecho até ela | Só vale com a chegada pelo Maps, com as travas da recalibração |
+| I6 | Em trânsito, duração digitada para o trecho em curso | Recusada |
+| I7 | `apos` em etapa já deixada, no destino ou ponto obrigatório no lugar | Recusado |
+| I8 | Viagem concluída ou planejando | Recusado |
+| I9 | Regra do relógio com a parada nova como próximo evento | A previsão acompanha o relógio |
+| I10 | Recalibração na parada nova | Vale como em qualquer etapa |
+| I11 | Cancelar a parada incluída antes de chegar | A e B voltam a ser vizinhas, trecho de roteiro, previsão igual à de antes da inclusão; recalibração dela deixa de valer |
+| I11b | Cancelar com chegada registrada; cancelar duas vezes; cancelar id que não é inclusão | Recusado |
+| I11c | `pular_etapa` na parada incluída | Trecho entre A e B "estimado" (soma), como hoje |
+| I12 | Duas inclusões em sequência | Ordem pelo `apos` e pela sequência de gravação |
+| I13 | `aplicarInclusoes` repetida e DESFAZER | Idempotente; a etapa some e o cálculo volta ao anterior |
+| T1 | Local novo numa flexível, com os dois trechos informados | Troca aceita; chegada e destino recalculados |
+| T2 | Local novo sem o tempo até a etapa seguinte | Recusado |
+| T3 | Voltar ao local original depois do novo | Funciona |
+| T4 | Local novo com horário de funcionamento | Classificado como viável, pouca margem ou inviável |
+| T5 | Em trânsito, local novo com chegada pelo Maps | `local_incluido`, `troca_local` e `recalibracao` numa só transação |
+| T6 | Local novo em ponto obrigatório | Recusado |
+| A1 | Alternativas da etapa seguinte depois de incluir a parada | "Sem tempo" até informar o tempo; depois escolhíveis |
+| P1–P3 | Passageiros, conferência e quem desceu com a parada nova | Contagens inalteradas; modo pela categoria |
+| M1 | Mensagem de atualização com a parada nova como próxima | Sem nomes |
+| B1–B3 | Backup: gerar e restaurar com os eventos novos; referências inválidas recusadas; arquivo antigo | Previsão e original idênticos; mensagens claras |
+| L1 | Excluir local usado só por evento de inclusão | `LocalEmUso` |
