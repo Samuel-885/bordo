@@ -39,9 +39,10 @@ interface Props {
   auto: AtualizacaoAutomatica
   onAba: (aba: Aba, visao?: 'paradas' | 'timeline') => void
   onBackup: () => void
+  onRelatorio: () => void
 }
 
-export function AbaViagem({ c, d, r, auto, onAba, onBackup }: Props) {
+export function AbaViagem({ c, d, r, auto, onAba, onBackup, onRelatorio }: Props) {
   const { repo, plano, eventos, passageiros, agora, recarregar } = c
   const { locais } = plano
   const { s, nome, localDe, proxima, proximaEtapa, mapa, pendencia, concluida, estadoBackup, sugerirBackup, restaurada, ultima, cidadeDe, destino, destinoOriginal, nomeLocalParado, chegadaProxima, saidaOrigem, aBordo } = d
@@ -100,6 +101,9 @@ export function AbaViagem({ c, d, r, auto, onAba, onBackup }: Props) {
             Original {destinoOriginal ? <Hora instante={destinoOriginal} agora={agora} /> : '—'} · real{' '}
             {destino ? <Hora instante={destino.instante} agora={agora} /> : '—'}
           </p>
+          <button type="button" className="botao pequeno largo" data-teste="abrir-relatorio" onClick={onRelatorio}>
+            Relatório em PDF
+          </button>
         </section>
       )}
 

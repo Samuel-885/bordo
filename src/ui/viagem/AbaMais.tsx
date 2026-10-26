@@ -19,13 +19,14 @@ interface Props {
   r: Registros
   auto: AtualizacaoAutomatica
   onModelos: () => void
+  onRelatorio: () => void
   onBackup: () => void
   onTrocarViagem: () => void
   onAbrirDemo: () => void
   onSairDaDemo: () => void
 }
 
-export function AbaMais({ c, d, r, auto, onModelos, onBackup, onTrocarViagem, onAbrirDemo, onSairDaDemo }: Props) {
+export function AbaMais({ c, d, r, auto, onModelos, onRelatorio, onBackup, onTrocarViagem, onAbrirDemo, onSairDaDemo }: Props) {
   const { eventos, agora } = c
   const demo = c.repo.espaco === 'demo'
   const { concluida, podeRecalibrar, podePular, podeIncluir, estadoBackup } = d
@@ -64,7 +65,7 @@ export function AbaMais({ c, d, r, auto, onModelos, onBackup, onTrocarViagem, on
           desligado={concluida || !podeIncluir}
           onClick={() => { r.setErro(null); r.setMudanca({ tipo: 'incluir', apos: '' }) }}
         />
-        <Item titulo="Relatório" detalhe="chega na fase 10b" desligado />
+        <Item titulo="Relatório" detalhe={concluida ? 'PDF da viagem, para a chefia' : 'PDF do que já aconteceu'} onClick={onRelatorio} />
       </GrupoDeMenu>
 
       <GrupoDadosEAparelho

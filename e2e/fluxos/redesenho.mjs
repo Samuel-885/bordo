@@ -118,14 +118,14 @@ export const fluxo = {
       await botao(page, 'DESFAZER').click().catch(() => {})
     })
 
-    await passo('aba Mais: três grupos, Relatório desligado e Backup ausente na demonstração', async () => {
+    await passo('aba Mais: três grupos, Relatório ligado e Backup ausente na demonstração', async () => {
       await irParaAba(page, 'mais')
       for (const g of ['Comunicação', 'Registros', 'Dados e aparelho']) await page.locator(`section[aria-label="${g}"]`).waitFor()
       const itens = (await page.locator('.item-menu strong').allInnerTexts()).map((t) => t.trim())
       for (const i of ['Mensagem de atualização', 'Modelos de mensagem', 'Registrar imprevisto', 'Observação', 'Relatório', 'Modo noite', 'Demonstração'].filter((x) => x !== 'Modo noite' && x !== 'Demonstração'))
         esperar(itens.includes(i), `falta "${i}" em Mais: ${itens}`)
-      esperar(await page.locator('.item-menu', { hasText: 'Relatório' }).isDisabled(), 'Relatório deveria estar desligado')
-      esperar((await page.locator('.item-menu', { hasText: 'Relatório' }).innerText()).includes('fase 10b'), 'dica do relatório')
+      esperar(await page.locator('.item-menu', { hasText: 'Relatório' }).isEnabled(), 'Relatório deveria estar ligado')
+      esperar((await page.locator('.item-menu', { hasText: 'Relatório' }).innerText()).includes('PDF'), 'dica do relatório')
       esperar(!itens.includes('Backup'), 'a demonstração não tem Backup')
       esperar(itens.includes('Sair da demonstração') && itens.includes('Trocar de viagem'), `itens de dados e aparelho: ${itens}`)
     })

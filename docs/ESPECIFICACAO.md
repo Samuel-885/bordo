@@ -906,3 +906,49 @@ Aprovadas em 26/10/2026. Nenhuma regra de cálculo muda. O mapa é só ajuda de 
 - **Sem coordenadas:** locais sem coordenadas não aparecem, e a tela diz quantos e quais ("2 locais sem coordenadas não aparecem no mapa: A, B. Cadastre as coordenadas em Locais."; conta cada local uma vez, paradas e alternativas). Sem nenhuma coordenada, o mapa abre no Brasil com o aviso de que não há o que mostrar.
 - **Testes:** `src/ui/logica/__tests__/mapaRoteiro.test.ts` (linhas, percorrido, pulada, local sem coordenadas quebrando a linha, incluída, alternativas, contagem de fora) e o fluxo `e2e/fluxos/fase9-mapa-roteiro.mjs` (abre o mapa, marcadores por situação, linhas, quantos ficaram de fora, balão, Minha posição sem gravar e sem rastrear, permissão negada, fechar e voltar do celular, sem internet, e o desenho depois de CHEGAMOS). As coordenadas do teste são fictícias e entram pelo formulário de local.
 
+
+## Decisões da fase 10b (relatório em PDF)
+
+Aprovadas em 26/10/2026. Só o relatório em PDF; avaliação dos locais, reputação, ranking das alternativas, viagem de volta e "apagar passageiros" ficam para depois (ver `PENDENCIAS.md`). Nenhuma regra de cálculo muda. Onde a seção "Relatório final, feedback e uso na volta" diverge (por exemplo, "copiável como texto" e "paradas com a nota dada"), vale esta.
+
+**Onde fica.** Mais › Relatório e o botão "Relatório em PDF" no cartão "Viagem encerrada". Funciona também com a viagem em andamento: o relatório mostra só o que já aconteceu, com o aviso "Viagem em andamento" (a chegada prevista vem marcada "(previsto)"; as etapas futuras ficam em "—"; a duração vai "até agora"). Tela cheia sobre a viagem; o botão voltar do celular fecha só ela.
+
+**Como o PDF é gerado (comparação).** (A) página com CSS de impressão e "Salvar como PDF" do navegador: sem dependência, mas o arquivo cai em Downloads e o compartilhamento é em dois passos, e o resultado varia de aparelho para aparelho. (B) jsPDF carregado só nessa tela: o arquivo sai direto pelo menu de compartilhar (WhatsApp), com paginação e rodapé controlados. **Escolhida a B**, jsPDF 4.2.1, `import()` dinâmico (pedaço à parte, ~400 kB, ~130 kB comprimido). O pedaço entra no precache do service worker (o relatório abre e gera sem internet; o e2e confere o `sw.js`); os três pedaços que o jsPDF só usa para converter HTML e SVG (`html2canvas`, `purify`, `index.es`) ficam fora do cache (`globIgnores`). A tela baixa o jsPDF ao abrir, para o toque em COMPARTILHAR não esperar.
+- **Compartilhar.** COMPARTILHAR PDF só aparece quando `navigator.canShare({ files })` aceita o PDF; BAIXAR PDF está sempre disponível. O app não sabe se o envio terminou (mesmo aviso do backup). `application/pdf` e `.pdf` estão nas listas de tipos permitidos do Chromium (`share_service_impl.cc`, lido em 26/10/2026; pode mudar com as versões do Chrome; conferir no celular).
+- Os tipos de letra padrão do PDF cobrem o latim (acentos do português), não "−" nem "→": viram "-" e "->" no PDF; o que ficar fora do latim vira "?".
+- A prévia na tela e o PDF vêm do mesmo documento (`relatorioDocumento.ts`), então não divergem.
+
+**Privacidade (LGPD).** Duas opções independentes, **desligadas a cada vez que a tela abre** (não ficam guardadas):
+- "Incluir nomes": só a lista de passageiros (nome, embarque, desembarque, situação). Ao marcar, aparece o aviso de que o PDF passa a conter dados pessoais.
+- "Incluir observações": o texto dos eventos `observacao` e a anotação curta dos imprevistos (que "ficam só no celular"). Sem a opção, o relatório mostra só que existiu uma observação ("texto não incluído"). O mesmo aviso de texto digitado.
+- O motivo e o "onde" das paradas não planejadas e o motivo das paradas incluídas entram sempre; a tela avisa que são textos digitados e podem conter nomes.
+- O relatório nunca leva o texto das mensagens geradas.
+
+**Conteúdo (nesta ordem)**
+1. **Cabeçalho:** nome, tipo (ida ou volta), data, identificação, equipe, status e quando foi gerado. Avisos: viagem em andamento; viagem restaurada de um backup (data do arquivo e da restauração: os registros entre as duas foram completados depois, com horário corrigido; vale mesmo com o aviso da tela principal dispensado, pela tabela `meta`, chave `restauradoDe`).
+2. **Resumo:** saída e chegada original × real, atraso final, duração total (saída real até a chegada real) e quilometragem. A quilometragem soma `distanciaKm` dos trechos já percorridos pelo caminho real (trecho de rota, ou a rota guardada ao lado de um trecho manual; com etapa pulada e sem trecho direto, a soma dos trechos que passavam por ela). Se falta distância em algum trecho, aparece "parcial (N de M trechos)"; sem nenhuma, "sem rota calculada". É a distância pela rota de carro, não odômetro.
+3. **Permanência nas paradas** (logo depois do resumo, para a chefia e o controle de ponto): cada parada alcançada (origem e destino ficam de fora) com chegada real, saída real, permanência real, planejada e diferença; paradas incluídas entram com a permanência informada na inclusão como planejada; paradas não planejadas (PARAMOS/VOLTAMOS) na mesma tabela, em ordem de horário, com o motivo, o "onde" e, como planejado, o tempo previsto mais recente (vazio se não houve). Parada sem SAÍMOS (ou sem VOLTAMOS), com o ônibus já adiante, aparece como "saída não registrada" (ou "volta não registrada") e fica fora dos totais, com aviso; a parada em curso também fica fora. Fim da seção: **total parado** (planejadas + não planejadas completas) e **em movimento** (duração total − total parado). Os horários são os registrados, já com as correções feitas pela timeline.
+4. **Onde o atraso nasceu:** por etapa, original e real de chegada e de saída, atraso no evento (real − original, sem tolerância: mostra o número exato) e **variação** (o atraso do evento menos o atraso do evento anterior da cadeia saída → chegada → saída…; a primeira é a saída da origem, comparada com zero). Etapas puladas e locais trocados são indicados; paradas incluídas são marcadas "incluída". **Parada incluída:** sem original e sem atraso próprio; o trecho até ela fica **sem variação**; a permanência real inteira é variação; o trecho seguinte leva (os dois trechos reais somados) − (o trecho original entre as etapas vizinhas), isto é, `atraso do evento − atraso do último evento com original − permanências incluídas no meio`. Assim a soma das variações fecha no atraso final. Paradas não planejadas e imprevistos estão dentro da variação do trecho em que ocorreram. Falta de registro: a variação do evento seguinte fica "—" (nada é adivinhado).
+5. **Ocorrências, em ordem de horário:** paradas não planejadas (motivo, "onde", duração real e previsto), imprevistos (tipo), observações e mudanças de roteiro (local trocado, local novo, parada incluída, inclusão cancelada, etapa pulada). A troca de local gravada junto de um local novo aparece numa linha só.
+6. **Comunicação:** as mensagens de atualização geradas (horário, previsão no destino e atraso informados) e, só resumidas, as atualizações de previsão: digitadas (Google Maps), pelo botão de localização e automáticas.
+7. **Passageiros** (só contagens por padrão): **Cadastrados** (não "esperados": o termo é outro na tela da viagem), **Conferidos** (distintos nomeados como confirmados em alguma conferência; a conferência "por contagem" não nomeia ninguém, por isso também se mostra quantas conferências houve e como terminaram), **Desceram no caminho** (distintos marcados em "Quem desceu"; a marcação mais recente de cada parada vale), **Não embarcaram**, **Saíram da viagem** (pelo status final) e **Chegaram ao destino** (a bordo no destino e não marcados como descidos; só com a viagem concluída).
+
+**Testes.** Núcleo (`src/core/__tests__/relatorio.test.ts`, casos R1 a R14) e textos/PDF (`src/ui/logica/__tests__/relatorioPdf.test.ts`); e2e `e2e/fluxos/fase10b-relatorio.mjs` (viagem concluída da demonstração: números, sem nomes por padrão, com nomes só ao marcar, PDF baixado e compartilhado, precache, opções que não ficam guardadas, e viagem em andamento).
+
+| # | Situação | Resultado esperado |
+|---|---|---|
+| R1 | Caso 3 (saída 06:47, Monlevade 08:55–09:14) | Atraso +17, +30, +34; variação +17, +13, +4 |
+| R2 | Chegada no almoço 12:10 depois de sair de Monlevade com +34 | Atraso +10, variação −24 |
+| R3 | Viagem inteira, destino +60 | Variações 17, 13, 4, 6, −10, −10, 5, 5, 0, 30; a soma é +60 |
+| R4 | Parada incluída (caso I1) | Sem atraso próprio; permanência 40 min como variação; almoço +80 com variação +10; soma fecha; duas incluídas em sequência fecham; cancelada some |
+| R5 | Café pulado e almoço em outro local | Indicados na etapa e nas ocorrências; voltar ao local original não conta como trocado |
+| R6 | Permanência | Planejadas e não planejadas em ordem; totais; "saída não registrada" fora dos totais; parada em curso |
+| R7 | Ocorrências e observações | Em ordem de horário; texto das observações só com a opção; motivo e "onde" sempre |
+| R8 | Comunicação | Mensagens sem texto; atualizações só contadas |
+| R9 | Passageiros | Contagens; sem nomes por padrão; lista só com a opção |
+| R10 | Viagem em andamento | Aviso, duração até agora, chegada prevista |
+| R11 | Restaurada | Diz isso, mesmo com o aviso dispensado; de outra viagem, não |
+| R12–R13 | Quilometragem | Soma pela rota; parcial; manual com rota ao lado; só o percorrido; trecho de etapa pulada |
+| R14 | Qualquer caso | Plano original e eventos intactos; sem plano original, não monta |
+
+**Correção pequena.** Na tela de alternativas, o aviso ao trocar de local com uma previsão vigente diz "pela sua localização" (e não "Google Maps") quando a previsão veio da localização.

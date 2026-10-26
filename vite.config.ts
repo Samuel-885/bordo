@@ -32,6 +32,8 @@ export default defineConfig({
         // Tudo o que o build emite entra no cache: o app inteiro abre sem internet.
         // As fontes só em woff2 (os navegadores atuais usam esse formato).
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // O jsPDF só usa estes três (conversão de HTML e SVG) fora do que o relatório precisa: ficam fora do cache.
+        globIgnores: ['**/html2canvas-*.js', '**/purify.es-*.js', '**/index.es-*.js'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
       },

@@ -2217,3 +2217,75 @@ dialog.mapa-folha[open] {
 :root[data-tema='escuro'] .mk {
   box-shadow: 0 0 0 1px #000;
 }
+
+/* ---------- Relatório (fase 10b) ---------- */
+
+.relatorio {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.relatorio-opcoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.relatorio-previa h3 {
+  margin: 16px 0 6px;
+  font-size: 15px;
+  border-bottom: 1px solid var(--linha);
+  padding-bottom: 4px;
+}
+.relatorio-titulo {
+  font-size: 17px;
+}
+.relatorio-texto {
+  margin: 6px 0;
+  font-size: 15px;
+}
+.relatorio-lista {
+  margin: 6px 0;
+  padding-left: 18px;
+  font-size: 15px;
+}
+.relatorio-chaves {
+  margin: 6px 0;
+}
+.relatorio-chaves > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  font-size: 15px;
+}
+.relatorio-chaves dt {
+  color: var(--texto-suave);
+}
+.relatorio-chaves dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 600;
+}
+.relatorio-tabela {
+  overflow-x: auto;
+  margin: 6px 0;
+}
+.relatorio-tabela table {
+  border-collapse: collapse;
+  min-width: 100%;
+  font-size: 13px;
+}
+.relatorio-tabela th,
+.relatorio-tabela td {
+  text-align: left;
+  vertical-align: top;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--linha);
+}
+.relatorio-tabela th {
+  background: var(--barra);
+  white-space: nowrap;
+}
+.relatorio-tabela td:not(:first-child) {
+  white-space: nowrap;
+}

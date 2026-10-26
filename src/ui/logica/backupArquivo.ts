@@ -27,10 +27,10 @@ export type ResultadoDaEntrega =
   | 'cancelado'
   | 'falhou'
 
-export async function compartilharArquivo(arquivo: File, nav: Partial<NavegadorParaArquivo> = navigator): Promise<ResultadoDaEntrega> {
+export async function compartilharArquivo(arquivo: File, nav: Partial<NavegadorParaArquivo> = navigator, titulo = 'Backup do Bordo'): Promise<ResultadoDaEntrega> {
   if (!podeCompartilharArquivo(arquivo, nav)) return 'falhou'
   try {
-    await nav.share?.({ files: [arquivo], title: 'Backup do Bordo' })
+    await nav.share?.({ files: [arquivo], title: titulo })
     return 'compartilhado'
   } catch (erro) {
     return erro instanceof DOMException && erro.name === 'AbortError' ? 'cancelado' : 'falhou'

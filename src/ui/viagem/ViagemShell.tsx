@@ -4,7 +4,9 @@
 
 import { descidaParaConferencia, contextoDeSaida, contextoDeVolta } from '../../core/conferencia'
 import type { Repositorio } from '../../data/repositorio'
+import { useState } from 'react'
 import { Conferencia } from '../Conferencia'
+import { Relatorio } from '../Relatorio'
 import { MudancaDeRoteiro } from '../MudancaDeRoteiro'
 import { BarraDeAbas, type Aba } from '../componentes/BarraDeAbas'
 import { BarraDeAcao } from '../componentes/BarraDeAcao'
@@ -75,6 +77,7 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
   const r = useRegistros(c, d, aoRegistrar)
   const auto = useAtualizacaoAutomatica(c, d, aoRegistrar)
   const rodape = useAlturaDoRodape()
+  const [relatorioAberto, setRelatorioAberto] = useState(false)
 
   if (r.conferindo) {
     const { conferindo } = r
@@ -113,6 +116,8 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
     )
   }
 
+  if (relatorioAberto) return <Relatorio c={c} onFechar={() => setRelatorioAberto(false)} />
+
   const { viagem } = c.plano
   const acoes = acoesDoRodape(c, d, r)
   const folhaAberta = r.acao !== null || r.descida !== null || r.previa || r.dadosAbertos
@@ -120,7 +125,7 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
     <>
       <Cabecalho subtitulo={`${viagem.nome || 'Viagem'} · ${viagem.tipo === 'ida' ? 'Ida' : 'Volta'}`} />
       {aba === 'viagem' ? (
-        <AbaViagem c={c} d={d} r={r} auto={auto} onAba={onAba} onBackup={onBackup} />
+        <AbaViagem c={c} d={d} r={r} auto={auto} onAba={onAba} onBackup={onBackup} onRelatorio={() => setRelatorioAberto(true)} />
       ) : aba === 'roteiro' ? (
         <AbaRoteiro c={c} d={d} r={r} visaoInicial={visao} onAlternativas={onAlternativas} />
       ) : aba === 'pessoas' ? (
@@ -130,7 +135,7 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
           <Locais repo={c.repo} onEditar={onEditarLocal} incorporada />
         </main>
       ) : (
-        <AbaMais c={c} d={d} r={r} auto={auto} onModelos={onModelos} onBackup={onBackup} onTrocarViagem={onVoltar} onAbrirDemo={onAbrirDemo} onSairDaDemo={onSairDaDemo} />
+        <AbaMais c={c} d={d} r={r} auto={auto} onModelos={onModelos} onRelatorio={() => setRelatorioAberto(true)} onBackup={onBackup} onTrocarViagem={onVoltar} onAbrirDemo={onAbrirDemo} onSairDaDemo={onSairDaDemo} />
       )}
       <div className="rodape-fixo" ref={rodape}>
         {!d.concluida && aba === 'viagem' && (
