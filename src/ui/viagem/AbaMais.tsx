@@ -9,12 +9,15 @@ import { ExcluirViagem } from '../componentes/ExcluirViagem'
 import { GrupoDadosEAparelho, GrupoDeMenu, ItemDeMenu as Item } from '../componentes/MenuMais'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
+import { AtualizarSozinho } from './AtualizarSozinho'
+import type { AtualizacaoAutomatica } from './useAtualizacaoAutomatica'
 import type { Registros } from './useRegistros'
 
 interface Props {
   c: ContextoDaViagem
   d: Derivados
   r: Registros
+  auto: AtualizacaoAutomatica
   onModelos: () => void
   onBackup: () => void
   onTrocarViagem: () => void
@@ -22,7 +25,7 @@ interface Props {
   onSairDaDemo: () => void
 }
 
-export function AbaMais({ c, d, r, onModelos, onBackup, onTrocarViagem, onAbrirDemo, onSairDaDemo }: Props) {
+export function AbaMais({ c, d, r, auto, onModelos, onBackup, onTrocarViagem, onAbrirDemo, onSairDaDemo }: Props) {
   const { eventos, agora } = c
   const demo = c.repo.espaco === 'demo'
   const { concluida, podeRecalibrar, podePular, podeIncluir, estadoBackup } = d
@@ -49,6 +52,11 @@ export function AbaMais({ c, d, r, onModelos, onBackup, onTrocarViagem, onAbrirD
         <Item titulo="Registrar imprevisto" desligado={concluida} onClick={() => r.abrir('imprevisto')} />
         <Item titulo="Observação" detalhe="fica só no celular" desligado={concluida} onClick={() => r.abrir('observacao')} />
         {podeRecalibrar && <Item titulo="Atualizar previsão" detalhe="com o horário do Google Maps" onClick={() => r.abrir('recalibracao')} />}
+        {!concluida && (
+          <li className="item-tema">
+            <AtualizarSozinho auto={auto} />
+          </li>
+        )}
         {podePular && <Item titulo="Pular etapa" detalhe={d.proxima ? d.nome(d.proxima) : undefined} onClick={() => r.abrir('pular')} />}
         <Item
           titulo="Incluir parada"

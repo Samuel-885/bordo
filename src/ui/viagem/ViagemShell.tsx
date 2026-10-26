@@ -24,6 +24,7 @@ import { derivarViagem } from './derivados'
 import { FolhasDaViagem } from './FolhasDaViagem'
 import { SeloDeAtraso } from './SeloDeAtraso'
 import { useAlturaDoRodape } from './useAlturaDoRodape'
+import { useAtualizacaoAutomatica } from './useAtualizacaoAutomatica'
 import { useRegistros } from './useRegistros'
 
 interface Props {
@@ -72,6 +73,7 @@ export function ViagemShell({ repo, viagemId, onVoltar, ...resto }: Props) {
 function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBackup, onEditarLocal, onAbrirDemo, onSairDaDemo, onVoltar, aoRegistrar }: { c: ContextoDaViagem } & Omit<Props, 'repo' | 'viagemId'>) {
   const d = derivarViagem(c)
   const r = useRegistros(c, d, aoRegistrar)
+  const auto = useAtualizacaoAutomatica(c, d, aoRegistrar)
   const rodape = useAlturaDoRodape()
 
   if (r.conferindo) {
@@ -118,7 +120,7 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
     <>
       <Cabecalho subtitulo={`${viagem.nome || 'Viagem'} · ${viagem.tipo === 'ida' ? 'Ida' : 'Volta'}`} />
       {aba === 'viagem' ? (
-        <AbaViagem c={c} d={d} r={r} onAba={onAba} onBackup={onBackup} />
+        <AbaViagem c={c} d={d} r={r} auto={auto} onAba={onAba} onBackup={onBackup} />
       ) : aba === 'roteiro' ? (
         <AbaRoteiro c={c} d={d} r={r} visaoInicial={visao} onAlternativas={onAlternativas} />
       ) : aba === 'pessoas' ? (
@@ -128,7 +130,7 @@ function ViagemAberta({ c, aba, visao, onAba, onAlternativas, onModelos, onBacku
           <Locais repo={c.repo} onEditar={onEditarLocal} incorporada />
         </main>
       ) : (
-        <AbaMais c={c} d={d} r={r} onModelos={onModelos} onBackup={onBackup} onTrocarViagem={onVoltar} onAbrirDemo={onAbrirDemo} onSairDaDemo={onSairDaDemo} />
+        <AbaMais c={c} d={d} r={r} auto={auto} onModelos={onModelos} onBackup={onBackup} onTrocarViagem={onVoltar} onAbrirDemo={onAbrirDemo} onSairDaDemo={onSairDaDemo} />
       )}
       <div className="rodape-fixo" ref={rodape}>
         {!d.concluida && aba === 'viagem' && (

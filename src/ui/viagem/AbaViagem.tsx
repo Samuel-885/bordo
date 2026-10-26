@@ -24,21 +24,24 @@ import {
   textoDoCronometroDeSaida,
   textoDoTempoRestante,
 } from '../logica/textosViagem'
+import { AtualizarSozinho } from './AtualizarSozinho'
 import { SeloDeAtraso } from './SeloDeAtraso'
 import type { Aba } from '../componentes/BarraDeAbas'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
+import type { AtualizacaoAutomatica } from './useAtualizacaoAutomatica'
 import type { Registros } from './useRegistros'
 
 interface Props {
   c: ContextoDaViagem
   d: Derivados
   r: Registros
+  auto: AtualizacaoAutomatica
   onAba: (aba: Aba, visao?: 'paradas' | 'timeline') => void
   onBackup: () => void
 }
 
-export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
+export function AbaViagem({ c, d, r, auto, onAba, onBackup }: Props) {
   const { repo, plano, eventos, passageiros, agora, recarregar } = c
   const { locais } = plano
   const { s, nome, localDe, proxima, proximaEtapa, mapa, pendencia, concluida, estadoBackup, sugerirBackup, restaurada, ultima, cidadeDe, destino, destinoOriginal, nomeLocalParado, chegadaProxima, saidaOrigem, aBordo } = d
@@ -203,6 +206,7 @@ export function AbaViagem({ c, d, r, onAba, onBackup }: Props) {
               <span aria-hidden="true"> ›</span>
             </button>
           )}
+          <AtualizarSozinho auto={auto} />
           {nAlternativas > 0 && (
             <button type="button" className="atalho" onClick={() => onAba('roteiro')}>
               {textoDoAtalhoDeAlternativas(nAlternativas)}

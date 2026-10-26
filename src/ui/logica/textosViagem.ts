@@ -41,6 +41,7 @@ export const textoDaSituacao = (s: Situacao, nomeLocal: string | null): string =
 /** "Google Maps, informado às 11:40" quando a previsão veio de recalibração. */
 export function textoDaOrigemDaPrevisao(h: HorarioPrevisto | null | undefined): string | null {
   if (h?.origem !== 'recalibracao' || !h.recalibradoEm) return null
+  if (h.pelaLocalizacaoEm && h.automatica) return `Atualizado pela localização às ${formatarHora(h.pelaLocalizacaoEm)}, sem trânsito`
   if (h.pelaLocalizacaoEm) return `Pela localização, sem trânsito, calculado às ${formatarHora(h.pelaLocalizacaoEm)}`
   return `Google Maps, informado às ${formatarHora(h.recalibradoEm)}`
 }
@@ -130,6 +131,8 @@ export function montarTimeline(
   passageiros: readonly Passageiro[] = [],
 ): ItemTimeline[] {
   void agora
+  // As atualizações automáticas (modo "atualizar sozinho") ficam só nos dados: nada na timeline.
+  eventos = eventos.filter((e) => !(e.tipo === 'recalibracao' && e.dados.automatica))
   const { etapas, locais } = plano
   const nomeDe = (id: string) => passageiros.find((p) => p.id === id)?.nome ?? 'Passageiro'
   const etapaDe = (id: string) => etapas.find((e) => e.id === id)
