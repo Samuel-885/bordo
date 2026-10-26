@@ -100,6 +100,7 @@ function criar(horario: Instante, conteudo: ConteudoEvento): Evento {
 
 export const ev = {
   inicio: (horario: Instante) => criar(horario, { tipo: 'inicio' }),
+  fim: (horario: Instante) => criar(horario, { tipo: 'fim' }),
   saida: (etapaId: string, horario: Instante) => criar(horario, { tipo: 'saida', etapaId }),
   chegada: (etapaId: string, horario: Instante) => criar(horario, { tipo: 'chegada', etapaId }),
   pular: (etapaId: string, horario: Instante) => criar(horario, { tipo: 'pular_etapa', etapaId }),
@@ -124,12 +125,14 @@ export const ev = {
     extra: { motivo?: MotivoParada; onde?: string; tempoPrevistoMin?: number } = {},
   ) => criar(horario, { tipo: 'parada_nao_planejada', etapaId, dados: { fase, ...extra } }),
   /** Conferência completa de todos (os ids não importam para quem só olha o horário). */
-  conferencia: (etapaId: string, horario: Instante, momento?: 'saida' | 'volta') =>
+  conferencia: (etapaId: string, horario: Instante, momento?: 'saida' | 'volta', confirmados: string[] = []) =>
     criar(horario, {
       tipo: 'conferencia',
       etapaId,
-      dados: { ...(momento ? { momento } : {}), modo: 'so_alguns', confirmados: [], pendentes: [], resultado: 'completa' },
+      dados: { ...(momento ? { momento } : {}), modo: 'so_alguns', confirmados, pendentes: [], resultado: 'completa' },
     }),
+  imprevisto: (categoria: Extract<ConteudoEvento, { tipo: 'imprevisto' }>['dados']['categoria'], horario: Instante, observacao?: string) =>
+    criar(horario, { tipo: 'imprevisto', dados: { categoria }, ...(observacao ? { observacao } : {}) } as ConteudoEvento),
   desceram: (etapaId: string, local: 'etapa' | 'nao_planejada', passageiroIds: string[], horario: Instante) =>
     criar(horario, { tipo: 'desceram', etapaId, dados: { local, passageiroIds } }),
   status: (etapaId: string, passageiroId: string, status: StatusPassageiro, motivo: string, horario: Instante) =>
