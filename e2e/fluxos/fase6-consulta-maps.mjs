@@ -1,7 +1,7 @@
 export const fluxo = {
   nome: 'Fase 6: consultar alternativas pelo Google Maps (CONSULTAR NO MAPS)',
   async executar(h) {
-    const { esperar, igual, passo, botao, voltar, abrirDemo, escolherCenario, lerBanco, tiposDosEventos, dialogoAberto } = h
+    const { aguardar, esperar, igual, passo, botao, voltar, abrirDemo, escolherCenario, lerBanco, tiposDosEventos, dialogoAberto } = h
     const { ctx, page } = await h.novaPagina()
     await abrirDemo(page)
     // Saímos de Monlevade às 09:14 e são 11:40, a caminho do almoço (Restaurante A, chegada 12:34).
@@ -42,8 +42,7 @@ export const fluxo = {
 
     await passo('DESFAZER retira os dois eventos juntos', async () => {
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      igual(String((await lerBanco(page, 'eventos')).length), String(base.eventos), 'eventos depois do desfazer')
+      await aguardar(async () => String((await lerBanco(page, 'eventos')).length), String(base.eventos), 'eventos depois do desfazer')
     })
 
     await passo('consulta no local já escolhido vira ATUALIZAR PREVISÃO (só a recalibração)', async () => {
@@ -65,8 +64,7 @@ export const fluxo = {
       igual(String((await lerBanco(page, 'consultas')).length), '1', 'consultas antes de descartar')
       const antes = (await lerBanco(page, 'eventos')).length
       await alternativa('Restaurante B').getByRole('button', { name: 'DESCARTAR CONSULTA' }).click()
-      await page.waitForTimeout(300)
-      igual(String((await lerBanco(page, 'consultas')).length), '0', 'consultas depois de descartar')
+      await aguardar(async () => String((await lerBanco(page, 'consultas')).length), '0', 'consultas depois de descartar')
       igual(String((await lerBanco(page, 'eventos')).length), String(antes), 'eventos')
     })
 
@@ -74,9 +72,7 @@ export const fluxo = {
       await consultar('Restaurante B', '13:30')
       await h.defineRelogio(page, '12:15')
       // Em trânsito, uma consulta cujo horário já passou, ou com mais de 30 min, vira "antiga".
-      await page.waitForTimeout(300)
-      const texto = await alternativa('Restaurante B').locator('.consulta-maps').innerText()
-      esperar(texto.startsWith('Consulta antiga'), `a consulta deveria estar antiga: ${texto}`)
+      await aguardar(() => alternativa('Restaurante B').locator('.consulta-maps').innerText(), (t) => t.startsWith('Consulta antiga'), 'a consulta deveria estar antiga')
     })
     await ctx.close()
   },

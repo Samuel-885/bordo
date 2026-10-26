@@ -3,7 +3,7 @@
 export const fluxo = {
   nome: 'Correções do teste no celular: trocar de viagem, encerrada, espaço do rodapé',
   async executar(h) {
-    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, irParaAba, copiarDemoParaReal, dialogoAberto } = h
+    const { aguardar, esperar, igual, passo, botao, abrirDemo, escolherCenario, irParaAba, copiarDemoParaReal, dialogoAberto } = h
     const { ctx, page } = await h.novaPagina()
 
     const naLista = async () => {
@@ -176,15 +176,13 @@ export const fluxo = {
           )
           return topo - fim
         })
-      await b.waitForTimeout(200)
-      esperar((await folga()) >= 8, `folga sem aviso: ${await folga()} px`)
+      await aguardar(folga, (f) => f >= 8, 'folga sem aviso (px)')
       // Um registro mostra o aviso DESFAZER por 8 s; a sugestão continua na tela (em viagem, depois da saída).
       await botao(b, 'Previsão', { exact: true }).click()
       await b.locator('#recalibracao-hora').fill('11:00')
       await dialogoAberto(b).getByRole('button', { name: 'Atualizar', exact: true }).click()
       await b.locator('.aviso-desfazer').waitFor()
-      await b.waitForTimeout(200)
-      esperar((await folga()) >= 8, `folga com o aviso DESFAZER: ${await folga()} px`)
+      await aguardar(folga, (f) => f >= 8, 'folga com o aviso DESFAZER (px)')
       await ctxB.close()
     })
   },

@@ -65,7 +65,7 @@ export const fluxo = {
       const { ctx, page } = await chegarEmMonlevade()
       await passo('Agora não fecha a folha sem gravar; o botão do cartão reabre direto na lista', async () => {
         await botao(page, 'Agora não').click()
-        await page.waitForTimeout(200)
+        await page.locator('dialog[open]').waitFor({ state: 'detached' })
         esperar(!(await lerBanco(page, 'eventos')).some((e) => e.tipo === 'desceram'), 'não deveria gravar a marcação')
         await botao(page, 'Marcar quem desceu').click()
         // Aberta pelo botão do cartão, a folha vai direto à lista, mesmo sem marcação anterior.
@@ -74,7 +74,7 @@ export const fluxo = {
         await dialogoAberto(page).locator('li button', { hasText: nome(3) }).click()
         await botao(page, 'Salvar (1 desceu)').click()
         await page.getByText('Desceram: 1').waitFor()
-        await page.waitForTimeout(8500) // o aviso de DESFAZER (8 s) cobre o botão do cartão
+        await botao(page, 'DESFAZER').waitFor({ state: 'hidden', timeout: 15000 }) // o aviso de DESFAZER (8 s) cobre o botão do cartão
       })
 
       await passo('uma marcação nova na mesma parada substitui a anterior (Todos = 35)', async () => {

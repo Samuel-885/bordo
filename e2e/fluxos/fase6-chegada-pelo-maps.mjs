@@ -1,7 +1,7 @@
 export const fluxo = {
   nome: 'Fase 6: escolher alternativa sem o trecho em curso (chegada pelo Google Maps)',
   async executar(h) {
-    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, lerBanco, apagarDoBanco, tiposDosEventos, dialogoAberto } = h
+    const { aguardar, esperar, igual, passo, botao, abrirDemo, escolherCenario, lerBanco, apagarDoBanco, tiposDosEventos, dialogoAberto } = h
     const { ctx, page } = await h.novaPagina()
     await abrirDemo(page)
     await escolherCenario(page, 'Recalibração pelo Google Maps', 7)
@@ -39,9 +39,8 @@ export const fluxo = {
 
     await passo('DESFAZER retira os dois eventos e B volta a "Sem tempo"', async () => {
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      igual(String((await lerBanco(page, 'eventos')).length), String(antes), 'eventos depois do desfazer')
-      esperar((await alternativa('Restaurante B').innerText()).includes('Sem tempo'), 'B deveria voltar a "Sem tempo"')
+      await aguardar(async () => String((await lerBanco(page, 'eventos')).length), String(antes), 'eventos depois do desfazer')
+      await aguardar(async () => (await alternativa('Restaurante B').innerText()).includes('Sem tempo'), true, 'B deveria voltar a "Sem tempo"')
     })
     await ctx.close()
   },

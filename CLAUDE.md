@@ -43,6 +43,7 @@ A especificação completa está em `docs/ESPECIFICACAO.md` e é a fonte da verd
 - Uma fase só termina com `npm test` e `npm run build` passando, sem erros de TypeScript.
 - Nunca faça push sem antes rodar `npm test` e `npm run build` com sucesso, nesta ordem, inclusive em correções pequenas.
 - Antes do push de cada fase, rode também `npm run e2e` (Chromium sem tela, fora do `npm test`; faz o build, sobe o preview sozinho e encerra no fim). Os fluxos ficam em `e2e/fluxos/`: ao terminar uma fase, acrescente o fluxo dela. Precisa do Chromium do Playwright (`npx playwright-core install chromium`).
+- Nos testes e2e, nunca use esperas por tempo fixo (`waitForTimeout`): espere por condição (elemento, texto ou dado no banco) com a ajuda `aguardar` de `e2e/ajudas.mjs`.
 - Commits pequenos e frequentes, mensagens em português.
 
 ## Fases

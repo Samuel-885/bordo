@@ -1,7 +1,7 @@
 export const fluxo = {
   nome: 'Fase 7: atualização (prévia, copiar, compartilhar, timeline, sem Web Share e sem internet)',
   async executar(h) {
-    const { esperar, igual, passo, botao, voltar, dialogoAberto, abrirDemo, escolherCenario, defineRelogio, lerBanco, textoPrevia } = h
+    const { aguardar, esperar, igual, passo, botao, voltar, dialogoAberto, abrirDemo, escolherCenario, defineRelogio, lerBanco, textoPrevia } = h
 
     const ESPERADO = [
       '🚌 Atualização da viagem',
@@ -24,8 +24,7 @@ export const fluxo = {
         await page.locator('#v-identificacao').fill('Unidade Demo — Ipatinga')
         await page.locator('#v-equipe').fill('2')
         await page.locator('#v-equipe').blur()
-        await page.waitForTimeout(300)
-        const viagens = await lerBanco(page, 'viagens')
+        const viagens = await aguardar(() => lerBanco(page, 'viagens'), (v) => String(v[0]?.equipe) === '2', 'equipe gravada')
         igual(String(viagens[0].equipe), '2', 'equipe gravada')
         igual(viagens[0].identificacao, 'Unidade Demo — Ipatinga', 'identificação gravada')
         await page.locator('#v-equipe').fill('0')
@@ -54,8 +53,7 @@ export const fluxo = {
         await botao(page, 'COPIAR').click()
         await page.getByText('Copiado.').waitFor()
         igual(await page.evaluate(() => navigator.clipboard.readText()), ESPERADO, 'área de transferência')
-        await page.waitForTimeout(250)
-        const eventos = await geradas(page)
+        const eventos = await aguardar(() => geradas(page), (l) => l.length === 1, 'atualizações geradas')
         igual(String(eventos.length), '1', 'atualizações geradas')
         igual(eventos[0].dados.atrasoMin, 17, 'atraso gravado')
         esperar(!JSON.stringify(eventos[0]).includes('Situação'), 'o texto vazou para o evento')
@@ -68,7 +66,7 @@ export const fluxo = {
         await page.getByText('Compartilhado.').waitFor()
         igual(JSON.stringify(await page.evaluate(() => window.__compartilhados)), JSON.stringify([{ text: 'Texto editado na prévia' }]), 'share')
         igual(String(await page.evaluate(() => window.__abertos.length)), '0', 'não abre o WhatsApp quando há share')
-        await page.waitForTimeout(250)
+        // Um evento repetido chegaria depois e faria o passo seguinte (exatamente 2) falhar.
         igual(String((await geradas(page)).length), '1', 'ainda uma atualização gerada')
       })
 
@@ -78,8 +76,7 @@ export const fluxo = {
         await page.locator('#mensagem-texto').waitFor()
         await botao(page, 'COMPARTILHAR').click()
         await page.getByText('Compartilhado.').waitFor()
-        await page.waitForTimeout(250)
-        igual(String((await geradas(page)).length), '2', 'duas atualizações geradas')
+        await aguardar(async () => String((await geradas(page)).length), '2', 'duas atualizações geradas')
         await dialogoAberto(page).getByRole('button', { name: 'Fechar', exact: true }).click()
       })
 
@@ -115,10 +112,9 @@ export const fluxo = {
 
       await passo('sem internet: o aviso ganha destaque e COPIAR continua funcionando', async () => {
         await ctx.setOffline(true)
-        await page.waitForTimeout(300)
         const aviso = page.locator('.aviso-rede')
-        esperar((await aviso.getAttribute('class')).includes('offline'), 'o aviso não ficou em destaque')
-        esperar((await aviso.innerText()).includes('Sem internet agora'), 'texto do aviso offline')
+        await aguardar(async () => (await aviso.getAttribute('class')).includes('offline'), true, 'o aviso não ficou em destaque')
+        await aguardar(() => aviso.innerText(), (t) => t.includes('Sem internet agora'), 'texto do aviso offline')
         await page.locator('#mensagem-texto').fill('Mensagem copiada offline')
         await botao(page, 'COPIAR').click()
         await page.getByText('Copiado.').waitFor()
@@ -142,12 +138,11 @@ export const fluxo = {
         await page.locator('#mensagem-texto').waitFor()
         await dialogoAberto(page).getByRole('button', { name: 'COPIAR' }).click()
         await page.getByText('Copiado.').waitFor()
-        await page.waitForTimeout(250)
+        await aguardar(async () => (await lerBanco(page, 'eventos')).filter((e) => e.tipo === 'atualizacao_gerada').length, 1, 'a atualização gerada deveria estar gravada')
         await dialogoAberto(page).getByRole('button', { name: 'Fechar', exact: true }).click()
         await botao(page, 'DESFAZER').click()
-        await page.waitForTimeout(300)
+        await aguardar(async () => !(await lerBanco(page, 'eventos')).some((e) => e.tipo === 'observacao'), true, 'a observação deveria ter sido desfeita')
         const eventos = await lerBanco(page, 'eventos')
-        esperar(!eventos.some((e) => e.tipo === 'observacao'), 'a observação deveria ter sido desfeita')
         esperar(eventos.some((e) => e.tipo === 'atualizacao_gerada'), 'a atualização gerada deveria continuar')
       })
       await ctx.close()

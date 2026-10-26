@@ -10,7 +10,7 @@ const MONLEVADE = { lat: -19.8108, lng: -43.1769 }
 export const fluxo = {
   nome: 'Mudança de roteiro: tempos calculados sozinhos (GPS e OSRM simulados)',
   async executar(h) {
-    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, lerBanco, escreverBanco, abrirItemDeMais, abrirParadas } = h
+    const { aguardar, esperar, igual, passo, botao, abrirDemo, escolherCenario, lerBanco, escreverBanco, abrirItemDeMais, abrirParadas } = h
     const origem = h.base.replace(/\/$/, '')
     const CORPO = JSON.stringify({ code: 'Ok', routes: [{ duration: 1000, distance: 12400 }] })
 
@@ -60,8 +60,9 @@ export const fluxo = {
     }
     const escolher = (page, nome) => page.locator('#mr-local').selectOption({ label: `${nome} · Cidade X` })
     const desfazer = async (page) => {
+      const antes = (await eventosReais(page)).length
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
+      await aguardar(async () => (await eventosReais(page)).length < antes, true, 'o DESFAZER deveria retirar os eventos')
     }
 
     // ---------- Em trânsito (para o almoço, saiu de Monlevade) ----------

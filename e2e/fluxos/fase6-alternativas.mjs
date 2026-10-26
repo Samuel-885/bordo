@@ -1,7 +1,7 @@
 export const fluxo = {
   nome: 'Fase 6: alternativas (classes, escolher, confirmação de inviável, desfazer, pular)',
   async executar(h) {
-    const { esperar, igual, passo, botao, voltar, abrirDemo, escolherCenario, lerBanco, tiposDosEventos } = h
+    const { aguardar, esperar, igual, passo, botao, voltar, abrirDemo, escolherCenario, lerBanco, tiposDosEventos } = h
     const { ctx, page } = await h.novaPagina()
     await abrirDemo(page)
     // Todos os passos menos a troca final: saímos de Monlevade às 10:55 e são 10:57 (caso 9).
@@ -32,9 +32,8 @@ export const fluxo = {
 
     await passo('DESFAZER volta ao Restaurante A', async () => {
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      esperar(!(await tiposDosEventos(page)).includes('troca_local'), 'a troca deveria ter sido desfeita')
-      esperar((await alternativa('Restaurante A').innerText()).includes('ESCOLHIDA'), 'A deveria voltar a ser a escolhida')
+      await aguardar(async () => !(await tiposDosEventos(page)).includes('troca_local'), true, 'a troca deveria ter sido desfeita')
+      await aguardar(async () => (await alternativa('Restaurante A').innerText()).includes('ESCOLHIDA'), true, 'A deveria voltar a ser a escolhida')
     })
 
     await passo('escolher um local inviável pede confirmação; cancelar não grava, confirmar grava', async () => {
@@ -58,11 +57,10 @@ export const fluxo = {
       await confirmacao().getByRole('button', { name: 'Pular' }).click()
       await aviso('Café pulada.')
       esperar((await tiposDosEventos(page)).includes('pular_etapa'), 'pular_etapa deveria estar gravado')
-      igual(String(await page.locator('section.cartao', { hasText: 'Lanchonete do café' }).count()), '0', 'a parada pulada sai da lista')
+      await aguardar(() => page.locator('section.cartao', { hasText: 'Lanchonete do café' }).count(), 0, 'a parada pulada sai da lista')
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      esperar(!(await tiposDosEventos(page)).includes('pular_etapa'), 'o pulo deveria ter sido desfeito')
-      esperar((await page.locator('section.cartao', { hasText: 'Lanchonete do café' }).count()) === 1, 'a parada deveria voltar')
+      await aguardar(async () => !(await tiposDosEventos(page)).includes('pular_etapa'), true, 'o pulo deveria ter sido desfeito')
+      await aguardar(() => page.locator('section.cartao', { hasText: 'Lanchonete do café' }).count(), 1, 'a parada deveria voltar')
     })
 
     await passo('a tela principal acompanha o local escolhido', async () => {

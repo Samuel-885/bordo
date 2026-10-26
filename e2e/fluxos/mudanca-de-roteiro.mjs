@@ -3,7 +3,7 @@
 export const fluxo = {
   nome: 'Mudança de roteiro em viagem (parada incluída, local novo, cancelar)',
   async executar(h) {
-    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, lerBanco, tiposDosEventos, abrirParadas, abrirTimeline, abrirItemDeMais, dialogoAberto } = h
+    const { aguardar, esperar, igual, passo, botao, abrirDemo, escolherCenario, lerBanco, tiposDosEventos, abrirParadas, abrirTimeline, abrirItemDeMais, dialogoAberto } = h
     const { ctx, page } = await h.novaPagina()
     await abrirDemo(page)
     await escolherCenario(page, 'Chegada atrasada em Monlevade')
@@ -54,8 +54,7 @@ export const fluxo = {
 
     await passo('DESFAZER retira a parada', async () => {
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      esperar(!(await tiposDosEventos(page)).includes('parada_incluida'), 'o evento deveria ter sumido')
+      await aguardar(async () => !(await tiposDosEventos(page)).includes('parada_incluida'), true, 'o evento deveria ter sumido')
     })
 
     await passo('incluir de novo e cancelar a parada incluída: ela some e o evento de cancelamento é gravado', async () => {
@@ -71,7 +70,7 @@ export const fluxo = {
       await dialogoAberto(page).getByRole('button', { name: 'Cancelar parada' }).click()
       await page.getByText('Parada incluída cancelada: Mirante do Vale.').waitFor()
       igual(await ultimos(2), 'parada_incluida,inclusao_cancelada', 'eventos')
-      esperar((await page.locator('[data-teste="parada-incluida"]').count()) === 0, 'a parada deveria ter deixado o roteiro')
+      await aguardar(() => page.locator('[data-teste="parada-incluida"]').count(), 0, 'a parada deveria ter deixado o roteiro')
       await abrirTimeline(page)
       await page.getByText('Parada incluída cancelada: Mirante do Vale').waitFor()
     })
@@ -88,8 +87,7 @@ export const fluxo = {
       igual(await ultimos(2), 'local_incluido,troca_local', 'eventos')
       esperar((await page.locator('.alternativa', { hasText: 'Mirante do Vale' }).innerText()).includes('ESCOLHIDA'), 'o local novo deveria estar escolhido')
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      esperar(!(await tiposDosEventos(page)).includes('local_incluido'), 'os dois eventos deveriam ter sumido')
+      await aguardar(async () => !(await tiposDosEventos(page)).includes('local_incluido'), true, 'os dois eventos deveriam ter sumido')
     })
 
     await passo('o plano original não foi tocado', async () => {

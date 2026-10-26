@@ -1,7 +1,7 @@
 export const fluxo = {
   nome: 'Fase 7: observação (registrar, desfazer, corrigir pela timeline)',
   async executar(h) {
-    const { esperar, igual, passo, botao, voltar, dialogoAberto, abrirDemo, escolherCenario, defineRelogio, lerBanco, textoPrevia } = h
+    const { aguardar, esperar, igual, passo, botao, voltar, dialogoAberto, abrirDemo, escolherCenario, defineRelogio, lerBanco, textoPrevia } = h
     const { ctx, page } = await h.novaPagina()
     await abrirDemo(page)
     await escolherCenario(page, 'Saída atrasada')
@@ -30,8 +30,7 @@ export const fluxo = {
 
     await passo('DESFAZER apaga a observação', async () => {
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      igual(String((await lerBanco(page, 'eventos')).filter((e) => e.tipo === 'observacao').length), '0', 'observações')
+      await aguardar(async () => String((await lerBanco(page, 'eventos')).filter((e) => e.tipo === 'observacao').length), '0', 'observações')
     })
 
     await passo('registra de novo: a timeline mostra horário e texto e a previsão não muda', async () => {

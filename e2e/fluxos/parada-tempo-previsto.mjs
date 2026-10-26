@@ -1,7 +1,7 @@
 export const fluxo = {
   nome: 'PARAMOS: café com lugar e tempo previsto (previsão ao parar, estourar, ajustar, desfazer)',
   async executar(h) {
-    const { esperar, igual, passo, botao, dialogoAberto, abrirDemo, escolherCenario, defineRelogio, lerBanco } = h
+    const { aguardar, esperar, igual, passo, botao, dialogoAberto, abrirDemo, escolherCenario, defineRelogio, lerBanco } = h
     const { ctx, page } = await h.novaPagina()
     await abrirDemo(page)
     // Seis passos: saída de Ipatinga, chegada e saída de Monlevade (09:14). Em viagem para o almoço.
@@ -71,9 +71,8 @@ export const fluxo = {
       // 10:00 + 60 min = 11:00; 12:34 + 60 = 13:34.
       esperar((await previsaoDoAlmoco()).includes('13:34'), `previsão deveria ser 13:34: ${await previsaoDoAlmoco()}`)
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      igual(String((await eventosDaParada()).filter((e) => e.dados.fase === 'previsao').length), '0', 'eventos previsao')
-      esperar((await previsaoDoAlmoco()).includes('13:09'), 'a previsão deveria voltar a 13:09')
+      await aguardar(async () => String((await eventosDaParada()).filter((e) => e.dados.fase === 'previsao').length), '0', 'eventos previsao')
+      await aguardar(previsaoDoAlmoco, (t) => t.includes('13:09'), 'a previsão deveria voltar a 13:09')
     })
 
     await passo('apagar o tempo no ajuste volta a contar até agora (10:35: 13:09) e some "Previsto"', async () => {
@@ -81,10 +80,9 @@ export const fluxo = {
       await page.locator('#parada-tempo').fill('')
       await dialogoAberto(page).getByRole('button', { name: 'Salvar' }).click()
       await page.getByText('Parada ajustada.').waitFor()
-      await page.waitForTimeout(300)
-      const cartao = (await page.locator('[aria-label="Parada não planejada"]').innerText()).replace(/\s+/g, ' ')
-      esperar(!cartao.includes('Previsto') && cartao.includes('Padaria Exemplo'), `cartão inesperado: ${cartao}`)
-      esperar((await previsaoDoAlmoco()).includes('13:09'), 'a previsão deveria seguir o relógio')
+      const cartaoDaParada = async () => (await page.locator('[aria-label="Parada não planejada"]').innerText()).replace(/\s+/g, ' ')
+      await aguardar(cartaoDaParada, (c) => !c.includes('Previsto') && c.includes('Padaria Exemplo'), 'cartão inesperado')
+      await aguardar(previsaoDoAlmoco, (t) => t.includes('13:09'), 'a previsão deveria seguir o relógio')
     })
 
     await passo('a timeline mostra "PARAMOS · Café / lanche · Padaria Exemplo" e a mensagem de atualização não leva o lugar nem o motivo', async () => {

@@ -5,7 +5,7 @@
 export const fluxo = {
   nome: 'Redesenho: abas, ação principal por situação, barra compacta, locais e modo noite',
   async executar(h) {
-    const { esperar, igual, passo, botao, irParaAba, dialogoAberto, abrirDemo, escolherCenario, defineRelogio, lerBanco, tiposDosEventos } = h
+    const { aguardar, esperar, igual, passo, botao, irParaAba, dialogoAberto, abrirDemo, escolherCenario, defineRelogio, lerBanco, tiposDosEventos } = h
     const { ctx, page } = await h.novaPagina()
     await abrirDemo(page)
     // Saída atrasada: saímos de Ipatinga às 06:47, em viagem para o ponto de embarque.
@@ -107,8 +107,7 @@ export const fluxo = {
 
     await passo('DESFAZER volta a CHEGAMOS e PARAMOS troca a ação principal para VOLTAMOS', async () => {
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      igual((await page.locator('.barra-acao .botao-principal').innerText()).trim(), 'CHEGAMOS', 'depois do desfazer')
+      await aguardar(async () => (await page.locator('.barra-acao .botao-principal').innerText()).trim(), 'CHEGAMOS', 'depois do desfazer')
       await botao(page, 'PARAMOS', { exact: true }).click()
       await dialogoAberto(page).getByRole('button', { name: 'Registrar parada' }).click()
       await page.getByRole('heading', { name: 'Quem desceu?' }).waitFor()
@@ -156,8 +155,7 @@ export const fluxo = {
       await botao(page, 'Excluir Posto fictício 2').click()
       await dialogoAberto(page).getByRole('heading', { name: 'Excluir local?' }).waitFor()
       await dialogoAberto(page).getByRole('button', { name: 'Excluir', exact: true }).click()
-      await page.waitForTimeout(300)
-      esperar(!(await lerBanco(page, 'locais')).some((l) => l.nome.startsWith('Posto fictício')), 'o local livre deveria ter sido excluído')
+      await aguardar(async () => !(await lerBanco(page, 'locais')).some((l) => l.nome.startsWith('Posto fictício')), true, 'o local livre deveria ter sido excluído')
     })
 
     await passo('selo de rede: "Online" e, sem conexão, "Sem internet"', async () => {

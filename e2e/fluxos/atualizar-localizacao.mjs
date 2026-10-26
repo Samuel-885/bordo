@@ -9,7 +9,7 @@ const DESTINO = { lat: -19.8097, lng: -43.1733 }
 export const fluxo = {
   nome: 'Atualizar pela minha localização (GPS e OSRM simulados)',
   async executar(h) {
-    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, lerBanco, escreverBanco, abrirTimeline, irParaAba, dialogoAberto } = h
+    const { aguardar, esperar, igual, passo, botao, abrirDemo, escolherCenario, lerBanco, escreverBanco, abrirTimeline, irParaAba, dialogoAberto } = h
     // Relógio real do navegador às 10:00 do dia da demonstração; depois de copiar a viagem para o espaço real, o app usa esse relógio.
     const { ctx, page } = await h.novaPagina({ relogioReal: '2026-11-14T10:00:00-03:00' })
     const origem = h.base.replace(/\/$/, '')
@@ -99,9 +99,8 @@ export const fluxo = {
 
     await passo('DESFAZER retira a recalibração', async () => {
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      igual(String((await recalibracoes()).length), '0', 'evento retirado')
-      esperar(!(await cartao().innerText()).includes('Pela localização'), 'a origem some')
+      await aguardar(async () => String((await recalibracoes()).length), '0', 'evento retirado')
+      await aguardar(async () => !(await cartao().innerText()).includes('Pela localização'), true, 'a origem some')
     })
 
     await passo('GPS impreciso (acima de 1 km): a prévia avisa "posição aproximada (±X km)" e ainda deixa confirmar', async () => {

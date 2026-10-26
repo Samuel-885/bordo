@@ -4,7 +4,7 @@
 export const fluxo = {
   nome: 'Excluir viagem: planejando, em andamento e concluída, pela lista e pela aba Mais',
   async executar(h) {
-    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, irParaAba, dialogoAberto, lerBanco } = h
+    const { aguardar, esperar, igual, passo, botao, abrirDemo, escolherCenario, irParaAba, dialogoAberto, lerBanco } = h
     const { ctx, page } = await h.novaPagina()
 
     const paraALista = async () => {
@@ -88,8 +88,7 @@ export const fluxo = {
       await botao(page, 'LOCAIS').click()
       await botao(page, 'Excluir Restaurante A').click()
       await dialogoAberto(page).getByRole('button', { name: 'Excluir' }).click()
-      await page.waitForTimeout(300)
-      esperar(!(await lerBanco(page, 'locais')).some((l) => l.nome === 'Restaurante A'), 'o local livre foi excluído')
+      await aguardar(async () => !(await lerBanco(page, 'locais')).some((l) => l.nome === 'Restaurante A'), true, 'o local livre foi excluído')
     })
 
     await ctx.close()

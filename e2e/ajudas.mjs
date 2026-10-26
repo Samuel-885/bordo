@@ -18,6 +18,27 @@ export function criarAjudas({ browser, base }) {
   const igual = (obtido, esperado, msg) =>
     esperar(obtido === esperado, `${msg}\n--- obtido:\n${obtido}\n--- esperado:\n${esperado}`)
 
+  /**
+   * Espera por condição, não por tempo: repete `ler` até devolver o valor esperado (ou, com um
+   * predicado, até ele aceitar o valor) e só então segue. Serve para tudo que o app grava ou desenha
+   * de forma assíncrona (banco, recarga da tela). Ao esgotar o prazo, falha com o último valor lido.
+   */
+  async function aguardar(ler, esperado, msg, ms = 8000) {
+    const aceita = typeof esperado === 'function' ? esperado : (v) => v === esperado
+    const limite = Date.now() + ms
+    let ultimo
+    for (;;) {
+      try {
+        ultimo = await ler()
+        if (aceita(ultimo)) return ultimo
+      } catch (e) {
+        ultimo = `(erro: ${e.message.split('\n')[0]})`
+      }
+      if (Date.now() > limite) throw new Error(`${msg}\n--- obtido (depois de ${ms} ms):\n${ultimo}\n--- esperado:\n${typeof esperado === 'function' ? '(condição)' : esperado}`)
+      await new Promise((r) => setTimeout(r, 50))
+    }
+  }
+
   async function passo(nome, fn) {
     try {
       await fn()
@@ -82,8 +103,9 @@ export function criarAjudas({ browser, base }) {
   const voltar = (page) => page.locator('header.topo button').first().click()
   /** Muda de aba pela barra de baixo: viagem, roteiro, pessoas, locais ou mais. */
   const irParaAba = async (page, aba) => {
-    await page.locator(`.barra-abas [data-aba="${aba}"]`).click()
-    await page.waitForTimeout(150)
+    const botaoDaAba = page.locator(`.barra-abas [data-aba="${aba}"]`)
+    await botaoDaAba.click()
+    await aguardar(() => botaoDaAba.getAttribute('aria-current').then((v) => v !== null).catch(() => false), true, `a aba ${aba} deveria ficar selecionada`)
   }
   /** Abre um item da aba Mais (vai para a aba antes). `nome` casa com o começo do nome do botão. */
   const abrirItemDeMais = async (page, nome) => {
@@ -129,21 +151,34 @@ export function criarAjudas({ browser, base }) {
     await page.locator('#demo-cenario').selectOption({ label: nome })
     await page.locator('.rodape-fixo').waitFor()
     const total = passos === 'todos' ? 50 : passos
+    // O texto do cenário muda a cada passo ("Passo 3 de 12…", "Cenário concluído", "Modo livre"): é o sinal de que o passo terminou.
+    const andamento = () => page.locator('.faixa-cenario p', { hasText: /^(Passo \d+ de|Cenário concluído|Modo livre)/ }).first().innerText()
     for (let i = 0; i < total; i++) {
+      const antes = await andamento()
+      if (/^(Cenário concluído|Modo livre)/.test(antes)) break
       const proximo = botao(page, 'Próximo passo')
-      if (!(await proximo.isEnabled().catch(() => false))) break
+      await aguardar(() => proximo.isEnabled(), true, 'o botão "Próximo passo" deveria ficar disponível')
       await proximo.click()
-      await page.waitForTimeout(120)
+      await aguardar(andamento, (v) => v !== antes, `o cenário deveria avançar do passo "${antes}"`)
     }
+    // O último passo ainda grava e redesenha: espera o botão voltar (ou o cenário concluir).
+    await aguardar(
+      async () => /^(Cenário concluído|Modo livre)/.test(await andamento()) || (await botao(page, 'Próximo passo').isEnabled()),
+      true,
+      'o cenário deveria terminar o passo',
+    )
     await fecharControles(page)
   }
+
+  /** O app desenha de novo depois de mudar o relógio ou os dados: dois quadros de animação cobrem o redesenho. */
+  const esperarDesenho = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
 
   async function defineRelogio(page, hora) {
     await abrirControles(page)
     await page.locator('#demo-hora').fill(hora)
     await botao(page, 'Definir', { exact: true }).click()
     await fecharControles(page)
-    await page.waitForTimeout(150)
+    await esperarDesenho(page)
   }
 
   const lerBanco = (page, loja, banco = 'bordo-demo') =>
@@ -254,7 +289,7 @@ export function criarAjudas({ browser, base }) {
   }
 
   return {
-    base, esperar, igual, passo, novaPagina, botao, voltar, irParaAba, abrirItemDeMais, abrirTimeline, abrirParadas, abrirAlternativas, rodape, dialogoAberto, abrirDemo, escolherCenario, defineRelogio,
+    base, esperar, igual, aguardar, passo, novaPagina, botao, voltar, irParaAba, abrirItemDeMais, abrirTimeline, abrirParadas, abrirAlternativas, rodape, dialogoAberto, abrirDemo, escolherCenario, defineRelogio,
     lerBanco, copiarDemoParaReal, escreverBanco, apagarDoBanco, tiposDosEventos, textoPrevia, iniciarFluxo,
     resultados, errosDaPagina,
   }

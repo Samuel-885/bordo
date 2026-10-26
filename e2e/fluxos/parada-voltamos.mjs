@@ -1,7 +1,7 @@
 export const fluxo = {
   nome: 'PARAMOS e VOLTAMOS: quem desceu, conferência "só alguns" e previsão com a duração real',
   async executar(h) {
-    const { esperar, igual, passo, botao, abrirDemo, escolherCenario, defineRelogio, lerBanco, dialogoAberto } = h
+    const { aguardar, esperar, igual, passo, botao, abrirDemo, escolherCenario, defineRelogio, lerBanco, dialogoAberto } = h
     const nome = (n) => `Passageiro fictício ${String(n).padStart(2, '0')}`
     const { ctx, page } = await h.novaPagina()
     await abrirDemo(page)
@@ -69,10 +69,9 @@ export const fluxo = {
 
     await passo('DESFAZER retira a conferência e o VOLTAMOS juntos: a parada reabre e volta a 12:54', async () => {
       await botao(page, 'DESFAZER').click()
-      await page.waitForTimeout(300)
-      igual(String((await eventos('parada_nao_planejada')).filter((e) => e.dados.fase === 'fim').length), '0', 'VOLTAMOS ainda gravado')
-      igual(String((await eventos('conferencia')).length), '0', 'conferências ainda gravadas')
-      esperar((await previsaoDoAlmoco()).includes('12:54'), `previsão deveria voltar a 12:54: ${await previsaoDoAlmoco()}`)
+      await aguardar(async () => String((await eventos('parada_nao_planejada')).filter((e) => e.dados.fase === 'fim').length), '0', 'VOLTAMOS ainda gravado')
+      await aguardar(async () => String((await eventos('conferencia')).length), '0', 'conferências ainda gravadas')
+      await aguardar(previsaoDoAlmoco, (t) => t.includes('12:54'), 'previsão deveria voltar a 12:54')
     })
     await ctx.close()
   },
