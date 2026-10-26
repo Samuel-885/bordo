@@ -26,7 +26,7 @@ import type { Consulta, DadosDaRecalibracao, DadosPlano, Etapa, Evento, Instante
 import type { BancoBordo, Espaco } from './banco'
 
 /** Marca da chegada calculada pela posição do GPS (campos aditivos da recalibração). */
-export type OrigemDaChegada = Pick<DadosDaRecalibracao, 'origem' | 'calculadoEm'>
+export type OrigemDaChegada = Pick<DadosDaRecalibracao, 'origem' | 'calculadoEm' | 'servico'>
 
 export type ResultadoInicio =
   | { ok: true; viagem: Viagem }

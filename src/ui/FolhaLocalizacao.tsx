@@ -1,5 +1,6 @@
 // "Atualizar pela minha localização": lê o GPS uma vez (ao abrir, que é o toque), calcula o tempo
-// até a próxima parada pelo OSRM (sem trânsito) e mostra a prévia. Só grava ao confirmar.
+// até a próxima parada com trânsito (TomTom) e sem (OSRM), ao mesmo tempo, e mostra a prévia. Se os
+// dois respondem, a pessoa escolhe qual gravar. Só grava ao confirmar.
 // A posição fica só na memória desta folha; nada dela é guardado. Nenhuma regra aqui: a conta e
 // os textos de erro vêm do núcleo.
 
@@ -16,21 +17,25 @@ import {
 } from '../core/localizacao'
 import type { Ponto } from '../core/rotas'
 import type { Instante } from '../core/tipos'
+import { textoDoMotivoSemTransito, textoDoServico, type MotivoSemTransito, type ServicoDeRota } from '../core/transito'
 import { agora as relogio } from '../core/relogio'
 import { rotaDaPosicaoAtual } from '../servicos/localizacao'
 import { Folha } from './componentes/Folha'
 import { formatarDuracao } from './logica/duracao'
 import { formatarHora } from './logica/horarios'
 import { textoDoErroDeRota } from './logica/servicos'
+import { lerUsarTransito } from './usarTransito'
 
 type Estado =
   | { fase: 'lendo' }
   | { fase: 'erro'; texto: string }
-  | { fase: 'previa'; previa: PreviaPorLocalizacao }
+  /** `previas`: a do TomTom primeiro, quando respondeu; todas com o mesmo horário de cálculo. */
+  | { fase: 'previa'; previas: PreviaPorLocalizacao[]; semTransito: MotivoSemTransito | null }
 
 export interface DadosDaLocalizacao {
   horario: Instante
   calculadoEm: Instante
+  servico: ServicoDeRota
 }
 
 interface Props {
@@ -51,17 +56,20 @@ const formatarFator = (f: number) => f.toLocaleString('pt-BR', { minimumFraction
 export function FolhaLocalizacao({ ocupado, erro, agora, nomeEtapa, destino, fator, onConfirmar, onCancelar, onDigitar }: Props) {
   const [estado, setEstado] = useState<Estado>({ fase: 'lendo' })
   const [aplicarFator, setAplicarFator] = useState(true)
+  const [escolhido, setEscolhido] = useState<ServicoDeRota>('tomtom')
   const tentativa = useRef(0)
   const iniciou = useRef(false)
 
   async function ler() {
     const minha = ++tentativa.current
     setEstado({ fase: 'lendo' })
-    const r = await rotaDaPosicaoAtual(destino)
+    const r = await rotaDaPosicaoAtual(destino, { usarTransito: lerUsarTransito(), modo: 'ambos' })
     if (minha !== tentativa.current) return
     if (r.ok) {
       // O horário do cálculo é o do relógio do app no momento em que a resposta chegou.
-      setEstado({ fase: 'previa', previa: criarPrevia(r.rota, r.posicao.precisaoM, relogio()) })
+      const calculadoEm = relogio()
+      setEscolhido(r.rotas[0]!.servico)
+      setEstado({ fase: 'previa', previas: r.rotas.map((x) => criarPrevia(x, r.posicao.precisaoM, calculadoEm)), semTransito: r.semTransito })
     } else if (r.erro === 'sem_rota') {
       setEstado({ fase: 'erro', texto: 'O serviço não achou rota da sua posição até lá. Digite o horário do Google Maps.' })
     } else if (ehErroDeGps(r.erro)) {
@@ -78,7 +86,8 @@ export function FolhaLocalizacao({ ocupado, erro, agora, nomeEtapa, destino, fat
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const previa = estado.fase === 'previa' ? estado.previa : null
+  const previas = estado.fase === 'previa' ? estado.previas : []
+  const previa = previas.find((p) => p.servico === escolhido) ?? previas[0] ?? null
   const vencida = previa ? previaVencida(previa, agora) : false
   const horario = previa ? chegadaDaPrevia(previa, fator, aplicarFator) : null
   const aviso = previa ? textoDaPrecisaoDoGps(previa.precisaoRuimM) : null
@@ -92,7 +101,7 @@ export function FolhaLocalizacao({ ocupado, erro, agora, nomeEtapa, destino, fat
       erro={erro}
       podeConfirmar={previa !== null && !vencida}
       onCancelar={onCancelar}
-      onConfirmar={() => previa && horario && onConfirmar({ horario, calculadoEm: previa.calculadoEm })}
+      onConfirmar={() => previa && horario && onConfirmar({ horario, calculadoEm: previa.calculadoEm, servico: previa.servico })}
     >
       {estado.fase === 'lendo' && <p className="dica" role="status" data-teste="loc-lendo">Lendo sua posição e calculando a rota…</p>}
 
@@ -109,11 +118,29 @@ export function FolhaLocalizacao({ ocupado, erro, agora, nomeEtapa, destino, fat
           <p className="linha-grande">
             Chegada em {nomeEtapa} às <span className="hora">{formatarHora(horario)}</span>
           </p>
-          <p className="dica">sem trânsito · calculado às {formatarHora(previa.calculadoEm)}</p>
+          <p className="dica" data-teste="loc-servico">{textoDoServico(previa.servico)} · calculado às {formatarHora(previa.calculadoEm)}</p>
           <p className="dica">
             Da sua posição: carro {formatarDuracao(previa.minutosCarro)}
             {aplicarFator ? ` × fator ${formatarFator(fator)} = ${formatarDuracao(minutosDaPrevia(previa, fator, true))}` : ''} · {previa.distanciaKm.toLocaleString('pt-BR')} km
           </p>
+          {previas.length > 1 ? (
+            <fieldset className="opcoes" data-teste="loc-escolha">
+              <legend className="dica">Os dois serviços responderam. Qual usar?</legend>
+              {previas.map((p) => (
+                <label key={p.servico} className="opcao">
+                  <input type="radio" name="servico-da-previa" checked={p.servico === previa.servico} onChange={() => setEscolhido(p.servico)} />
+                  <span data-teste={`loc-opcao-${p.servico}`}>
+                    Usar {p.servico === 'tomtom' ? 'TomTom (com trânsito)' : 'OSRM (sem trânsito)'}:{' '}
+                    <span className="hora">{formatarHora(chegadaDaPrevia(p, fator, aplicarFator))}</span> · carro {formatarDuracao(p.minutosCarro)}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+          ) : (
+            estado.fase === 'previa' && estado.semTransito && estado.semTransito !== 'desligado' && (
+              <p className="dica" data-teste="loc-reserva">{textoDoMotivoSemTransito(estado.semTransito)} Usado o OSRM, sem trânsito.</p>
+            )
+          )}
           {aviso && <p className="atencao-texto" role="alert" data-teste="loc-precisao">Atenção: {aviso}. O tempo pode estar errado.</p>}
           <label className="opcao">
             <input type="checkbox" checked={aplicarFator} onChange={(e) => setAplicarFator(e.target.checked)} />
@@ -128,7 +155,10 @@ export function FolhaLocalizacao({ ocupado, erro, agora, nomeEtapa, destino, fat
           <button type="button" className="botao largo" onClick={onDigitar}>Digitar o horário do Google Maps</button>
         </div>
       )}
-      <p className="dica">Só as coordenadas vão ao serviço de rotas (OpenStreetMap), agora; a posição não é guardada.</p>
+      <p className="dica">
+        Só as coordenadas vão aos serviços de rota, agora: o TomTom (trânsito, por uma função do próprio site) e o OSRM (OpenStreetMap, sem trânsito).
+        A posição não é guardada.
+      </p>
     </Folha>
   )
 }

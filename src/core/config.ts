@@ -29,6 +29,13 @@ export const CONFIG = {
   /** O OSRM público pede no máximo 1 requisição por segundo: esperamos um pouco mais entre uma e outra. */
   rotasIntervaloMs: 1100,
   servicoTempoLimiteMs: 10000,
+  /** Previsão com trânsito (TomTom, via Netlify Function do próprio site): só nos cálculos a partir da posição atual. */
+  transitoUrl: '/.netlify/functions/transito',
+  /** A função espera o TomTom por até `transitoFuncaoTempoLimiteMs`; o app espera a função um pouco mais. */
+  transitoTempoLimiteMs: 8000,
+  transitoFuncaoTempoLimiteMs: 6000,
+  /** Caixa do Brasil (graus): a função só aceita coordenadas de origem e destino dentro dela. */
+  caixaDoBrasil: { latMin: -34, latMax: 5.5, lngMin: -74, lngMax: -28 },
   buscaMaxResultados: 5,
   /** Atualizar pela localização (GPS): tempo limite da leitura da posição. */
   gpsTempoLimiteMs: 15000,

@@ -33,8 +33,8 @@ describe('mudança de roteiro: tempo dos trechos', () => {
   })
 
   it('o texto do trecho pela localização traz o horário do cálculo', () => {
-    expect(textoDoTrechoPelaLocalizacao('Até Mirante', 20, instante('2026-11-14T09:29:40-03:00'))).toBe(
-      'Até Mirante: 20 min · pela sua localização, sem trânsito, calculado às 09:29',
+    expect(textoDoTrechoPelaLocalizacao('Até Mirante', 20, instante('2026-11-14T09:29:40-03:00'), 'osrm')).toBe(
+      'Até Mirante: 20 min · pela sua localização, sem trânsito (OSRM), calculado às 09:29',
     )
   })
 

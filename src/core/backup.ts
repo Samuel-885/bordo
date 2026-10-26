@@ -284,7 +284,7 @@ const EVENTO_BASE: [Campos, Campos] = [
 ]
 
 const DADOS_DO_EVENTO: Record<string, [Campos, Campos]> = {
-  recalibracao: [{ horario }, { origem: um('localizacao'), calculadoEm: horario, automatica: verdadeiro }],
+  recalibracao: [{ horario }, { origem: um('localizacao'), calculadoEm: horario, servico: um('tomtom', 'osrm'), automatica: verdadeiro }],
   troca_local: [{ localId: texto }, {}],
   local_incluido: [{ localId: texto, trechos: listaDeTrechos }, {}],
   parada_incluida: [{ apos: texto, localId: texto, categoria: texto, permanenciaMin: numero, trechos: listaDeTrechos }, { motivo: texto }],

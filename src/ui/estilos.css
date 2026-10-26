@@ -1931,7 +1931,8 @@ button.cartao.pequeno.atencao {
   font-size: 22px;
   color: var(--texto-suave);
 }
-.item-tema {
+.item-tema,
+.item-opcao {
   padding: 8px 12px 12px;
 }
 .item-tema .segmentos {

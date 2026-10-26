@@ -4,9 +4,10 @@
 
 import { CONFIG } from '../core/config'
 import { posicaoValida, type ErroDeGps, type PosicaoGps } from '../core/localizacao'
-import type { ErroDeServico, Ponto, RotaCalculada } from '../core/rotas'
+import type { ErroDeServico, Ponto } from '../core/rotas'
+import type { MotivoSemTransito, RotaDoServico } from '../core/transito'
 import type { OpcoesDeRede } from './rede'
-import { calcularRota } from './rotas'
+import { calcularRotasDaPosicao } from './transito'
 
 /** O que usamos de `navigator.geolocation` (facilita simular). */
 export interface Geolocalizacao {
@@ -45,7 +46,8 @@ export function lerPosicao(geo: Geolocalizacao | undefined = typeof navigator ==
 }
 
 export type ResultadoDaLocalizacao =
-  | { ok: true; posicao: PosicaoGps; rota: RotaCalculada }
+  /** `rota` é a preferida (TomTom, se respondeu); `rotas` traz as que responderam; `semTransito` diz por que o TomTom não entrou. */
+  | { ok: true; posicao: PosicaoGps; rota: RotaDoServico; rotas: RotaDoServico[]; semTransito: MotivoSemTransito | null }
   | { ok: false; erro: ErroDeGps }
   | { ok: false; erro: ErroDeServico | 'sem_rota' }
 
@@ -53,6 +55,10 @@ export interface OpcoesDaLocalizacao extends OpcoesDeRede {
   geo?: Geolocalizacao
   /** Padrão: `navigator.onLine`. */
   online?: boolean
+  /** Preferência "Usar trânsito (TomTom)" de Mais. Padrão desligada aqui (só o OSRM); a tela passa a preferência. */
+  usarTransito?: boolean
+  /** "ambos": TomTom e OSRM ao mesmo tempo (botão, para comparar). Padrão "reserva": o OSRM só se o TomTom falhar. */
+  modo?: 'ambos' | 'reserva'
 }
 
 async function rotaDaPosicao(
@@ -65,13 +71,18 @@ async function rotaDaPosicao(
   if (!gps.ok) return gps
   // Posição imprecisa demais: nem chama a rede.
   if (precisaoMaximaM !== undefined && gps.posicao.precisaoM > precisaoMaximaM) return { ok: false, erro: 'impreciso' }
-  const r = await calcularRota({ lat: gps.posicao.lat, lng: gps.posicao.lng }, destino, opcoes)
-  return r.ok ? { ok: true, posicao: gps.posicao, rota: r.rota } : r
+  const { geo: _geo, online: _online, usarTransito, modo, ...rede } = opcoes
+  const r = await calcularRotasDaPosicao({ lat: gps.posicao.lat, lng: gps.posicao.lng }, destino, {
+    ...rede,
+    usarTransito: usarTransito ?? false,
+    modo: modo ?? 'reserva',
+  })
+  return r.ok ? { ok: true, posicao: gps.posicao, rota: r.rotas[0]!, rotas: r.rotas, semTransito: r.semTransito } : r
 }
 
 /**
  * Posição atual → próxima parada. Sem internet, nem pede o GPS. Só as coordenadas (a posição e a
- * do destino) vão ao OSRM; nada é guardado.
+ * do destino) vão aos serviços de rota (TomTom pela função do site e/ou OSRM); nada é guardado.
  */
 export async function rotaDaPosicaoAtual(destino: Ponto, opcoes: OpcoesDaLocalizacao = {}): Promise<ResultadoDaLocalizacao> {
   return (await rotaDaPosicao(destino, opcoes)) as ResultadoDaLocalizacao

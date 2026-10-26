@@ -32,6 +32,7 @@ import type { DadosPlano, Evento, Instante, Local, Trecho } from '../core/tipos'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 import { novoId, type Repositorio } from '../data/repositorio'
 import { rotaDaPosicaoAtual } from '../servicos/localizacao'
+import { lerUsarTransito } from './usarTransito'
 import { calcularRota } from '../servicos/rotas'
 import { CampoHora } from './componentes/CampoHora'
 import { Hora } from './componentes/Hora'
@@ -278,7 +279,7 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
   const trechoAte = parAte && !comMaps && pernaAte ? trechoDaPerna(parAte, pernaAte) : null
   const trechoDe = parDe && pernaDe ? trechoDaPerna(parDe, pernaDe) : null
   const trechos: Trecho[] = [trechoAte, trechoDe].filter((t): t is Trecho => t !== null)
-  const origemDaChegada = viaLocalizacao && previaLoc ? ({ origem: 'localizacao', calculadoEm: previaLoc.calculadoEm } as const) : undefined
+  const origemDaChegada = viaLocalizacao && previaLoc ? ({ origem: 'localizacao', calculadoEm: previaLoc.calculadoEm, servico: previaLoc.servico } as const) : undefined
   const permanenciaMin = Number(permanencia)
   const motivoAparado = motivo.trim()
 
@@ -319,7 +320,7 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
     const falhou = (texto: string) => setSituacao((x) => ({ ...x, [lado]: { lendo: false, erro: `${titulo_(lado)}: não foi calculado. ${texto} ${aoInformar(lado)}` } }))
     try {
       if (emTransito) {
-        const r = await rotaDaPosicaoAtual(destino.coordenadas, { sinal: controle.signal })
+        const r = await rotaDaPosicaoAtual(destino.coordenadas, { sinal: controle.signal, usarTransito: lerUsarTransito(), modo: 'reserva' })
         if (minha !== versao.current[lado]) return
         if (!r.ok) {
           // O texto do GPS já manda informar o horário do Google Maps.
@@ -501,7 +502,7 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
                 titulo={titulo_('ate')}
                 textoCalculado={
                   emCurso
-                    ? previaLoc && textoDoTrechoPelaLocalizacao(titulo_('ate'), minutosDaPrevia(previaLoc, fator, true), previaLoc.calculadoEm)
+                    ? previaLoc && textoDoTrechoPelaLocalizacao(titulo_('ate'), minutosDaPrevia(previaLoc, fator, true), previaLoc.calculadoEm, previaLoc.servico)
                     : ateRota && textoDoTrechoPelaRota(titulo_('ate'), ateRota, fator)
                 }
                 detalhe={
@@ -567,7 +568,8 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
               <CamposDeHorasEMinutos id="mr-de" valor={manualDe} onMudar={setManualDe} />
             </BlocoDoTrecho>
             <p className="dica">
-              Rota: serviço gratuito do OpenStreetMap, sem trânsito. Só as coordenadas vão ao serviço, agora; a sua posição não é guardada.
+              Trecho em curso: trânsito pelo TomTom (função do próprio site), com reserva no OSRM (OpenStreetMap, sem trânsito). Outros trechos: rota do OSRM, sem trânsito.
+              Só as coordenadas vão aos serviços, agora; a sua posição não é guardada.
             </p>
             {incluir && (plano.etapas.find((e) => e.id === pernas.seguinte.etapaId)?.alternativas.length ?? 0) > 0 && (
               <p className="dica">

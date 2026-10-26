@@ -31,6 +31,7 @@ interface Recalibracao {
   horario: Instante
   informadoEm: Instante
   pelaLocalizacaoEm?: Instante
+  servico?: 'tomtom' | 'osrm'
   automatica?: true
   /** Ordem de gravação (desempata o mesmo minuto). */
   ordem: number
@@ -89,6 +90,7 @@ function indexarEventos(eventos: readonly Evento[]): Fatos {
           horario: e.dados.horario,
           informadoEm: e.horarioFato,
           ...(e.dados.origem === 'localizacao' && e.dados.calculadoEm ? { pelaLocalizacaoEm: e.dados.calculadoEm } : {}),
+          ...(e.dados.origem === 'localizacao' && e.dados.calculadoEm && e.dados.servico ? { servico: e.dados.servico } : {}),
           ...(e.dados.origem === 'localizacao' && e.dados.automatica ? { automatica: true as const } : {}),
           ordem: ordemDeGravacao(e, posicao.get(e)!),
         })
@@ -219,6 +221,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
     recalibradoEm?: Instante,
     pelaLocalizacaoEm?: Instante,
     automatica?: true,
+    servico?: 'tomtom' | 'osrm',
   ): HorarioPrevisto | null => {
     if (valor === null) return null
     if (agora && chave(etapa, m) === chaveRelogio && antes(valor, agora)) {
@@ -227,6 +230,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
       recalibradoEm = undefined
       pelaLocalizacaoEm = undefined
       automatica = undefined
+      servico = undefined
     }
     const orig = original?.etapas.find((o) => o.etapaId === etapa.id)?.[m] ?? null
     return {
@@ -234,6 +238,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
       origem,
       ...(recalibradoEm ? { recalibradoEm } : {}),
       ...(pelaLocalizacaoEm ? { pelaLocalizacaoEm } : {}),
+      ...(pelaLocalizacaoEm && servico ? { servicoDaLocalizacao: servico } : {}),
       ...(pelaLocalizacaoEm && automatica ? { automatica } : {}),
       atrasoMin: orig ? atrasoMin(valor, orig) : null,
     }
@@ -283,7 +288,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
           valor = somarMinutos(valor, tempoParadoMin(fatos, etapa.id, agora, recal?.informadoEm ?? null))
         }
         chegada = recal
-          ? horario(etapa, 'chegada', valor, 'recalibracao', recal.informadoEm, recal.pelaLocalizacaoEm, recal.automatica)
+          ? horario(etapa, 'chegada', valor, 'recalibracao', recal.informadoEm, recal.pelaLocalizacaoEm, recal.automatica, recal.servico)
           : horario(etapa, 'chegada', valor, 'calculado')
       }
     }

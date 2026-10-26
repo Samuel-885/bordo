@@ -116,6 +116,8 @@ export const ev = {
     criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado } }),
   recalibracaoPelaLocalizacao: (etapaId: string, informado: Instante, calculadoEm: Instante, horario: Instante) =>
     criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado, origem: 'localizacao', calculadoEm } }),
+  recalibracaoComServico: (etapaId: string, informado: Instante, calculadoEm: Instante, horario: Instante, servico: 'tomtom' | 'osrm') =>
+    criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado, origem: 'localizacao', calculadoEm, servico } }),
   recalibracaoAutomatica: (etapaId: string, informado: Instante, calculadoEm: Instante, horario: Instante) =>
     criar(horario, { tipo: 'recalibracao', etapaId, dados: { horario: informado, origem: 'localizacao', calculadoEm, automatica: true } }),
   parada: (

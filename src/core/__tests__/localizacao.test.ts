@@ -20,7 +20,7 @@ import { instante } from '../tempo'
 import { validarRecalibracao } from '../recalibracao'
 import { ETAPAS, EVENTOS_CASO_3, LOCAIS, PLANO, congelar, esperarHorario, etapaDe, ev, h } from './fixtures'
 
-const ROTA = { minutosCarro: 17, distanciaKm: 12.4 }
+const ROTA = { minutosCarro: 17, distanciaKm: 12.4, servico: 'osrm' as const }
 
 describe('localizacao: prévia', () => {
   it('chegada = momento do cálculo (minuto cheio) + tempo de carro × fator ônibus, para cima', () => {

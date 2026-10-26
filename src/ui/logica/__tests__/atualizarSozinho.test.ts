@@ -23,8 +23,8 @@ describe('timeline e origem da previsão', () => {
   it('o cartão diz "atualizado pela localização às 10:42" só quando a previsão vigente é automática', () => {
     const chegada = (eventos: typeof EVENTOS_CASO_3, agora: string) =>
       etapaDe(calcularEstado(PLANO, original, eventos, h(agora)), 'almoco').chegada
-    expect(textoDaOrigemDaPrevisao(chegada([...EVENTOS_CASO_3, automatica], '11:41'))).toBe('Atualizado pela localização às 11:40, sem trânsito')
-    expect(textoDaOrigemDaPrevisao(chegada([...EVENTOS_CASO_3, doBotao], '11:46'))).toBe('Pela localização, sem trânsito, calculado às 11:45')
+    expect(textoDaOrigemDaPrevisao(chegada([...EVENTOS_CASO_3, automatica], '11:41'))).toBe('Atualizado pela localização às 11:40, sem trânsito (OSRM)')
+    expect(textoDaOrigemDaPrevisao(chegada([...EVENTOS_CASO_3, doBotao], '11:46'))).toBe('Pela localização, sem trânsito (OSRM), calculado às 11:45')
   })
 })
 

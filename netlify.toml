@@ -5,6 +5,10 @@
 [build.environment]
   NODE_VERSION = "24"
 
+# Repasse ao TomTom (previsão com trânsito). A chave é a variável de ambiente TOMTOM_API_KEY do Netlify.
+[functions]
+  directory = "netlify/functions"
+
 # O service worker e a página nunca ficam em cache do navegador: assim a versão nova é
 # detectada. Os arquivos com hash no nome (pasta assets) podem ficar para sempre.
 [[headers]]

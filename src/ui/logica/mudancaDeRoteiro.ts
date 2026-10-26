@@ -4,6 +4,7 @@
 import { aplicarFatorOnibus } from '../../core/trechos'
 import type { ParDeTrecho } from '../../core/trechos'
 import type { Instante, Trecho } from '../../core/tipos'
+import { textoDoServico, type ServicoDeRota } from '../../core/transito'
 import { formatarDuracao, minutosDeHorasEMinutos } from './duracao'
 import { formatarHora } from './horarios'
 
@@ -34,9 +35,9 @@ export function textoDoTrechoPelaRota(titulo: string, perna: Extract<Perna, { ti
   return `${titulo}: ${formatarDuracao(minutosDeOnibusDaRota(perna, fator))} · pela rota (carro ${formatarDuracao(perna.minutosCarro)} × ${formatarFator(fator)})`
 }
 
-/** "Até Mirante: 20 min · pela sua localização, sem trânsito, calculado às 09:29". */
-export function textoDoTrechoPelaLocalizacao(titulo: string, minutosOnibus: number, calculadoEm: Instante): string {
-  return `${titulo}: ${formatarDuracao(minutosOnibus)} · pela sua localização, sem trânsito, calculado às ${formatarHora(calculadoEm)}`
+/** "Até Mirante: 20 min · pela sua localização, sem trânsito (OSRM), calculado às 09:29". */
+export function textoDoTrechoPelaLocalizacao(titulo: string, minutosOnibus: number, calculadoEm: Instante, servico: ServicoDeRota): string {
+  return `${titulo}: ${formatarDuracao(minutosOnibus)} · pela sua localização, ${textoDoServico(servico)}, calculado às ${formatarHora(calculadoEm)}`
 }
 
 /** Explica o que a mudança custa: "+50 min no destino", "sem efeito no destino", "−5 min no destino". */

@@ -56,7 +56,7 @@ describe('rotaDaPosicaoAtual (GPS + OSRM)', () => {
   it('manda só as coordenadas da posição e do destino, sem cookies, e devolve a rota', async () => {
     const buscador = vi.fn<Buscador>(async () => resposta(osrmOk(16 * 60 + 5, 12_400)))
     const r = await rotaDaPosicaoAtual(DESTINO, { geo: gpsOk(), buscador, online: true })
-    expect(r).toEqual({ ok: true, posicao: { lat: -19.4687, lng: -42.5367, precisaoM: 25 }, rota: { minutosCarro: 17, distanciaKm: 12.4 } })
+    expect(r).toEqual({ ok: true, posicao: { lat: -19.4687, lng: -42.5367, precisaoM: 25 }, rota: { minutosCarro: 17, distanciaKm: 12.4, servico: 'osrm' }, rotas: [{ minutosCarro: 17, distanciaKm: 12.4, servico: 'osrm' }], semTransito: 'desligado' })
     const url = buscador.mock.calls[0]![0]
     expect(url).toBe(`${CONFIG.rotasUrl}/-42.5367,-19.4687;-43.1733,-19.8097?overview=false`)
     expect(buscador.mock.calls[0]![1]).toMatchObject({ credentials: 'omit' })

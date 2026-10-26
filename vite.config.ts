@@ -35,12 +35,14 @@ export default defineConfig({
         // O jsPDF só usa estes três (conversão de HTML e SVG) fora do que o relatório precisa: ficam fora do cache.
         globIgnores: ['**/html2canvas-*.js', '**/purify.es-*.js', '**/index.es-*.js'],
         navigateFallback: 'index.html',
+        // A função de trânsito nunca pode ser respondida com a página do app.
+        navigateFallbackDenylist: [/^\/\.netlify\//],
         cleanupOutdatedCaches: true,
       },
     }),
   ],
   server: { host: '0.0.0.0' },
   test: {
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'netlify/**/*.test.ts'],
   },
 })

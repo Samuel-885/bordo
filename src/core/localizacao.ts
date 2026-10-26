@@ -7,6 +7,7 @@ import type { Ponto } from './rotas'
 import { aplicarFatorOnibus } from './trechos'
 import { diferencaMin, somarMinutos, truncarMinuto } from './tempo'
 import type { Instante } from './tipos'
+import type { ServicoDeRota } from './transito'
 
 /** Posição lida do GPS. `precisaoM` é o raio de incerteza informado pelo aparelho. */
 export interface PosicaoGps extends Ponto {
@@ -43,12 +44,14 @@ export interface PreviaPorLocalizacao {
   calculadoEm: Instante
   minutosCarro: number
   distanciaKm: number
+  /** Quem calculou: o TomTom (com trânsito) ou o OSRM (sem). */
+  servico: ServicoDeRota
   /** Raio de incerteza do GPS quando passa do limite ("posição aproximada"); vazio se está bom. */
   precisaoRuimM: number | null
 }
 
 export function criarPrevia(
-  rota: { minutosCarro: number; distanciaKm: number },
+  rota: { minutosCarro: number; distanciaKm: number; servico: ServicoDeRota },
   precisaoM: number,
   agora: Instante,
 ): PreviaPorLocalizacao {
@@ -56,6 +59,7 @@ export function criarPrevia(
     calculadoEm: truncarMinuto(agora),
     minutosCarro: rota.minutosCarro,
     distanciaKm: rota.distanciaKm,
+    servico: rota.servico,
     precisaoRuimM: precisaoM > CONFIG.gpsPrecisaoRuimM ? precisaoM : null,
   }
 }

@@ -10,6 +10,7 @@ import { GrupoDadosEAparelho, GrupoDeMenu, ItemDeMenu as Item } from '../compone
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
 import { AtualizarSozinho } from './AtualizarSozinho'
+import { UsarTransito } from './UsarTransito'
 import type { AtualizacaoAutomatica } from './useAtualizacaoAutomatica'
 import type { Registros } from './useRegistros'
 
@@ -56,6 +57,11 @@ export function AbaMais({ c, d, r, auto, onModelos, onRelatorio, onBackup, onTro
         {!concluida && (
           <li className="item-tema">
             <AtualizarSozinho auto={auto} />
+          </li>
+        )}
+        {!concluida && (
+          <li className="item-opcao">
+            <UsarTransito />
           </li>
         )}
         {podePular && <Item titulo="Pular etapa" detalhe={d.proxima ? d.nome(d.proxima) : undefined} onClick={() => r.abrir('pular')} />}

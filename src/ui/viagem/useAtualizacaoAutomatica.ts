@@ -19,6 +19,7 @@ import type { Instante } from '../../core/tipos'
 import { rotaDaPosicaoPrecisa } from '../../servicos/localizacao'
 import { mensagemDeErroDoBanco } from '../../data/avisoBanco'
 import { useAtualizarSozinho } from '../atualizarSozinho'
+import { lerUsarTransito } from '../usarTransito'
 import { useWakeLock } from '../useWakeLock'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
@@ -88,7 +89,7 @@ export function useAtualizacaoAutomatica(c: ContextoDaViagem, d: Derivados, aoRe
       const etapaId = inicio.d.proxima
       const destino = inicio.d.localDe(etapaId)?.coordenadas
       if (!etapaId || !destino) return
-      const r = await rotaDaPosicaoPrecisa(destino)
+      const r = await rotaDaPosicaoPrecisa(destino, { usarTransito: lerUsarTransito(), modo: 'reserva' })
       const agoraDoCiclo = relogio()
       // O que mudou durante a leitura (CHEGAMOS, SAÍMOS, desligar, segundo plano) vale mais que ela.
       const atual = recente.current
@@ -131,7 +132,7 @@ export function useAtualizacaoAutomatica(c: ContextoDaViagem, d: Derivados, aoRe
       const gravado = await atual.c.repo.registrarEvento(atual.c.plano.viagem.id, {
         tipo: 'recalibracao',
         etapaId,
-        dados: { horario: decisao.horario, origem: 'localizacao', calculadoEm: decisao.calculadoEm, automatica: true },
+        dados: { horario: decisao.horario, origem: 'localizacao', calculadoEm: decisao.calculadoEm, servico: decisao.servico, automatica: true },
       })
       if (!gravado.ok) {
         setEstado((e) => ({ ...e, falha: gravado.motivo, tentaEm: proximoEm.current }))

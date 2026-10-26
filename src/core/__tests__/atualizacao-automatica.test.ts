@@ -80,7 +80,7 @@ describe('atualização automática: quando grava e quando não grava', () => {
   const decidir = (minutosCarro: number, precisaoM: number, previsao = previsaoAtual, quando = agora) =>
     decidirGravacao({
       plano: PLANO, original, eventos: EVENTOS_CASO_3, etapaId: 'almoco',
-      previa: criarPrevia({ minutosCarro, distanciaKm: 80 }, precisaoM, quando),
+      previa: criarPrevia({ minutosCarro, distanciaKm: 80, servico: 'osrm' }, precisaoM, quando),
       fator: 1.15, previsaoAtual: previsao, agora: quando,
     })
 
@@ -117,7 +117,7 @@ describe('atualização automática: quando grava e quando não grava', () => {
     // calculado às 11:00 com 10 min de carro → 11:12, anterior ao agora (11:40)
     const d = decidirGravacao({
       plano: PLANO, original, eventos: EVENTOS_CASO_3, etapaId: 'almoco',
-      previa: criarPrevia({ minutosCarro: 10, distanciaKm: 5 }, 20, h('11:00')),
+      previa: criarPrevia({ minutosCarro: 10, distanciaKm: 5, servico: 'osrm' }, 20, h('11:00')),
       fator: 1.15, previsaoAtual, agora,
     })
     expect(d).toEqual({ grava: false, motivo: 'travada' })

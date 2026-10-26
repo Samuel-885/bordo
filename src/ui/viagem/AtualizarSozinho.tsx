@@ -17,8 +17,8 @@ export function AtualizarSozinho({ auto }: { auto: AtualizacaoAutomatica }) {
         <span>Atualizar sozinho a cada {CONFIG.atualizacaoAutomaticaMin} minutos</span>
       </label>
       <p className="dica">
-        Só funciona com o app aberto na tela, que fica acesa. A cada atualização, só as coordenadas vão ao serviço de rotas
-        (OpenStreetMap); a posição não é guardada. Para voltar atrás, desligue ou informe outro horário.
+        Só funciona com o app aberto na tela, que fica acesa. A cada atualização, só as coordenadas vão ao serviço de trânsito
+        (TomTom, por uma função do próprio site) ou, se ele falhar ou estiver desligado em Mais, ao OSRM (OpenStreetMap); a posição não é guardada. Para voltar atrás, desligue ou informe outro horário.
       </p>
       {linhas.map((l) => (
         <p key={l} className="dica" role="status" data-teste="atualizar-sozinho-estado">{l}</p>

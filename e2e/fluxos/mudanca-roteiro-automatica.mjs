@@ -27,6 +27,8 @@ export const fluxo = {
         // 16 min 40 s de carro → 17 min (para cima) → × 1,15 = 20 min.
         return rota.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: CORPO })
       })
+      // Função de trânsito fora do ar: vale o OSRM, como na versão anterior (o TomTom tem fluxo próprio).
+      await ctx.route('**/.netlify/functions/transito', (rota) => rota.fulfill({ status: 502, contentType: 'application/json', body: '{"erro":"fora"}' }))
       await abrirDemo(page)
       await escolherCenario(page, cenario, passos)
       const locais = await lerBanco(page, 'locais')
@@ -75,7 +77,7 @@ export const fluxo = {
       await page.locator('[data-teste="mr-ate-calculado"]').waitFor()
       await page.locator('[data-teste="mr-de-calculado"]').waitFor()
       const ate = await texto(page.locator('[data-teste="mr-ate-calculado"]'))
-      esperar(/^Até Mirante do Vale: 20 min · pela sua localização, sem trânsito, calculado às 10:0\d$/.test(ate), `até: ${ate}`)
+      esperar(/^Até Mirante do Vale: 20 min · pela sua localização, sem trânsito \(OSRM\), calculado às 10:0\d$/.test(ate), `até: ${ate}`)
       const de = await texto(page.locator('[data-teste="mr-de-calculado"]'))
       esperar(/^De Mirante do Vale até .+: 20 min · pela rota \(carro 17 min × 1,15\)$/.test(de), `de: ${de}`)
       igual(String(pedidos.length), '2', 'uma chamada por trecho')

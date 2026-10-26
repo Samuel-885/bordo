@@ -25,6 +25,7 @@ export const fluxo = {
       return rota.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify({ code: 'Ok', routes: [{ duration: 1000, distance: 12400 }] }) })
     })
 
+    await ctx.route('**/.netlify/functions/transito', (rota) => rota.fulfill({ status: 502, contentType: 'application/json', body: '{"erro":"fora"}' })) // função fora: vale o OSRM; o TomTom tem fluxo próprio
     const recalibracoes = async () => (await lerBanco(page, 'eventos', 'bordo')).filter((e) => e.tipo === 'recalibracao')
     const cartao = () => page.locator('[aria-label="Próxima parada"]')
     const previa = () => page.locator('[data-teste="loc-previa"]')
@@ -60,12 +61,12 @@ export const fluxo = {
       await dialogoAberto(page).getByRole('button', { name: 'Cancelar' }).click()
     })
 
-    await passo('a prévia mostra chegada, "sem trânsito", hora do cálculo e aplica o fator por padrão', async () => {
+    await passo('a prévia mostra chegada, "sem trânsito (OSRM)", hora do cálculo e aplica o fator por padrão', async () => {
       await abrirFolha()
       await previa().waitFor()
       const texto = (await previa().innerText()).replace(/\s+/g, ' ')
       esperar(/Chegada em .* às 10:20/.test(texto), `prévia: ${texto}`)
-      esperar(texto.includes('sem trânsito · calculado às 10:0'), `prévia: ${texto}`)
+      esperar(texto.includes('sem trânsito (OSRM) · calculado às 10:0'), `prévia: ${texto}`)
       esperar(texto.includes('carro 17 min × fator 1,15 = 20 min'), `prévia: ${texto}`)
       esperar(await dialogoAberto(page).getByLabel(/Aplicar fator ônibus/).isChecked(), 'o fator deveria vir ligado')
       igual(String(await recalibracoes().then((l) => l.length)), '0', 'nada é gravado antes de confirmar')
@@ -89,12 +90,13 @@ export const fluxo = {
       const [e] = await recalibracoes()
       igual(e.etapaId, 'demo-almoco', 'etapa')
       igual(e.dados.origem, 'localizacao', 'origem')
+      igual(e.dados.servico, 'osrm', 'serviço')
       esperar(/T10:0\d:00/.test(e.dados.calculadoEm) && /T10:20:00/.test(e.dados.horario), `dados: ${JSON.stringify(e.dados)}`)
       esperar(!JSON.stringify(e).includes('19.4687') && !JSON.stringify(e).includes('42.5367'), 'a posição do GPS não pode ser guardada')
-      esperar(/Pela localização, sem trânsito, calculado às 10:0\d/.test(await cartao().innerText()), 'a origem aparece no cartão')
+      esperar(/Pela localização, sem trânsito \(OSRM\), calculado às 10:0\d/.test(await cartao().innerText()), 'a origem aparece no cartão')
       await abrirTimeline(page)
       await page.getByText(/Saímos de/).first().waitFor()
-      igual(String(await page.getByText(/Pela localização, sem trânsito/).count()), '0', 'a timeline não mostra a atualização')
+      igual(String(await page.getByText(/Pela localização, sem trânsito \(OSRM\)/).count()), '0', 'a timeline não mostra a atualização')
       await irParaAba(page, 'viagem')
     })
 

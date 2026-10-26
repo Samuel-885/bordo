@@ -8,6 +8,7 @@ import { modoDaRecalibracao, validarRecalibracao } from './recalibracao'
 import { situacaoDaViagem } from './registro'
 import { diferencaMin, somarMinutos } from './tempo'
 import type { DadosPlano, Evento, Instante, PlanoOriginal } from './tipos'
+import type { ServicoDeRota } from './transito'
 
 export type MotivoDePausa = 'parado' | 'parada_nao_planejada' | 'sem_coordenadas'
 
@@ -55,7 +56,7 @@ export function textoDaPausa(motivo: MotivoDePausa, nomeLocalParado?: string | n
 export type MotivoDeNaoGravar = 'impreciso' | 'travada' | 'diferenca_pequena'
 
 export type DecisaoDeGravacao =
-  | { grava: true; horario: Instante; calculadoEm: Instante }
+  | { grava: true; horario: Instante; calculadoEm: Instante; servico: ServicoDeRota }
   | { grava: false; motivo: MotivoDeNaoGravar }
 
 /**
@@ -81,7 +82,7 @@ export function decidirGravacao(entrada: {
   if (previsaoAtual && Math.abs(diferencaMin(horario, previsaoAtual)) < CONFIG.atualizacaoAutomaticaDiferencaMinMin) {
     return { grava: false, motivo: 'diferenca_pequena' }
   }
-  return { grava: true, horario, calculadoEm: previa.calculadoEm }
+  return { grava: true, horario, calculadoEm: previa.calculadoEm, servico: previa.servico }
 }
 
 /** Motivo curto da falha de um ciclo, para o cartão ("sem internet", "GPS sem sinal"...). */

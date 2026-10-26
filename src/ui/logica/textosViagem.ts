@@ -5,6 +5,7 @@ import { emOrdemDeGravacao } from '../../core/eventos'
 import type { ABordo } from '../../core/conferencia'
 import { rotuloHorario, type Situacao } from '../../core/registro'
 import { diferencaMin, ordenarPor } from '../../core/tempo'
+import { servicoDoEvento, textoDoServico } from '../../core/transito'
 import type { Conferencia, DadosPlano, DuracaoTrecho, Etapa, Evento, HorarioPrevisto, Instante, Local, Passageiro, PlanoOriginal } from '../../core/tipos'
 import { formatarDuracao } from './duracao'
 import { formatarHora } from './horarios'
@@ -41,8 +42,9 @@ export const textoDaSituacao = (s: Situacao, nomeLocal: string | null): string =
 /** "Google Maps, informado às 11:40" quando a previsão veio de recalibração. */
 export function textoDaOrigemDaPrevisao(h: HorarioPrevisto | null | undefined): string | null {
   if (h?.origem !== 'recalibracao' || !h.recalibradoEm) return null
-  if (h.pelaLocalizacaoEm && h.automatica) return `Atualizado pela localização às ${formatarHora(h.pelaLocalizacaoEm)}, sem trânsito`
-  if (h.pelaLocalizacaoEm) return `Pela localização, sem trânsito, calculado às ${formatarHora(h.pelaLocalizacaoEm)}`
+  const servico = textoDoServico(servicoDoEvento(h.servicoDaLocalizacao))
+  if (h.pelaLocalizacaoEm && h.automatica) return `Atualizado pela localização às ${formatarHora(h.pelaLocalizacaoEm)}, ${servico}`
+  if (h.pelaLocalizacaoEm) return `Pela localização, ${servico}, calculado às ${formatarHora(h.pelaLocalizacaoEm)}`
   return `Google Maps, informado às ${formatarHora(h.recalibradoEm)}`
 }
 

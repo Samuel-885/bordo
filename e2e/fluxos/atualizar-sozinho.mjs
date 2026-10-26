@@ -40,6 +40,8 @@ export const fluxo = {
         if (modo.osrm === 'fora') return rota.fulfill({ status: 503, headers: CORS, body: 'indisponível' })
         return rota.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify({ code: 'Ok', routes: [{ duration: modo.duracao, distance: 12400 }] }) })
       })
+      // Função de trânsito fora do ar: vale o OSRM, como na versão anterior (o TomTom tem fluxo próprio).
+      await ctx.route('**/.netlify/functions/transito', (rota) => rota.fulfill({ status: 502, contentType: 'application/json', body: '{"erro":"fora"}' }))
       await abrirDemo(page)
       await escolherCenario(page, cenario, passos)
       const etapas = await lerBanco(page, 'etapas')
@@ -101,7 +103,7 @@ export const fluxo = {
     })
 
     await passo('o cartão diz "atualizado pela localização" e a última atualização; sem DESFAZER nem aviso', async () => {
-      await aguardar(() => cartao(page).innerText().then((t) => /Atualizado pela localização às 10:0\d, sem trânsito/.test(t)), true, 'origem da previsão no cartão')
+      await aguardar(() => cartao(page).innerText().then((t) => /Atualizado pela localização às 10:0\d, sem trânsito \(OSRM\)/.test(t)), true, 'origem da previsão no cartão')
       await aguardar(() => estado(page), (t) => /Última atualização às 10:0\d/.test(t), 'última atualização')
       igual(String(await botao(page, 'DESFAZER').count()), '0', 'DESFAZER não aparece')
       igual(String(await page.getByText(/Previsão atualizada para/).count()), '0', 'nenhum aviso de registro')

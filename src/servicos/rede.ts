@@ -13,6 +13,8 @@ export interface OpcoesDeRede {
   tempoLimiteMs?: number
   /** Cancelamento pedido pela pessoa. */
   sinal?: AbortSignal
+  /** Com corpo, o pedido é um POST em JSON (só a função de trânsito usa). */
+  corpo?: unknown
 }
 
 export type RespostaDeRede =
@@ -48,7 +50,17 @@ export async function pedirJson(url: string, opcoes: OpcoesDeRede = {}): Promise
     controle.abort()
   }, opcoes.tempoLimiteMs ?? CONFIG.servicoTempoLimiteMs)
   try {
-    const r = await buscador(url, { signal: controle.signal, credentials: 'omit', headers: { Accept: 'application/json' } })
+    const init: RequestInit =
+      opcoes.corpo === undefined
+        ? { signal: controle.signal, credentials: 'omit', headers: { Accept: 'application/json' } }
+        : {
+            method: 'POST',
+            signal: controle.signal,
+            credentials: 'omit',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify(opcoes.corpo),
+          }
+    const r = await buscador(url, init)
     const json: unknown = await r.json().catch(() => null)
     if (!r.ok) return { ok: false, erro: erroDoStatus(r.status), status: r.status, json }
     return { ok: true, json }

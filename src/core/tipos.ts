@@ -177,6 +177,12 @@ export interface DadosDaRecalibracao {
   horario: Instante
   origem?: 'localizacao'
   calculadoEm?: Instante
+  /**
+   * Serviço que calculou o tempo da posição ("tomtom", com trânsito; "osrm", sem). Opcional e
+   * aditivo; vazio (versões anteriores) vale "osrm". `origem` continua "localizacao": a versão
+   * anterior recusa qualquer outro valor nele.
+   */
+  servico?: 'tomtom' | 'osrm'
   /** Gravada pelo modo "atualizar sozinho": não aparece na timeline nem tem DESFAZER. */
   automatica?: true
 }
@@ -356,6 +362,8 @@ export interface HorarioPrevisto {
   recalibradoEm?: Instante
   /** Na origem "recalibracao" feita pela localização: quando foi calculada (sem trânsito). */
   pelaLocalizacaoEm?: Instante
+  /** Na origem "recalibracao" pela localização: o serviço que calculou (vazio = OSRM, sem trânsito). */
+  servicoDaLocalizacao?: 'tomtom' | 'osrm'
   /** Na origem "recalibracao" pela localização: foi o modo automático que gravou. */
   automatica?: true
   /** Horário − original do mesmo evento. Vazio se não houver original. */

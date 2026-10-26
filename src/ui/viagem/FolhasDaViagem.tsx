@@ -178,9 +178,9 @@ export function FolhasDaViagem({ c, d, r, onModelos }: Props) {
             fator={viagem.fatorOnibus}
             onCancelar={r.fechar}
             onDigitar={() => r.abrir('recalibracao')}
-            onConfirmar={async ({ horario, calculadoEm }) => {
+            onConfirmar={async ({ horario, calculadoEm, servico }) => {
               const ok = await r.registrarConteudo(
-                { tipo: 'recalibracao', etapaId: proxima, dados: { horario, origem: 'localizacao', calculadoEm } },
+                { tipo: 'recalibracao', etapaId: proxima, dados: { horario, origem: 'localizacao', calculadoEm, servico } },
                 `Previsão atualizada para ${formatarHora(horario)} (pela localização).`,
               )
               if (ok) r.fechar()
