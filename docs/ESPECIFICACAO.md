@@ -920,8 +920,8 @@ Aprovadas em 26/10/2026. Só o relatório em PDF; avaliação dos locais, reputa
 
 **Privacidade (LGPD).** Duas opções independentes, **desligadas a cada vez que a tela abre** (não ficam guardadas):
 - "Incluir nomes": só a lista de passageiros (nome, embarque, desembarque, situação). Ao marcar, aparece o aviso de que o PDF passa a conter dados pessoais.
-- "Incluir observações": o texto dos eventos `observacao` e a anotação curta dos imprevistos (que "ficam só no celular"). Sem a opção, o relatório mostra só que existiu uma observação ("texto não incluído"). O mesmo aviso de texto digitado.
-- O motivo e o "onde" das paradas não planejadas e o motivo das paradas incluídas entram sempre; a tela avisa que são textos digitados e podem conter nomes.
+- "Incluir observações": só o texto dos eventos `observacao` (que "ficam só no celular"). Sem a opção, o relatório mostra só que existiu uma observação ("texto não incluído"). Aviso próprio de texto digitado.
+- O motivo e o "onde" das paradas não planejadas, o motivo das paradas incluídas e a anotação curta dos imprevistos (campo `observacao`; a folha de imprevisto só pede "sem nomes de passageiros", não diz que fica só no celular) entram sempre; a tela avisa que são textos digitados e podem conter nomes.
 - O relatório nunca leva o texto das mensagens geradas.
 
 **Conteúdo (nesta ordem)**

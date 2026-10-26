@@ -184,7 +184,7 @@ describe('R6: permanência nas paradas', () => {
   })
 })
 
-describe('R7: ocorrências em ordem de horário e as observações só com a opção', () => {
+describe('R7: ocorrências em ordem de horário e a observação só com a opção', () => {
   const eventos = [
     ...EVENTOS_CASO_3,
     ev.parada('almoco', 'inicio', h('11:00'), { motivo: 'cafe', onde: 'Padaria Fictícia' }),
@@ -196,13 +196,14 @@ describe('R7: ocorrências em ordem de horário e as observações só com a op�
     const r = relatorio(eventos, OPCOES_PADRAO, 'em_andamento', h('12:00'))
     expect(r.ocorrencias.map((o) => o.tipo)).toEqual(['observacao', 'imprevisto', 'parada_nao_planejada'])
   })
-  it('por padrão o texto da observação (e a do imprevisto) não entra; o motivo e o "onde" da parada entram sempre', () => {
+  it('por padrão o texto da observação não entra; a anotação do imprevisto, o motivo e o "onde" da parada entram sempre', () => {
     const r = relatorio(eventos, OPCOES_PADRAO, 'em_andamento', h('12:00'))
     expect(JSON.stringify(r)).not.toContain('Texto livre fictício')
-    expect(JSON.stringify(r)).not.toContain('Chuva forte')
+    expect(r.ocorrencias[0]).toMatchObject({ tipo: 'observacao', texto: null })
+    expect(r.ocorrencias[1]).toMatchObject({ tipo: 'imprevisto', categoria: 'clima', texto: 'Chuva forte' })
     expect(r.ocorrencias[2]).toMatchObject({ motivo: 'cafe', onde: 'Padaria Fictícia', realMin: 20, aberta: false })
   })
-  it('com "Incluir observações" o texto entra', () => {
+  it('com "Incluir observações" o texto da observação entra', () => {
     const r = relatorio(eventos, { ...OPCOES_PADRAO, incluirObservacoes: true }, 'em_andamento', h('12:00'))
     expect(r.ocorrencias[0]).toMatchObject({ tipo: 'observacao', texto: 'Texto livre fictício' })
     expect(r.ocorrencias[1]).toMatchObject({ tipo: 'imprevisto', categoria: 'clima', texto: 'Chuva forte' })

@@ -36,9 +36,9 @@ export interface DocumentoDoRelatorio {
 export const AVISO_NOMES_NO_RELATORIO =
   'Com "Incluir nomes", o PDF passa a conter os nomes dos passageiros, que são dados pessoais (LGPD). Trate como confidencial: envie só a quem precisa e apague depois.'
 export const AVISO_TEXTOS_LIVRES_NO_RELATORIO =
-  'O motivo e o "onde" das paradas e o motivo das paradas incluídas são textos que você digitou e entram sempre no relatório. Se algum deles tiver nome de pessoa, o PDF também terá.'
+  'O motivo e o "onde" das paradas, o motivo das paradas incluídas e a anotação dos imprevistos são textos que você digitou e entram sempre no relatório. Se algum deles tiver nome de pessoa, o PDF também terá.'
 export const AVISO_OBSERVACOES_NO_RELATORIO =
-  'Com "Incluir observações", o texto das observações e das anotações dos imprevistos, que ficam só no celular, entra no PDF. Eles são textos digitados e podem conter nomes.'
+  'Com "Incluir observações", o texto das observações, que ficam só no celular, entra no PDF. São textos digitados e podem conter nomes.'
 
 const TRACO = '—'
 
@@ -215,7 +215,7 @@ export function montarDocumento(relatorio: Relatorio, plano: DadosPlano, eventos
           o.aberta ? 'em andamento ou sem volta registrada' : `durou ${duracao(o.realMin)}`
         }${o.previstoMin !== null ? ` (previsto ${duracao(o.previstoMin)})` : ''}`
       case 'imprevisto':
-        return `${quando}Imprevisto: ${rotuloDe(TIPOS_DE_IMPREVISTO, o.categoria)}${o.texto ? ` · ${o.texto}` : o.texto === null ? ' (anotação não incluída)' : ''}`
+        return `${quando}Imprevisto: ${rotuloDe(TIPOS_DE_IMPREVISTO, o.categoria)}${o.texto ? ` · ${o.texto}` : ''}`
       case 'observacao':
         return `${quando}Observação${o.texto === null ? ' (texto não incluído)' : `: ${o.texto}`}`
       case 'troca_local':

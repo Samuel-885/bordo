@@ -90,7 +90,7 @@ export interface LinhaDePermanencia {
 
 export type Ocorrencia = { horario: Instante } & (
   | { tipo: 'parada_nao_planejada'; etapaId: string; motivo?: MotivoParada; onde?: string; realMin: number | null; previstoMin: number | null; aberta: boolean }
-  | { tipo: 'imprevisto'; categoria: TipoImprevisto; /** Vazio quando a opção de observações está desligada. */ texto: string | null }
+  | { tipo: 'imprevisto'; categoria: TipoImprevisto; /** Anotação curta digitada; entra sempre, como o motivo das paradas. Vazio quando não houve. */ texto: string }
   | { tipo: 'observacao'; /** Vazio quando a opção de observações está desligada. */ texto: string | null }
   | { tipo: 'troca_local'; etapaId: string; deLocalId: string | null; paraLocalId: string }
   | { tipo: 'local_novo'; etapaId: string; localId: string; /** Já trocado para ele no mesmo registro. */ trocado: boolean }
@@ -425,7 +425,7 @@ export function montarRelatorio(
   for (const e of ordenados) {
     switch (e.tipo) {
       case 'imprevisto':
-        ocorrencias.push({ tipo: 'imprevisto', horario: e.horarioFato, categoria: e.dados.categoria, texto: opcoes.incluirObservacoes ? (e.observacao ?? '') : null })
+        ocorrencias.push({ tipo: 'imprevisto', horario: e.horarioFato, categoria: e.dados.categoria, texto: e.observacao ?? '' })
         break
       case 'observacao':
         ocorrencias.push({ tipo: 'observacao', horario: e.horarioFato, texto: opcoes.incluirObservacoes ? e.dados.texto : null })
