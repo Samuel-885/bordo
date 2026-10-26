@@ -119,7 +119,7 @@ export const fluxo = {
       const antes = pedidos.busca.length
       await ctx.setOffline(true)
       await botao(page, 'Buscar', { exact: true }).click()
-      await page.getByText('Sem internet: a busca de endereço precisa de conexão.').first().waitFor()
+      await page.getByText('Sem internet ou sinal fraco: a busca de endereço precisa de conexão.').first().waitFor()
       igual(String(pedidos.busca.length), String(antes), 'sem internet não faz requisição')
       await page.locator('#l-nome').fill('Posto sem busca')
       await page.locator('#l-cidade').fill('Cidade X')

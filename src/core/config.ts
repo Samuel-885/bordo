@@ -34,6 +34,12 @@ export const CONFIG = {
   gpsTempoLimiteMs: 15000,
   /** Precisão do GPS (raio, em metros) acima da qual a prévia avisa "posição aproximada". */
   gpsPrecisaoRuimM: 1000,
+  /** Mapa do cadastro de local: precisão do GPS (raio, em metros) acima da qual o pino recebe um aviso (sem bloquear). */
+  gpsPrecisaoLocalM: 50,
+  /** Mapa: zoom ao abrir num ponto (acerta a entrada de um restaurante ou de uma casa), sobre o centro do catálogo e sem referência nenhuma. */
+  mapaZoomDoPonto: 17,
+  mapaZoomDoCatalogo: 12,
+  mapaZoomSemReferencia: 4,
   /** Depois de quantos minutos a prévia pela localização deixa de valer e pede novo cálculo. */
   previaLocalizacaoValidaMin: 2,
   /** Atualizar sozinho pela localização: intervalo entre as leituras. */

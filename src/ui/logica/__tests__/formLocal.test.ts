@@ -114,7 +114,7 @@ describe('precisão do resultado da busca', () => {
   it('só o resultado aproximado leva a dica de colar as coordenadas do Google Maps', () => {
     expect(dicaDePrecisao(base)).toBeNull()
     expect(dicaDePrecisao({ ...base, precisao: 'aproximada', tipoDoLugar: 'Bairro' })).toBe(
-      'Resultado aproximado (bairro): o ponto não é o lugar exato. Para ter precisão, cole as coordenadas do Google Maps no campo abaixo.',
+      'Resultado aproximado (bairro): o ponto não é o lugar exato. Para ter precisão, ajuste o pino no mapa ou cole as coordenadas do Google Maps no campo abaixo.',
     )
   })
 })

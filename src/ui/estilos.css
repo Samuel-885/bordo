@@ -2018,3 +2018,45 @@ button.cartao.pequeno.atencao {
 .item-menu.perigo strong {
   color: var(--perigo);
 }
+
+/* Mapa do cadastro de local (Leaflet carregado só ao abrir). O isolamento mantém os painéis do
+   Leaflet (z-index alto) abaixo do rodapé e das folhas. */
+.mapa-local {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mapa-tela {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
+  height: 320px;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  background: var(--primaria-clara);
+  overflow: hidden;
+}
+.mapa-tela .leaflet-control-attribution {
+  font-size: 13px;
+}
+.mapa-tela .leaflet-control-attribution a {
+  color: #0b4a8a;
+}
+.mapa-tela .leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+}
+.pino-mapa {
+  background: none;
+  border: 0;
+}
+.mapa-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Noite: o mapa claro ofuscaria; escurece só os tiles, sem mexer nos pinos nem nos controles. */
+:root[data-tema='escuro'] .mapa-tela .leaflet-tile-pane {
+  filter: brightness(0.75) contrast(1.05);
+}

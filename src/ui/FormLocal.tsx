@@ -8,7 +8,11 @@ import { Topo } from './componentes/Topo'
 import { mensagemDeErroDoBanco } from '../data/avisoBanco'
 import type { ResultadoDeBusca } from '../core/rotas'
 import { buscarEndereco, TAMANHO_MINIMO_DA_BUSCA } from '../servicos/busca'
-import { dicaDePrecisao, formularioComResultado, localizacaoDoResultado, textoDaPrecisao, textoDoErroDeBusca } from './logica/servicos'
+import { avisoDePrecisaoDoGps, dicaDePrecisao, formularioComResultado, localizacaoDoResultado, textoDaPrecisao, textoDoErroDeBusca, textoDoErroDeGpsNoLocal } from './logica/servicos'
+import { arredondarPonto, linkConferirNoMaps, pontoDoTexto } from './logica/mapa'
+import { formatarCoordenadas } from './logica/coordenadas'
+import { lerPosicao } from '../servicos/localizacao'
+import { MapaDoLocal } from './mapa/MapaDoLocal'
 import { useOnline } from './useOnline'
 
 interface Props {
@@ -32,6 +36,8 @@ export function FormLocal({ inicial, locaisDeReferencia = [], onSalvar, onCancel
   const [avisoDaBusca, setAvisoDaBusca] = useState<string | null>(null)
   const [escolhido, setEscolhido] = useState<string | null>(null)
   const [dicaDoEscolhido, setDicaDoEscolhido] = useState<string | null>(null)
+  const [lendoGps, setLendoGps] = useState(false)
+  const [avisoGps, setAvisoGps] = useState<{ texto: string; tipo: 'erro' | 'aviso' | 'ok' } | null>(null)
   const pedido = useRef<AbortController | null>(null)
   useEffect(() => () => pedido.current?.abort(), [])
 
@@ -48,6 +54,24 @@ export function FormLocal({ inicial, locaisDeReferencia = [], onSalvar, onCancel
       setFalha(mensagemDeErroDoBanco(x, 'Não foi possível salvar o local.'))
       setSalvando(false)
     }
+  }
+
+  /** O pino foi movido (arrastado, tocado ou posto pelo GPS): o campo de coordenadas acompanha. */
+  function moverPino(p: { lat: number; lng: number }) {
+    muda('coordenadas', formatarCoordenadas(p))
+    setErros((e) => ({ ...e, coordenadas: undefined }))
+  }
+
+  /** Uma leitura do GPS que só põe o pino: o local só ganha as coordenadas quando a pessoa salva. */
+  async function usarMinhaLocalizacao() {
+    setLendoGps(true)
+    setAvisoGps(null)
+    const r = await lerPosicao()
+    setLendoGps(false)
+    if (!r.ok) return setAvisoGps({ texto: textoDoErroDeGpsNoLocal(r.erro), tipo: 'erro' })
+    moverPino(arredondarPonto(r.posicao))
+    const impreciso = avisoDePrecisaoDoGps(r.posicao.precisaoM)
+    setAvisoGps(impreciso ? { texto: impreciso, tipo: 'aviso' } : { texto: 'Pino colocado na sua posição. Confira e arraste se precisar.', tipo: 'ok' })
   }
 
   async function buscar() {
@@ -164,6 +188,27 @@ export function FormLocal({ inicial, locaisDeReferencia = [], onSalvar, onCancel
                 <li className="dica">Busca: Photon · dados do OpenStreetMap</li>
               </ul>
             )}
+          </div>
+          <div className="campo">
+            <span className="rotulo">Ponto no mapa</span>
+            <MapaDoLocal ponto={pontoDoTexto(f.coordenadas)} centroDoCatalogo={centroDosLocais(locaisDeReferencia)} online={online} onMover={moverPino} />
+            <p className="dica">Vale o ponto do pino: as coordenadas abaixo seguem o pino. Arraste o pino ou toque no mapa para ajustar.</p>
+            <div className="mapa-acoes">
+              <button type="button" className="botao" onClick={() => void usarMinhaLocalizacao()} disabled={lendoGps}>
+                {lendoGps ? 'Lendo o GPS…' : 'Usar minha localização'}
+              </button>
+              {linkConferirNoMaps(f.coordenadas) && (
+                <a className="botao link-botao" href={linkConferirNoMaps(f.coordenadas)!} target="_blank" rel="noopener noreferrer" data-teste="conferir-maps">
+                  Conferir no Google Maps
+                </a>
+              )}
+            </div>
+            {avisoGps && (
+              <p className={avisoGps.tipo === 'erro' ? 'msg-erro' : avisoGps.tipo === 'aviso' ? 'dica atencao-texto' : 'dica'} role="status" data-teste="aviso-gps">
+                {avisoGps.texto}
+              </p>
+            )}
+            <p className="dica">A posição do GPS só vira as coordenadas do local quando você toca em Salvar local.</p>
           </div>
           <div className={`campo ${erros.coordenadas ? 'erro' : ''}`}>
             <label htmlFor="l-coord">Coordenadas (opcional)</label>
