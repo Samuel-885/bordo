@@ -55,14 +55,32 @@ export interface OpcoesDaLocalizacao extends OpcoesDeRede {
   online?: boolean
 }
 
+async function rotaDaPosicao(
+  destino: Ponto,
+  opcoes: OpcoesDaLocalizacao,
+  precisaoMaximaM?: number,
+): Promise<ResultadoDaLocalizacao | { ok: false; erro: 'impreciso' }> {
+  if (!(opcoes.online ?? navigator.onLine)) return { ok: false, erro: 'sem_internet' }
+  const gps = await lerPosicao(opcoes.geo)
+  if (!gps.ok) return gps
+  // Posição imprecisa demais: nem chama a rede.
+  if (precisaoMaximaM !== undefined && gps.posicao.precisaoM > precisaoMaximaM) return { ok: false, erro: 'impreciso' }
+  const r = await calcularRota({ lat: gps.posicao.lat, lng: gps.posicao.lng }, destino, opcoes)
+  return r.ok ? { ok: true, posicao: gps.posicao, rota: r.rota } : r
+}
+
 /**
  * Posição atual → próxima parada. Sem internet, nem pede o GPS. Só as coordenadas (a posição e a
  * do destino) vão ao OSRM; nada é guardado.
  */
 export async function rotaDaPosicaoAtual(destino: Ponto, opcoes: OpcoesDaLocalizacao = {}): Promise<ResultadoDaLocalizacao> {
-  if (!(opcoes.online ?? navigator.onLine)) return { ok: false, erro: 'sem_internet' }
-  const gps = await lerPosicao(opcoes.geo)
-  if (!gps.ok) return gps
-  const r = await calcularRota({ lat: gps.posicao.lat, lng: gps.posicao.lng }, destino, opcoes)
-  return r.ok ? { ok: true, posicao: gps.posicao, rota: r.rota } : r
+  return (await rotaDaPosicao(destino, opcoes)) as ResultadoDaLocalizacao
+}
+
+/**
+ * O mesmo para o modo automático, que ninguém confere: com o raio de incerteza do GPS acima de
+ * `CONFIG.gpsPrecisaoRuimM` termina ali, sem chamar a rede, com o erro 'impreciso'.
+ */
+export function rotaDaPosicaoPrecisa(destino: Ponto, opcoes: OpcoesDaLocalizacao = {}) {
+  return rotaDaPosicao(destino, opcoes, CONFIG.gpsPrecisaoRuimM)
 }

@@ -180,6 +180,7 @@ const horario: Verificador = (v) => {
 }
 const listaDeTextos: Verificador = (v) => (Array.isArray(v) && v.every((x) => typeof x === 'string') ? null : 'deveria ser lista de textos')
 const um = (...validos: string[]): Verificador => (v) => (typeof v === 'string' && validos.includes(v) ? null : `valor inesperado (${validos.join(', ')})`)
+const verdadeiro: Verificador = (v) => (v === true ? null : 'valor inesperado (true)')
 const ouNulo = (f: Verificador): Verificador => (v) => (v === null ? null : f(v))
 
 type Campos = Record<string, Verificador>
@@ -283,7 +284,7 @@ const EVENTO_BASE: [Campos, Campos] = [
 ]
 
 const DADOS_DO_EVENTO: Record<string, [Campos, Campos]> = {
-  recalibracao: [{ horario }, { origem: um('localizacao'), calculadoEm: horario }],
+  recalibracao: [{ horario }, { origem: um('localizacao'), calculadoEm: horario, automatica: verdadeiro }],
   troca_local: [{ localId: texto }, {}],
   local_incluido: [{ localId: texto, trechos: listaDeTrechos }, {}],
   parada_incluida: [{ apos: texto, localId: texto, categoria: texto, permanenciaMin: numero, trechos: listaDeTrechos }, { motivo: texto }],

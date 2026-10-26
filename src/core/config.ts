@@ -36,4 +36,8 @@ export const CONFIG = {
   gpsPrecisaoRuimM: 1000,
   /** Depois de quantos minutos a prévia pela localização deixa de valer e pede novo cálculo. */
   previaLocalizacaoValidaMin: 2,
+  /** Atualizar sozinho pela localização: intervalo entre as leituras. */
+  atualizacaoAutomaticaMin: 5,
+  /** No modo automático, só grava se o horário calculado difere da previsão atual por pelo menos isto. */
+  atualizacaoAutomaticaDiferencaMinMin: 2,
 } as const

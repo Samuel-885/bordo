@@ -177,6 +177,8 @@ export interface DadosDaRecalibracao {
   horario: Instante
   origem?: 'localizacao'
   calculadoEm?: Instante
+  /** Gravada pelo modo "atualizar sozinho": não aparece na timeline nem tem DESFAZER. */
+  automatica?: true
 }
 
 export type Evento = EventoBase &
@@ -354,6 +356,8 @@ export interface HorarioPrevisto {
   recalibradoEm?: Instante
   /** Na origem "recalibracao" feita pela localização: quando foi calculada (sem trânsito). */
   pelaLocalizacaoEm?: Instante
+  /** Na origem "recalibracao" pela localização: foi o modo automático que gravou. */
+  automatica?: true
   /** Horário − original do mesmo evento. Vazio se não houver original. */
   atrasoMin: number | null
 }

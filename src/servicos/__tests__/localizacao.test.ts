@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { CONFIG } from '../../core/config'
 import { criarPrevia, chegadaDaPrevia } from '../../core/localizacao'
 import { instante } from '../../core/tempo'
-import { lerPosicao, rotaDaPosicaoAtual, type Geolocalizacao } from '../localizacao'
+import { lerPosicao, rotaDaPosicaoAtual, rotaDaPosicaoPrecisa, type Geolocalizacao } from '../localizacao'
 import type { Buscador } from '../rede'
 
 const resposta = (corpo: unknown, status = 200) => new Response(JSON.stringify(corpo), { status })
@@ -103,5 +103,35 @@ describe('rotaDaPosicaoAtual (GPS + OSRM)', () => {
   it('serviço que não responde: tempo esgotado', async () => {
     const buscador: Buscador = (_u, init) => new Promise((_ok, falha) => init!.signal!.addEventListener('abort', () => falha(new DOMException('x', 'AbortError'))))
     expect(await rotaDaPosicaoAtual(DESTINO, { geo: gpsOk(), buscador, tempoLimiteMs: 20, online: true })).toEqual({ ok: false, erro: 'tempo_esgotado' })
+  })
+})
+
+describe('rotaDaPosicaoPrecisa (modo automático)', () => {
+  const rede = () => vi.fn<Buscador>(async () => resposta(osrmOk(1000, 12_400)))
+
+  it('GPS acima de 1 km: termina sem chamar a rede, com o erro "impreciso"', async () => {
+    const buscador = rede()
+    expect(await rotaDaPosicaoPrecisa(DESTINO, { geo: gpsOk(CONFIG.gpsPrecisaoRuimM + 1), buscador, online: true })).toEqual({ ok: false, erro: 'impreciso' })
+    expect(buscador).not.toHaveBeenCalled()
+  })
+
+  it('até 1 km: calcula a rota normalmente', async () => {
+    const buscador = rede()
+    const r = await rotaDaPosicaoPrecisa(DESTINO, { geo: gpsOk(CONFIG.gpsPrecisaoRuimM), buscador, online: true })
+    expect(r.ok).toBe(true)
+    expect(buscador).toHaveBeenCalledTimes(1)
+  })
+
+  it('o botão manual continua só avisando: calcula mesmo com GPS impreciso', async () => {
+    const buscador = rede()
+    const r = await rotaDaPosicaoAtual(DESTINO, { geo: gpsOk(2500), buscador, online: true })
+    expect(r.ok).toBe(true)
+    expect(buscador).toHaveBeenCalledTimes(1)
+  })
+
+  it('sem internet nem pede o GPS', async () => {
+    const getCurrentPosition = vi.fn<Geolocalizacao['getCurrentPosition']>()
+    expect(await rotaDaPosicaoPrecisa(DESTINO, { geo: { getCurrentPosition }, online: false })).toEqual({ ok: false, erro: 'sem_internet' })
+    expect(getCurrentPosition).not.toHaveBeenCalled()
   })
 })

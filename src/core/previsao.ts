@@ -31,6 +31,7 @@ interface Recalibracao {
   horario: Instante
   informadoEm: Instante
   pelaLocalizacaoEm?: Instante
+  automatica?: true
   /** Ordem de gravação (desempata o mesmo minuto). */
   ordem: number
 }
@@ -88,6 +89,7 @@ function indexarEventos(eventos: readonly Evento[]): Fatos {
           horario: e.dados.horario,
           informadoEm: e.horarioFato,
           ...(e.dados.origem === 'localizacao' && e.dados.calculadoEm ? { pelaLocalizacaoEm: e.dados.calculadoEm } : {}),
+          ...(e.dados.origem === 'localizacao' && e.dados.automatica ? { automatica: true as const } : {}),
           ordem: ordemDeGravacao(e, posicao.get(e)!),
         })
         break
@@ -216,6 +218,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
     origem: OrigemHorario,
     recalibradoEm?: Instante,
     pelaLocalizacaoEm?: Instante,
+    automatica?: true,
   ): HorarioPrevisto | null => {
     if (valor === null) return null
     if (agora && chave(etapa, m) === chaveRelogio && antes(valor, agora)) {
@@ -223,6 +226,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
       origem = 'relogio'
       recalibradoEm = undefined
       pelaLocalizacaoEm = undefined
+      automatica = undefined
     }
     const orig = original?.etapas.find((o) => o.etapaId === etapa.id)?.[m] ?? null
     return {
@@ -230,6 +234,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
       origem,
       ...(recalibradoEm ? { recalibradoEm } : {}),
       ...(pelaLocalizacaoEm ? { pelaLocalizacaoEm } : {}),
+      ...(pelaLocalizacaoEm && automatica ? { automatica } : {}),
       atrasoMin: orig ? atrasoMin(valor, orig) : null,
     }
   }
@@ -278,7 +283,7 @@ function percorrer(p: Percurso): EstadoEtapa[] {
           valor = somarMinutos(valor, tempoParadoMin(fatos, etapa.id, agora, recal?.informadoEm ?? null))
         }
         chegada = recal
-          ? horario(etapa, 'chegada', valor, 'recalibracao', recal.informadoEm, recal.pelaLocalizacaoEm)
+          ? horario(etapa, 'chegada', valor, 'recalibracao', recal.informadoEm, recal.pelaLocalizacaoEm, recal.automatica)
           : horario(etapa, 'chegada', valor, 'calculado')
       }
     }
