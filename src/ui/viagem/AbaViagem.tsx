@@ -177,7 +177,7 @@ export function AbaViagem({ c, d, r, auto, onAba, onBackup }: Props) {
             <>
               <p className="linha">
                 Chegada estimada <Hora instante={chegadaProxima.instante} agora={agora} />
-                <span className="suave"> · falta {textoDoTempoRestante(chegadaProxima.instante, agora)}</span>
+                <span className="suave"> · {textoDoTempoRestante(chegadaProxima.instante, agora)}</span>
               </p>
               {textoDaOrigemDaPrevisao(chegadaProxima) && <p className="dica">{textoDaOrigemDaPrevisao(chegadaProxima)}</p>}
               {estimativaPelaRota && (

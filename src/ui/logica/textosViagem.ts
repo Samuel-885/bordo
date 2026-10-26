@@ -54,10 +54,10 @@ export function textoDaEstimativaPelaRota(h: HorarioPrevisto | null | undefined,
   return h?.origem === 'calculado' && trecho?.fonte === 'rota' ? 'Estimativa pela rota, sem trânsito' : null
 }
 
-/** Quanto falta até `previsao`: "1h05", "12 min" ou "chegando". */
+/** Quanto falta até `previsao`: "falta 1h05", "falta 12 min" ou "chegando" (já passou ou falta menos de 1 min). */
 export function textoDoTempoRestante(previsao: Instante, agora: Instante): string {
   const falta = diferencaMin(previsao, agora)
-  return falta <= 0 ? 'chegando' : formatarDuracaoCurta(falta)
+  return falta <= 0 ? 'chegando' : `falta ${formatarDuracaoCurta(falta)}`
 }
 
 export const textoDoCronometro = (c: { faltaMin: number; excedeuMin: number }): string =>
@@ -131,13 +131,14 @@ export function montarTimeline(
   passageiros: readonly Passageiro[] = [],
 ): ItemTimeline[] {
   void agora
-  // As atualizações automáticas (modo "atualizar sozinho") ficam só nos dados: nada na timeline.
-  eventos = eventos.filter((e) => !(e.tipo === 'recalibracao' && e.dados.automatica))
+  // Atualizações de previsão (botão, digitada e automática) ficam só nos dados: a timeline mostra os fatos.
   const { etapas, locais } = plano
   const nomeDe = (id: string) => passageiros.find((p) => p.id === id)?.nome ?? 'Passageiro'
   const etapaDe = (id: string) => etapas.find((e) => e.id === id)
   const nome = (id: string) => nomeDaEtapaEmUso(etapaDe(id), locais, eventos)
-  const porSequencia = [...eventos].sort((a, b) => (a.sequencia ?? 0) - (b.sequencia ?? 0))
+  const porSequencia = eventos
+    .filter((e): e is Exclude<Evento, { tipo: 'recalibracao' }> => e.tipo !== 'recalibracao')
+    .sort((a, b) => (a.sequencia ?? 0) - (b.sequencia ?? 0))
 
   return ordenarPor(porSequencia, (e) => e.horarioFato).map((e): ItemTimeline => {
     const item = { id: e.id, horario: e.horarioFato, detalhe: e.observacao ?? null, atraso: null, corrigivel: false, riscado: false }
@@ -158,8 +159,6 @@ export function montarTimeline(
       }
       case 'pular_etapa':
         return { ...item, titulo: `Pulamos ${nome(e.etapaId)}`, riscado: true }
-      case 'recalibracao':
-        return { ...item, titulo: `Previsão atualizada para ${formatarHora(e.dados.horario)}`, detalhe: `${e.dados.origem === 'localizacao' ? 'Pela localização, sem trânsito' : 'Google Maps'} · ${nome(e.etapaId)}` }
       case 'troca_local': {
         const novo = locais.find((l) => l.id === e.dados.localId)?.nome ?? 'outro local'
         return { ...item, titulo: `Trocamos o local para ${novo}`, detalhe: nome(e.etapaId) }

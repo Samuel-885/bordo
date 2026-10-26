@@ -94,7 +94,7 @@ export function CalculoDeRotas({ plano, repo, onAtualizar, onEditarLocal }: Prop
         {plural(calcular.length, 'trecho com coordenadas', 'trechos com coordenadas')}
         {temRota ? ' (refaz também os já calculados pela rota)' : ''}.
       </p>
-      {!online && <p className="dica atencao-texto">Sem internet: o cálculo precisa de conexão.</p>}
+      {!online && <p className="dica atencao-texto">Sem internet ou sinal fraco: o cálculo precisa de conexão.</p>}
       {mensagem && (
         <p className={mensagem.erro ? 'msg-erro' : 'dica'} role="status">
           {mensagem.texto}

@@ -55,7 +55,7 @@ describe('textos', () => {
     expect(textoDaSituacao('parada_nao_planejada', null)).toBe('Parada não planejada')
     expect(textoDoCronometro({ faltaMin: 7, excedeuMin: 0 })).toBe('faltam 7 min')
     expect(textoDoCronometro({ faltaMin: 0, excedeuMin: 10 })).toBe('excedeu em 10 min')
-    expect(textoDoTempoRestante(horaDemo('13:00'), horaDemo('11:55'))).toBe('1h05')
+    expect(textoDoTempoRestante(horaDemo('13:00'), horaDemo('11:55'))).toBe('falta 1h05')
     expect(textoDoTempoRestante(horaDemo('13:00'), horaDemo('13:10'))).toBe('chegando')
   })
 

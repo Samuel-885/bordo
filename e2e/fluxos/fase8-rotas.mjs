@@ -261,7 +261,7 @@ export const fluxo = {
       await ctx.setOffline(true)
       await irParaAba(page, 'roteiro')
       await cartaoRotas.getByRole('button', { name: 'Calcular tempos' }).click()
-      await cartaoRotas.getByText('Sem internet: o cálculo de rotas precisa de conexão.').first().waitFor()
+      await cartaoRotas.getByText('Sem internet ou sinal fraco: o cálculo de rotas precisa de conexão.').first().waitFor()
       igual(String(pedidos.rotas.length), '0', 'requisições sem internet')
       igual(JSON.stringify(await trechos()), antes, 'trechos intactos')
       await ctx.setOffline(false)

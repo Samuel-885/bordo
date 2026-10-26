@@ -1,4 +1,4 @@
-// "Atualizar sozinho": a timeline não mostra as automáticas, o cartão diz a origem e o estado.
+// "Atualizar sozinho": a timeline não mostra atualizações de previsão, o cartão diz a origem e o estado.
 
 import { describe, expect, it } from 'vitest'
 import { calcularEstado } from '../../../core/previsao'
@@ -12,13 +12,12 @@ describe('timeline e origem da previsão', () => {
   const automatica = ev.recalibracaoAutomatica('almoco', h('13:02'), h('11:40'), h('11:41'))
   const doBotao = ev.recalibracaoPelaLocalizacao('almoco', h('13:10'), h('11:45'), h('11:46'))
 
-  it('a atualização automática não aparece na timeline; a do botão continua aparecendo', () => {
-    const sem = montarTimeline(PLANO, original, [...EVENTOS_CASO_3, automatica], h('11:41'))
-    expect(sem.some((i) => i.titulo.startsWith('Previsão atualizada'))).toBe(false)
-    expect(sem).toHaveLength(montarTimeline(PLANO, original, EVENTOS_CASO_3, h('11:41')).length)
-    const com = montarTimeline(PLANO, original, [...EVENTOS_CASO_3, automatica, doBotao], h('11:46'))
-    expect(com.filter((i) => i.titulo.startsWith('Previsão atualizada'))).toHaveLength(1)
-    expect(com.find((i) => i.titulo.startsWith('Previsão atualizada'))?.titulo).toBe('Previsão atualizada para 13:10')
+  it('nenhuma atualização de previsão aparece na timeline (automática, do botão ou digitada)', () => {
+    const digitada = ev.recalibracao('almoco', h('13:15'), h('11:47'))
+    const base = montarTimeline(PLANO, original, EVENTOS_CASO_3, h('11:41'))
+    const todas = montarTimeline(PLANO, original, [...EVENTOS_CASO_3, automatica, doBotao, digitada], h('11:48'))
+    expect(todas.some((i) => i.titulo.startsWith('Previsão atualizada'))).toBe(false)
+    expect(todas).toHaveLength(base.length)
   })
 
   it('o cartão diz "atualizado pela localização às 10:42" só quando a previsão vigente é automática', () => {

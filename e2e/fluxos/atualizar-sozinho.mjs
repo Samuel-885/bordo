@@ -107,10 +107,10 @@ export const fluxo = {
       igual(String(await page.getByText(/Previsão atualizada para/).count()), '0', 'nenhum aviso de registro')
     })
 
-    await passo('a atualização automática não aparece na timeline; o Mais mostra o mesmo interruptor ligado', async () => {
+    await passo('nenhuma atualização aparece na timeline; o Mais mostra o mesmo interruptor ligado', async () => {
       await abrirTimeline(page)
       await page.getByText(/Saímos de/).first().waitFor()
-      igual(String(await page.getByText(/Previsão atualizada para/).count()), '0', 'a timeline não mostra a automática')
+      igual(String(await page.getByText(/Previsão atualizada para/).count()), '0', 'a timeline não mostra atualizações')
       await irParaAba(page, 'mais')
       esperar(await page.locator('.item-tema').getByRole('switch').isChecked(), 'em Mais também ligado')
       await irParaAba(page, 'viagem')
@@ -156,11 +156,11 @@ export const fluxo = {
       esperar(pedidos.length > antes, 'tentou')
     })
 
-    await passo('sem internet: não chama a rede nem grava, e o cartão diz "sem internet"', async () => {
+    await passo('sem internet: não chama a rede nem grava, e o cartão diz "sem internet ou sinal fraco"', async () => {
       await ctx.setOffline(true)
       const antes = pedidos.length
       await cinco(ctx)
-      await aguardar(() => estado(page), (t) => /sem internet/.test(t), 'motivo')
+      await aguardar(() => estado(page), (t) => /sem internet ou sinal fraco/.test(t), 'motivo')
       igual(String(pedidos.length), String(antes), 'nenhuma chamada')
       igual(String((await recalibracoes(page)).length), '2', 'nada gravado')
       await ctx.setOffline(false)

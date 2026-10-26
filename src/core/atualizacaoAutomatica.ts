@@ -100,7 +100,7 @@ export function textoDaFalhaAutomatica(erro: string): string {
   }
   switch (erro) {
     case 'sem_internet':
-      return 'sem internet'
+      return 'sem internet ou sinal fraco'
     case 'tempo_esgotado':
       return 'o serviço de rotas demorou demais'
     case 'limite':

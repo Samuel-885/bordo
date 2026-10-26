@@ -252,7 +252,7 @@ export function MudancaDeRoteiro({ repo, plano: planoRecebido, eventos, agora, a
     const sem = (emTransito ? [destino] : [origem, destino]).find((l) => l && !l.coordenadas)
     const base = `${titulo_(lado)}: não foi calculado.`
     if (sem) return `${base} Sem coordenadas em ${sem.nome}. ${aoInformar(lado)}`
-    if (!online) return `${base} Sem internet: a rota não está disponível. ${aoInformar(lado)}`
+    if (!online) return `${base} Sem internet ou sinal fraco: a rota não está disponível. ${aoInformar(lado)}`
     return null
   }
 

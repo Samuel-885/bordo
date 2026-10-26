@@ -20,7 +20,7 @@ export function textoDoErroDeBusca(erro: ErroDeServico): string {
 export function textoDoErroDeRota(erro: ErroDeServico | 'cancelado'): string {
   switch (erro) {
     case 'sem_internet':
-      return 'Sem internet: o cálculo de rotas precisa de conexão.'
+      return 'Sem internet ou sinal fraco: o cálculo de rotas precisa de conexão.'
     case 'tempo_esgotado':
       return 'O serviço de rotas demorou demais para responder.'
     case 'limite':

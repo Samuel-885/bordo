@@ -83,7 +83,7 @@ export const fluxo = {
       esperar(/às 10:20/.test((await previa().innerText()).replace(/\s+/g, ' ')), 'com o fator: 10:20')
     })
 
-    await passo('confirmar grava a recalibração com origem e hora do cálculo, e a timeline mostra a origem', async () => {
+    await passo('confirmar grava a recalibração com origem e hora do cálculo, e o cartão mostra a origem (a timeline não mostra a atualização)', async () => {
       await dialogoAberto(page).getByRole('button', { name: 'Atualizar previsão' }).click()
       await page.getByText(/Previsão atualizada para 10:20 \(pela localização\)/).waitFor()
       const [e] = await recalibracoes()
@@ -93,7 +93,8 @@ export const fluxo = {
       esperar(!JSON.stringify(e).includes('19.4687') && !JSON.stringify(e).includes('42.5367'), 'a posição do GPS não pode ser guardada')
       esperar(/Pela localização, sem trânsito, calculado às 10:0\d/.test(await cartao().innerText()), 'a origem aparece no cartão')
       await abrirTimeline(page)
-      await page.getByText(/Pela localização, sem trânsito/).first().waitFor()
+      await page.getByText(/Saímos de/).first().waitFor()
+      igual(String(await page.getByText(/Pela localização, sem trânsito/).count()), '0', 'a timeline não mostra a atualização')
       await irParaAba(page, 'viagem')
     })
 
@@ -149,7 +150,7 @@ export const fluxo = {
       await ctx.setOffline(true)
       await abrirFolha()
       const erro = await page.locator('[data-teste="loc-erro"]').innerText()
-      esperar(/Sem internet/.test(erro), `mensagem: ${erro}`)
+      esperar(/Sem internet ou sinal fraco/.test(erro), `mensagem: ${erro}`)
       igual(String(pedidos.length), String(antes), 'nenhuma chamada')
       await dialogoAberto(page).getByRole('button', { name: /Digitar o horário/ }).click()
       await page.locator('#recalibracao-hora').fill('11:30')

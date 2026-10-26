@@ -127,7 +127,7 @@ describe('atualização automática: quando grava e quando não grava', () => {
     const erros = ['negada', 'sem_sinal', 'gps_tempo_esgotado', 'sem_suporte', 'sem_internet', 'tempo_esgotado', 'limite', 'fora', 'sem_rota', 'impreciso', 'travada']
     const textos = erros.map(textoDaFalhaAutomatica)
     expect(new Set(textos).size).toBe(erros.length)
-    expect(textoDaFalhaAutomatica('sem_internet')).toBe('sem internet')
+    expect(textoDaFalhaAutomatica('sem_internet')).toBe('sem internet ou sinal fraco')
   })
 })
 
