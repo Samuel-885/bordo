@@ -7,7 +7,9 @@ import { useAoMudar } from '../useAgora'
 import { useDados } from '../useDados'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
+import { MapaDoRoteiroTela } from '../mapa/MapaDoRoteiro'
 import { ListaDeParadas } from './ListaDeParadas'
+import { mapaDoRoteiroDaViagem } from './mapaDoRoteiro'
 import type { Registros } from './useRegistros'
 
 export type VisaoDoRoteiro = 'paradas' | 'timeline'
@@ -22,6 +24,7 @@ interface Props {
 
 export function AbaRoteiro({ c, d, r, visaoInicial = 'paradas', onAlternativas }: Props) {
   const [visao, setVisao] = useState<VisaoDoRoteiro>(visaoInicial)
+  const [mapaAberto, setMapaAberto] = useState(false)
   const { dados: consultas, recarregar } = useDados(() => c.repo.listarConsultas(c.plano.viagem.id), `consultas:${c.repo.espaco}:${c.plano.viagem.id}`)
   useAoMudar(recarregar)
 
@@ -35,11 +38,11 @@ export function AbaRoteiro({ c, d, r, visaoInicial = 'paradas', onAlternativas }
             </button>
           ))}
         </div>
-        <button type="button" className="botao pequeno" disabled title="Chega na fase 9" aria-describedby="dica-mapa">
+        <button type="button" className="botao pequeno" onClick={() => setMapaAberto(true)}>
           Mapa
         </button>
       </div>
-      <p className="dica dica-mapa" id="dica-mapa">Mapa: chega na fase 9.</p>
+      {mapaAberto && <MapaDoRoteiroTela mapa={mapaDoRoteiroDaViagem(c, d, consultas ?? [])} agora={c.agora} onFechar={() => setMapaAberto(false)} />}
 
       {visao === 'paradas' ? (
         <ListaDeParadas c={c} d={d} r={r} consultas={consultas ?? []} onAlternativas={onAlternativas} />

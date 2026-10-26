@@ -1682,9 +1682,6 @@ button.cartao.pequeno.atencao {
   color: var(--texto);
   box-shadow: 0 1px 3px var(--sombra);
 }
-.dica-mapa {
-  margin-top: -6px;
-}
 .aba-interna {
   display: flex;
   flex-direction: column;
@@ -2059,4 +2056,164 @@ button.cartao.pequeno.atencao {
 /* Noite: o mapa claro ofuscaria; escurece só os tiles, sem mexer nos pinos nem nos controles. */
 :root[data-tema='escuro'] .mapa-tela .leaflet-tile-pane {
   filter: brightness(0.75) contrast(1.05);
+}
+
+/* Mapa do roteiro: tela cheia sobre a viagem. */
+dialog.mapa-folha {
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--fundo);
+  color: var(--texto);
+}
+dialog.mapa-folha[open] {
+  display: flex;
+  flex-direction: column;
+}
+.mapa-folha-corpo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px 16px;
+  overflow-y: auto;
+}
+.mapa-tela.grande {
+  flex: 1;
+  min-height: 280px;
+  height: auto;
+}
+.mapa-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+.mapa-legenda li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Marcadores: a forma e o símbolo diferem, não só a cor. O destaque verde só aparece como borda. */
+.mk-caixa {
+  background: none;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mk {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--primaria);
+  background: var(--cartao);
+  color: var(--texto);
+  font: 700 13px var(--mono);
+  box-shadow: 0 1px 4px var(--sombra);
+}
+.mk.mini {
+  width: 22px;
+  height: 22px;
+  font-size: 13px;
+  box-shadow: none;
+}
+.mk-feita {
+  background: var(--primaria);
+  color: var(--primaria-texto);
+}
+.mk-aqui {
+  background: var(--primaria);
+  color: var(--primaria-texto);
+  border-color: var(--destaque);
+  border-width: 3px;
+}
+.mk-proxima {
+  width: 38px;
+  height: 38px;
+  border: 4px solid var(--destaque);
+  font-size: 15px;
+}
+.mk.mini.mk-proxima {
+  width: 26px;
+  height: 26px;
+  border-width: 3px;
+}
+.mk-pulada {
+  border-color: var(--texto-suave);
+  color: var(--texto-suave);
+  opacity: 0.7;
+}
+.mk-incluida {
+  border-style: dashed;
+}
+.mk-alternativa {
+  width: 24px;
+  height: 24px;
+  border: 2px dashed var(--texto-suave);
+  border-radius: 6px;
+  transform: rotate(45deg);
+  font-size: 0;
+}
+.mk-alternativa::after {
+  content: '?';
+  font-size: 13px;
+  transform: rotate(-45deg);
+}
+.mk.mini.mk-alternativa {
+  width: 18px;
+  height: 18px;
+}
+.mk-posicao {
+  width: 20px;
+  height: 20px;
+  background: #1a73e8;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px #1a73e8;
+}
+.linha-mapa {
+  fill: none;
+  stroke-linecap: round;
+}
+.linha-mapa.percorrida {
+  stroke: var(--primaria);
+  stroke-width: 5px;
+  stroke-opacity: 0.9;
+}
+.linha-mapa.adiante {
+  stroke: var(--primaria);
+  stroke-width: 3px;
+  stroke-opacity: 0.55;
+}
+.linha-mapa.alternativa {
+  stroke: var(--texto-suave);
+  stroke-width: 2px;
+  stroke-dasharray: 2 8;
+}
+.precisao-mapa {
+  stroke: #1a73e8;
+  stroke-width: 1px;
+  fill: #1a73e8;
+  fill-opacity: 0.12;
+}
+:root[data-tema='escuro'] .linha-mapa.percorrida,
+:root[data-tema='escuro'] .linha-mapa.adiante {
+  stroke: var(--link);
+}
+:root[data-tema='escuro'] .mk {
+  box-shadow: 0 0 0 1px #000;
 }

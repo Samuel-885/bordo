@@ -4,9 +4,7 @@
 
 import { classificarAtraso } from '../../core/atraso'
 import { inclusaoDaEtapa } from '../../core/inclusao'
-import { paradasFlexiveisPendentes } from '../../core/viabilidade'
-import { avaliarAlternativas } from '../../core/viabilidade'
-import type { Consulta, EstadoEtapa, Etapa, HorarioPrevisto } from '../../core/tipos'
+import type { Consulta, HorarioPrevisto } from '../../core/tipos'
 import { Hora } from '../componentes/Hora'
 import { rotuloDaClasse, textoDaMargem, textoDoImpacto } from '../logica/alternativas'
 import { formatarHora } from '../logica/horarios'
@@ -14,9 +12,8 @@ import { nomeDaEtapa } from '../logica/textos'
 import { textoDoAtraso } from '../logica/textosViagem'
 import type { ContextoDaViagem } from './dados'
 import type { Derivados } from './derivados'
+import { alternativasDaProxima, marcadorDa, ROTULO_MARCADOR } from './marcadores'
 import type { Registros } from './useRegistros'
-
-type Marcador = 'feita' | 'aqui' | 'proxima' | 'futura' | 'pulada'
 
 interface Props {
   c: ContextoDaViagem
@@ -26,28 +23,10 @@ interface Props {
   onAlternativas: () => void
 }
 
-function marcadorDa(estado: EstadoEtapa | undefined, etapa: Etapa, d: Derivados): Marcador {
-  if (!estado) return 'futura'
-  if (estado.estado === 'pulada') return 'pulada'
-  if (estado.estado === 'concluida') return 'feita'
-  if (etapa.tipo === 'destino' && estado.chegada?.origem === 'real') return 'feita'
-  if (estado.estado === 'em_parada' || (etapa.tipo === 'origem' && d.s.situacao === 'aguardando_saida')) return 'aqui'
-  return etapa.id === d.proxima ? 'proxima' : 'futura'
-}
-
-const ROTULO_MARCADOR: Record<Marcador, string> = {
-  feita: 'Feita',
-  aqui: 'Estamos aqui',
-  proxima: 'Próxima',
-  futura: 'Adiante',
-  pulada: 'Pulada',
-}
-
 export function ListaDeParadas({ c, d, r, consultas, onAlternativas }: Props) {
   const { plano, eventos, agora } = c
   const { locais } = plano
-  const proximaFlexivel = paradasFlexiveisPendentes(plano, d.s.estado).find((e) => e.alternativas.length > 0) ?? null
-  const avaliacoes = proximaFlexivel ? avaliarAlternativas(plano, d.original, eventos, agora, proximaFlexivel.id, consultas) : []
+  const { etapa: proximaFlexivel, avaliacoes } = alternativasDaProxima(c, d, consultas)
 
   return (
     <>

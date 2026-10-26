@@ -67,14 +67,13 @@ export const fluxo = {
       igual(await page.locator('.hora-grande .mono').evaluate((b) => getComputedStyle(b).fontSize), '54px', 'horário grande')
     })
 
-    await passo('aba Roteiro: Paradas com marcadores, alternativas da próxima parada flexível abertas e Mapa desligado', async () => {
+    await passo('aba Roteiro: Paradas com marcadores, alternativas da próxima parada flexível abertas e Mapa ligado', async () => {
       await irParaAba(page, 'roteiro')
       igual(await page.locator('[data-teste="parada"][data-marcador="feita"]').count().then(String), '1', 'paradas feitas (a origem)')
       igual(await page.locator('[data-teste="parada"][data-marcador="proxima"]').innerText().then((t) => t.split('\n')[0]), 'Ponto de embarque', 'próxima')
       igual(String(await page.locator('[data-teste="alternativa-resumo"]').count()), '3', 'alternativas abertas sob a parada flexível')
       esperar((await page.locator('[data-teste="alternativa-resumo"]').first().innerText()).includes('Viável'), 'classificação')
-      esperar(await botao(page, 'Mapa', { exact: true }).isDisabled(), 'Mapa deveria estar desligado')
-      await page.getByText('chega na fase 9').first().waitFor()
+      esperar(await botao(page, 'Mapa', { exact: true }).isEnabled(), 'Mapa deveria estar ligado')
       await page.getByRole('tab', { name: 'Timeline' }).click()
       await page.getByText('Viagem iniciada').first().waitFor()
       await page.getByRole('tab', { name: 'Paradas' }).click()

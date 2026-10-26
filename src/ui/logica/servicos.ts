@@ -77,3 +77,17 @@ export function avisoDePrecisaoDoGps(precisaoM: number): string | null {
   if (precisaoM <= CONFIG.gpsPrecisaoLocalM) return null
   return `Precisão do GPS de cerca de ${Math.round(precisaoM)} m: o pino pode estar longe do ponto exato. Arraste o pino para ajustar.`
 }
+
+/** Falhas do botão "Minha posição" do mapa do roteiro. */
+export function textoDoErroDeGpsNoMapa(erro: ErroDeGps): string {
+  switch (erro) {
+    case 'negada':
+      return 'Sem permissão para usar a localização. Libere a localização deste site nas configurações do navegador.'
+    case 'sem_sinal':
+      return 'Sem sinal de GPS agora. Tente de novo em um lugar mais aberto.'
+    case 'gps_tempo_esgotado':
+      return 'O GPS demorou demais para responder. Tente de novo.'
+    case 'sem_suporte':
+      return 'Este aparelho ou navegador não oferece localização.'
+  }
+}
