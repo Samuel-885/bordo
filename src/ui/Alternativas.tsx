@@ -33,6 +33,7 @@ import {
   textoDoAvisoDaAlternativa,
   textoDaConsulta,
   textoDoImpacto,
+  textoDaPrevisaoSubstituida,
 } from './logica/alternativas'
 import { formatarDuracao, minutosDeHorasEMinutos } from './logica/duracao'
 import { copiarTexto, compartilharTexto } from './logica/compartilhar'
@@ -182,7 +183,7 @@ function Conteudo({ repo, plano, eventos, consultas, passageiros, modelos, agora
     recarregar()
   }
 
-  /** Motivos para pedir confirmação: o local chega fechado ou há uma previsão do Google Maps. */
+  /** Motivos para pedir confirmação: o local chega fechado ou há uma previsão informada (Google Maps ou localização). */
   function motivosDeConfirmacao(etapa: Etapa, a: AvaliacaoAlternativa, nome: string): string[] {
     const consultada = a.consulta?.situacao === 'vigente'
     const motivos: string[] = []
@@ -191,9 +192,7 @@ function Conteudo({ repo, plano, eventos, consultas, passageiros, modelos, agora
     }
     const chegada = estado.etapas.find((e) => e.etapaId === etapa.id)?.chegada
     if (chegada?.origem === 'recalibracao') {
-      motivos.push(
-        `A previsão do Google Maps${chegada.recalibradoEm ? ` informada às ${formatarHora(chegada.recalibradoEm)}` : ''} ${consultada ? 'é substituída pela consulta' : 'deixa de valer: a previsão volta a ser calculada pelo trecho'}.`,
-      )
+      motivos.push(textoDaPrevisaoSubstituida(chegada, consultada))
     }
     return motivos
   }

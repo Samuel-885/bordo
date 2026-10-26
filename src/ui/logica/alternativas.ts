@@ -55,3 +55,17 @@ export function textoDaConsulta(c: { consultadoEm: Instante; idadeMin: number; s
   const quando = `informado às ${formatarHora(c.consultadoEm)} · ${textoIdade(c.idadeMin)}`
   return c.situacao === 'vigente' ? `Google Maps, ${quando}` : `Consulta antiga (${quando}): não está valendo`
 }
+
+/**
+ * Aviso de confirmação ao trocar de local com uma recalibração vigente: de onde veio a previsão
+ * (Google Maps ou localização) e o que acontece com ela.
+ */
+export function textoDaPrevisaoSubstituida(
+  chegada: { recalibradoEm?: Instante; pelaLocalizacaoEm?: Instante; automatica?: true },
+  consultada: boolean,
+): string {
+  const quem = chegada.pelaLocalizacaoEm
+    ? `A previsão pela sua localização, ${chegada.automatica ? 'atualizada' : 'calculada'} às ${formatarHora(chegada.pelaLocalizacaoEm)},`
+    : `A previsão do Google Maps${chegada.recalibradoEm ? ` informada às ${formatarHora(chegada.recalibradoEm)}` : ''}`
+  return `${quem} ${consultada ? 'é substituída pela consulta' : 'deixa de valer: a previsão volta a ser calculada pelo trecho'}.`
+}

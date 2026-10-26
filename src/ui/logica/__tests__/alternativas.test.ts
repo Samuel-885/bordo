@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { instante } from '../../../core/tempo'
-import { linkTelefone, textoDaConsulta, textoIdade, rotuloDaClasse, textoDaMargem, textoDoAvisoDaAlternativa, textoDoImpacto } from '../alternativas'
+import { linkTelefone, textoDaConsulta, textoIdade, rotuloDaClasse, textoDaMargem, textoDoAvisoDaAlternativa, textoDoImpacto, textoDaPrevisaoSubstituida } from '../alternativas'
 
 describe('textos das alternativas', () => {
   it('classes em português', () => {
@@ -46,5 +46,20 @@ describe('textos das alternativas', () => {
     expect(textoDaConsulta({ consultadoEm, idadeMin: 45, situacao: 'antiga' })).toBe(
       'Consulta antiga (informado às 08:30 · há 45 min): não está valendo',
     )
+  })
+})
+
+describe('textoDaPrevisaoSubstituida', () => {
+  const informado = instante('2026-11-14T10:00:00-03:00')
+  const calculado = instante('2026-11-14T09:58:00-03:00')
+  it('previsão do Google Maps: diz Google Maps', () => {
+    expect(textoDaPrevisaoSubstituida({ recalibradoEm: informado }, false)).toBe('A previsão do Google Maps informada às 10:00 deixa de valer: a previsão volta a ser calculada pelo trecho.')
+    expect(textoDaPrevisaoSubstituida({ recalibradoEm: informado }, true)).toBe('A previsão do Google Maps informada às 10:00 é substituída pela consulta.')
+  })
+  it('previsão pela localização: não diz Google Maps', () => {
+    const t = textoDaPrevisaoSubstituida({ recalibradoEm: informado, pelaLocalizacaoEm: calculado }, false)
+    expect(t).toBe('A previsão pela sua localização, calculada às 09:58, deixa de valer: a previsão volta a ser calculada pelo trecho.')
+    expect(t).not.toContain('Google Maps')
+    expect(textoDaPrevisaoSubstituida({ recalibradoEm: informado, pelaLocalizacaoEm: calculado, automatica: true }, true)).toBe('A previsão pela sua localização, atualizada às 09:58, é substituída pela consulta.')
   })
 })
